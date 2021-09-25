@@ -79,7 +79,7 @@ async fn machine_status_returns_400_when_hostname_is_malformed() {
             "has an underscore",
         ),
         (
-            update(&base_json, &"really.long.name.with.valid.lables".repeat(50)),
+            update(&base_json, &"really.long.name.with.valid.labels".repeat(50)),
             "was too long",
         ),
     ];

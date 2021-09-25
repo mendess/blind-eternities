@@ -38,7 +38,7 @@ impl Drop for TestApp {
                     let mut conn =
                         PgConnection::connect("postgres://postgres:postgres@localhost:5432")
                             .await
-                            .expect("Failed to connect to postgress");
+                            .expect("Failed to connect to postgres");
                     if let Err(e) =
                         sqlx::query(&format!(r#"DROP DATABASE "{}" WITH (FORCE)"#, db_name))
                             .execute(&mut conn)
