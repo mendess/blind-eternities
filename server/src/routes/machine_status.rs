@@ -1,19 +1,18 @@
 use std::net::IpAddr;
 
-use crate::domain::Hostname;
-use actix_web::{web, HttpResponse, Responder};
+use common::{Hostname, MacAddr, MachineStatus};
+use actix_web::{web, HttpResponse, Responder, ResponseError};
+use anyhow::Context;
 use chrono::Utc;
-use common::mac::MacAddr;
 use sqlx::PgPool;
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct MachineStatus {
-    hostname: Hostname,
-    local_ip: IpAddr,
-    external_ip: IpAddr,
-    gateway_ip: IpAddr,
-    gateway_mac: Option<MacAddr>,
+#[derive(thiserror::Error, Debug)]
+pub enum MachineStatusError {
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
 }
+
+impl ResponseError for MachineStatusError {}
 
 #[tracing::instrument(
     name = "Logging a machine status",
@@ -23,10 +22,10 @@ pub struct MachineStatus {
         status_ip = %status.local_ip,
     )
 )]
-pub async fn machine_status(
+pub async fn post(
     status: web::Json<MachineStatus>,
     conn: web::Data<PgPool>,
-) -> impl Responder {
+) -> Result<HttpResponse, MachineStatusError> {
     let status = status.into_inner();
     let result = sqlx::query!(r#"
     INSERT INTO machine_status (hostname, local_ip, external_ip, gateway_ip, gateway_mac, last_heartbeat)
@@ -39,12 +38,18 @@ pub async fn machine_status(
         Utc::now().naive_utc(),
     )
     .execute(conn.get_ref())
-    .await;
-    match result {
-        Ok(_) => HttpResponse::Ok(),
-        Err(e) => {
-            tracing::error!("Failed to execute query: {:?}", e);
-            HttpResponse::BadRequest()
-        }
-    }
+    .await
+    .context("Failed to execute query")?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+#[tracing::instrument(name = "list machine status", skip(conn))]
+pub async fn get(conn: web::Data<PgPool>) -> Result<HttpResponse, MachineStatusError> {
+    let status = sqlx::query!("SELECT * from machine_status")
+        .fetch_all(conn.get_ref())
+        .await
+        .context("failed to execute query")?;
+
+    todo!()
+    // Ok(HttpResponse::Ok().body(status).finish())
 }

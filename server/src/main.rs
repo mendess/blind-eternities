@@ -1,6 +1,6 @@
 use std::net::TcpListener;
 
-use multiverse::{
+use blind_eternities::{
     configuration::get_configuration,
     startup::run,
     telemetry::{get_subscriber, init_subscriber},

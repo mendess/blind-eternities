@@ -1,7 +1,8 @@
 use std::net::TcpListener;
 
-use multiverse::{
+use blind_eternities::{
     configuration::{get_configuration, DbSettings},
+    startup,
     telemetry::{get_subscriber, init_subscriber},
 };
 use once_cell::sync::Lazy;
@@ -26,6 +27,7 @@ pub struct TestApp {
     pub db_pool: PgPool,
     pub db_name: String,
     pub http: reqwest::Client,
+    pub token: uuid::Uuid,
 }
 
 impl Drop for TestApp {
@@ -65,25 +67,45 @@ impl TestApp {
 
         let connection = configure_database(&conf.db).await;
 
-        let server =
-            multiverse::startup::run(listener, connection.clone()).expect("Failed to bind address");
+        let server = startup::run(listener, connection.clone()).expect("Failed to bind address");
         let _ = tokio::spawn(server);
-        Self {
+        let app = Self {
             address: format!("http://localhost:{}", port),
             db_pool: connection,
             db_name: conf.db.database_name,
             http: reqwest::Client::new(),
-        }
+            token: uuid::Uuid::new_v4(),
+        };
+        app.insert_test_token().await;
+        app
+    }
+
+    async fn insert_test_token(&self) {
+        sqlx::query!(
+            "INSERT INTO api_tokens (token, created_at, hostname) VALUES ($1, NOW(), $2)",
+            self.token,
+            "hostname"
+        )
+        .execute(&self.db_pool)
+        .await
+        .expect("Failed to insert token");
     }
 
     pub async fn post_machine_status(&self, body: impl ToString) -> reqwest::Response {
-        self.http.post(&format!("{}/machine/status", &self.address))
+        self.http
+            .post(&format!("{}/machine/status", &self.address))
             .header("Content-Type", "application/json")
+            .bearer_auth(self.token)
             .body(body.to_string())
             .send()
             .await
             .expect("Failed to execute request")
     }
+
+    pub fn get(&self, path: &str) -> reqwest::RequestBuilder {
+        self.http.get(&format!("{}/{}", self.address, path))
+    }
+
 }
 
 async fn configure_database(config: &DbSettings) -> PgPool {

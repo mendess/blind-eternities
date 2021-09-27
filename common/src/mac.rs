@@ -3,6 +3,7 @@ use serde::{
     de::{self, Visitor},
     Deserialize, Serialize,
 };
+use sqlx::{Database, Decode};
 use std::{
     convert::TryInto,
     fmt::{self, Display},
@@ -132,6 +133,20 @@ impl Display for MacAddr {
                 .iter()
                 .format_with(":", |e, f| f(&format_args!("{:02x}", e)))
         )
+    }
+}
+
+//TODO: delete?
+impl<'r, DB: Database> Decode<'r, DB> for MacAddr
+where
+    &'r str: Decode<'r, DB>,
+{
+    fn decode(
+        value: <DB as sqlx::database::HasValueRef<'r>>::ValueRef,
+    ) -> Result<Self, sqlx::error::BoxDynError> {
+
+        let v = <&str as Decode<DB>>::decode(value)?;
+        Ok(serde_json::from_str(v)?)
     }
 }
 

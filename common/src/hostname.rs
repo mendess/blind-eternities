@@ -1,5 +1,6 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
+use sqlx::{Database, Decode};
 use std::convert::TryFrom;
 
 static HOSTNAME: Lazy<Regex> =
@@ -26,9 +27,30 @@ impl TryFrom<String> for Hostname {
     }
 }
 
+impl TryFrom<&str> for Hostname {
+    type Error = <Hostname as TryFrom<String>>::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::try_from(value.to_owned())
+    }
+}
+
 impl AsRef<str> for Hostname {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+//TODO: delete?
+impl<'r, DB: Database> Decode<'r, DB> for Hostname
+where
+    String: Decode<'r, DB>,
+{
+    fn decode(
+        value: <DB as sqlx::database::HasValueRef<'r>>::ValueRef,
+    ) -> Result<Self, sqlx::error::BoxDynError> {
+        let v = <String as Decode<DB>>::decode(value)?;
+        Ok(Hostname::try_from(v)?)
     }
 }
 
