@@ -43,7 +43,7 @@ pub async fn verify_token(
         "SELECT token FROM api_tokens WHERE token = $1",
         uuid::Uuid::parse_str(bearer.token()).map_err(|_| AuthError::InvalidToken)?
     )
-    .fetch_optional(&***conn)
+    .fetch_optional(conn.get_ref())
     .await
     .context("failed to fetch token from db")
     .map_err(AuthError::UnexpectedError)?

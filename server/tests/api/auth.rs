@@ -1,3 +1,5 @@
+use reqwest::StatusCode;
+
 use crate::helpers::TestApp;
 
 #[actix_rt::test]
@@ -10,7 +12,7 @@ async fn auth_is_required() {
 
     assert_eq!(
         response.status().as_u16(),
-        401
+        StatusCode::UNAUTHORIZED,
     );
 }
 
@@ -24,8 +26,8 @@ async fn non_existent_token_is_regected() {
         .expect("Failed to send request");
 
     assert_eq!(
-        response.status().as_u16(),
-        401
+        response.status(),
+        StatusCode::UNAUTHORIZED,
     );
 }
 
@@ -39,7 +41,7 @@ async fn invalid_format_token_is_rejected() {
         .expect("Failed to send request");
 
     assert_eq!(
-        response.status().as_u16(),
-        400
+        response.status(),
+        StatusCode::BAD_REQUEST,
     );
 }

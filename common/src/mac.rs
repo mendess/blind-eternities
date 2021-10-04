@@ -7,6 +7,7 @@ use sqlx::{Database, Decode};
 use std::{
     convert::TryInto,
     fmt::{self, Display},
+    str::FromStr,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -147,6 +148,14 @@ where
 
         let v = <&str as Decode<DB>>::decode(value)?;
         Ok(serde_json::from_str(v)?)
+    }
+}
+
+impl FromStr for MacAddr {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        MacVisitor.visit_borrowed_str(s)
     }
 }
 

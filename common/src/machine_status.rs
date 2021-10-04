@@ -17,12 +17,28 @@ use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
 )]
 pub struct MachineStatus {
     pub hostname: Hostname,
-    pub local_ip: IpAddr,
+    pub ip_connections: Vec<IpConnection>,
     pub external_ip: IpAddr,
-    pub gateway_ip: IpAddr,
-    pub gateway_mac: Option<MacAddr>,
     #[serde(default = "default_naive_time")]
     pub last_heartbeat: NaiveDateTime,
+}
+
+#[derive(
+    serde::Deserialize,
+    serde::Serialize,
+    //TODO: delete?
+    sqlx::FromRow,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+)]
+pub struct IpConnection {
+    pub local_ip: IpAddr,
+    pub gateway_ip: IpAddr,
+    pub gateway_mac: Option<MacAddr>,
 }
 
 fn default_naive_time() -> NaiveDateTime {

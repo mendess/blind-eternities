@@ -16,9 +16,11 @@ pub fn run(listener: TcpListener, connection: PgPool) -> std::io::Result<Server>
             .wrap(auth.clone())
             .route("/health_check", web::get().to(health_check))
             .service(
-                web::resource("/machine/status")
-                    .route(web::post().to(machine_status::post))
-                    .route(web::get().to(machine_status::get))
+                web::scope("/machine").service(
+                    web::resource("/status")
+                        .route(web::get().to(machine_status::get))
+                        .route(web::post().to(machine_status::post)),
+                ),
             )
             .app_data(conn.clone())
     })

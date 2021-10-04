@@ -14,7 +14,6 @@ impl TryFrom<String> for Hostname {
     type Error = &'static str;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        dbg!(&value);
         if (1..=253).contains(&value.len()) {
             if HOSTNAME.is_match(&value) {
                 Ok(Hostname(value))

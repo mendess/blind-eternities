@@ -92,8 +92,7 @@ impl TestApp {
     }
 
     pub async fn post_machine_status(&self, body: impl ToString) -> reqwest::Response {
-        self.http
-            .post(&format!("{}/machine/status", &self.address))
+        self.post("machine/status")
             .header("Content-Type", "application/json")
             .bearer_auth(self.token)
             .body(body.to_string())
@@ -104,6 +103,10 @@ impl TestApp {
 
     pub fn get(&self, path: &str) -> reqwest::RequestBuilder {
         self.http.get(&format!("{}/{}", self.address, path))
+    }
+
+    pub fn post(&self, path: &str) -> reqwest::RequestBuilder {
+        self.http.post(&format!("{}/{}", self.address, path))
     }
 
 }
