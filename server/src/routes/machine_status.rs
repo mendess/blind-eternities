@@ -5,7 +5,7 @@ use std::{collections::HashMap, convert::TryInto};
 use actix_web::{web, HttpResponse, Responder, ResponseError};
 use anyhow::Context;
 use chrono::{NaiveDateTime, Utc};
-use common::{machine_status::IpConnection, Hostname, MacAddr, MachineStatus};
+use common::domain::{machine_status::IpConnection, Hostname, MacAddr, MachineStatus};
 use futures::stream::{StreamExt, TryStreamExt};
 use sqlx::PgPool;
 
