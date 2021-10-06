@@ -1,13 +1,8 @@
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+
 use actix_web::{dev::ServiceRequest, http::StatusCode, web, ResponseError};
-use actix_web_httpauth::{
-    extractors::{
-        bearer::{BearerAuth, Config},
-        AuthenticationError,
-    },
-    headers::www_authenticate::bearer::Bearer,
-};
+use actix_web_httpauth::extractors::bearer::BearerAuth;
 use anyhow::Context;
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use sqlx::PgPool;
 
 #[derive(thiserror::Error, Debug)]
@@ -34,10 +29,20 @@ pub async fn verify_token(
     req: ServiceRequest,
     bearer: BearerAuth,
 ) -> Result<ServiceRequest, actix_web::Error> {
-    let config = req.app_data::<Config>().cloned().unwrap_or_default();
     let conn = req
         .app_data::<web::Data<PgPool>>()
         .expect("pg pool not configured");
+
+    fn is_localhost(addr: SocketAddr) -> bool {
+        match addr.ip() {
+            IpAddr::V4(ip) => ip == Ipv4Addr::LOCALHOST,
+            IpAddr::V6(ip) => ip == Ipv6Addr::LOCALHOST,
+        }
+    }
+
+    if matches!(req.peer_addr(), Some(ip) if is_localhost(ip)) {
+        return Ok(req);
+    }
 
     match sqlx::query!(
         "SELECT token FROM api_tokens WHERE token = $1",
@@ -48,7 +53,7 @@ pub async fn verify_token(
     .context("failed to fetch token from db")
     .map_err(AuthError::UnexpectedError)?
     {
-        Some(token) => Ok(req),
+        Some(_) => Ok(req),
         None => Err(AuthError::UnauthorizedToken.into()),
     }
 }

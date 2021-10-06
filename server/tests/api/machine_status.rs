@@ -156,7 +156,8 @@ async fn machine_status_returns_posted_status() {
 
     let oldest_hb = {
         let hb = json_value_to_ndt(
-            &json.as_object_mut()
+            &json
+                .as_object_mut()
                 .expect("should be an object")
                 .remove("last_heartbeat")
                 .expect("a last heartbeat"),

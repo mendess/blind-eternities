@@ -3,8 +3,8 @@ use std::net::TcpListener;
 use blind_eternities::{
     configuration::{get_configuration, DbSettings},
     startup,
-    telemetry::{get_subscriber, init_subscriber},
 };
+use common::telemetry::{get_subscriber, init_subscriber};
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
@@ -108,7 +108,6 @@ impl TestApp {
     pub fn post(&self, path: &str) -> reqwest::RequestBuilder {
         self.http.post(&format!("{}/{}", self.address, path))
     }
-
 }
 
 async fn configure_database(config: &DbSettings) -> PgPool {

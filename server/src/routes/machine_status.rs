@@ -1,13 +1,20 @@
 use std::mem::take;
-use std::net::IpAddr;
+
 use std::{collections::HashMap, convert::TryInto};
 
-use actix_web::{web, HttpResponse, Responder, ResponseError};
+use actix_web::{web, HttpResponse, ResponseError};
 use anyhow::Context;
 use chrono::{NaiveDateTime, Utc};
-use common::domain::{machine_status::IpConnection, Hostname, MacAddr, MachineStatus};
-use futures::stream::{StreamExt, TryStreamExt};
+use common::domain::machine_status::{self, IpConnection};
+use futures::stream::TryStreamExt;
 use sqlx::PgPool;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct MachineStatus {
+    #[serde(flatten)]
+    fields: machine_status::MachineStatus,
+    last_heartbeat: NaiveDateTime,
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum MachineStatusError {
@@ -26,7 +33,7 @@ impl ResponseError for MachineStatusError {}
     )
 )]
 pub async fn post(
-    status: web::Json<MachineStatus>,
+    status: web::Json<machine_status::MachineStatus>,
     conn: web::Data<PgPool>,
 ) -> Result<HttpResponse, MachineStatusError> {
     let status = status.into_inner();
@@ -36,8 +43,12 @@ pub async fn post(
         .await
         .context("Failed to create transaction")?;
 
-    let result = sqlx::query!(
-        r#"INSERT INTO machine_status (hostname, external_ip, last_heartbeat) VALUES ($1, $2, $3)"#,
+    sqlx::query!(
+        r#"INSERT INTO machine_status (hostname, external_ip, last_heartbeat)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (hostname) DO UPDATE
+        SET external_ip = $2, last_heartbeat = $3
+        "#,
         status.hostname.as_ref(),
         status.external_ip.to_string(),
         Utc::now().naive_utc(),
@@ -94,11 +105,14 @@ pub async fn get(conn: web::Data<PgPool>) -> Result<HttpResponse, MachineStatusE
             let ips = &mut acc
                 .entry(record.hostname.clone())
                 .or_insert_with(|| MachineStatus {
-                    hostname: take(&mut record.hostname).try_into().unwrap(),
-                    external_ip: record.external_ip.parse().unwrap(),
+                    fields: machine_status::MachineStatus {
+                        hostname: take(&mut record.hostname).try_into().unwrap(),
+                        external_ip: record.external_ip.parse().unwrap(),
+                        ip_connections: vec![],
+                    },
                     last_heartbeat: record.last_heartbeat,
-                    ip_connections: vec![],
                 })
+                .fields
                 .ip_connections;
 
             if let (Some(local_ip), Some(gateway_ip), gateway_mac) =

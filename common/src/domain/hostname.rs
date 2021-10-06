@@ -10,18 +10,26 @@ static HOSTNAME: Lazy<Regex> =
 #[serde(try_from = "String")]
 pub struct Hostname(String);
 
+#[derive(thiserror::Error, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
+pub enum HostnameParseError {
+    #[error("invalid chars")]
+    InvalidChars,
+    #[error("too long (max is 253 chars)")]
+    TooLong,
+}
+
 impl TryFrom<String> for Hostname {
-    type Error = &'static str;
+    type Error = HostnameParseError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         if (1..=253).contains(&value.len()) {
             if HOSTNAME.is_match(&value) {
                 Ok(Hostname(value))
             } else {
-                Err("invalid chars")
+                Err(HostnameParseError::InvalidChars)
             }
         } else {
-            Err("too long")
+            Err(HostnameParseError::TooLong)
         }
     }
 }
@@ -66,12 +74,12 @@ mod tests {
 
         #[test]
         fn contains_bad_chars(s in r#"([_+)({}\[\]$#%^&*!@]){1,100}"#) {
-            prop_assert_eq!(Hostname::try_from(s), Err("invalid chars"));
+            prop_assert_eq!(Hostname::try_from(s), Err(HostnameParseError::InvalidChars));
         }
 
         #[test]
         fn too_long(s in "[a-z]{400}") {
-            prop_assert_eq!(Hostname::try_from(s), Err("too long"));
+            prop_assert_eq!(Hostname::try_from(s), Err(HostnameParseError::TooLong));
         }
     }
 }

@@ -1,10 +1,7 @@
 use std::net::TcpListener;
 
-use blind_eternities::{
-    configuration::get_configuration,
-    startup::run,
-    telemetry::{get_subscriber, init_subscriber},
-};
+use blind_eternities::{configuration::get_configuration, startup::run};
+use common::telemetry::{get_subscriber, init_subscriber};
 use sqlx::PgPool;
 
 #[actix_web::main]

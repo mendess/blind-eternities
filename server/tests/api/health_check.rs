@@ -2,7 +2,11 @@ use crate::helpers::TestApp;
 
 #[actix_rt::test]
 async fn health_check_works() {
-    let TestApp { address: addr, token, .. } = &TestApp::spawn().await;
+    let TestApp {
+        address: addr,
+        token,
+        ..
+    } = &TestApp::spawn().await;
 
     let client = reqwest::Client::new();
 
