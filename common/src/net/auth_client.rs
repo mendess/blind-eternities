@@ -12,7 +12,7 @@ pub struct AuthenticatedClient {
 
 impl AuthenticatedClient {
     pub fn new(token: String, base: &str) -> Result<Self> {
-        let base = Url::parse(&base)?;
+        let base = Url::parse(base)?;
         if base.cannot_be_a_base() {
             return Err(UrlParseError::SetHostOnCannotBeABaseUrl);
         }

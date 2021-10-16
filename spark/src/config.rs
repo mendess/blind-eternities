@@ -5,6 +5,12 @@ use once_cell::sync::Lazy;
 pub struct Config {
     pub token: String,
     pub backend_url: String,
+    pub network: Option<Networking>,
+}
+
+#[derive(Debug, Copy, Clone, serde::Deserialize)]
+pub struct Networking {
+    pub ssh: u16,
 }
 
 static CONFIG: Lazy<anyhow::Result<Config>> = Lazy::new(|| {

@@ -1,12 +1,15 @@
-use std::mem::take;
+use std::collections::hash_map::Entry;
 
-use std::{collections::HashMap, convert::TryInto};
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+};
 
 use actix_web::{web, HttpResponse, ResponseError};
 use anyhow::Context;
 use chrono::{NaiveDateTime, Utc};
 use common::domain::machine_status::{self, IpConnection};
-use futures::stream::TryStreamExt;
+use futures::stream::{StreamExt, TryStreamExt};
 use sqlx::PgPool;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -44,14 +47,15 @@ pub async fn post(
         .context("Failed to create transaction")?;
 
     sqlx::query!(
-        r#"INSERT INTO machine_status (hostname, external_ip, last_heartbeat)
-        VALUES ($1, $2, $3)
+        r#"INSERT INTO machine_status (hostname, external_ip, last_heartbeat, ssh_port)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (hostname) DO UPDATE
-        SET external_ip = $2, last_heartbeat = $3
+        SET external_ip = $2, last_heartbeat = $3, ssh_port = $4
         "#,
         status.hostname.as_ref(),
         status.external_ip.to_string(),
         Utc::now().naive_utc(),
+        status.ssh.map(i32::from),
     )
     .execute(&mut transaction)
     .await
@@ -94,26 +98,42 @@ pub async fn get(conn: web::Data<PgPool>) -> Result<HttpResponse, MachineStatusE
             last_heartbeat as "last_heartbeat!",
             local_ip as "local_ip?",
             gateway_ip as "gateway_ip?",
+            ssh_port,
             gateway_mac
          FROM machine_status ms
          LEFT JOIN ip_connection ip ON ms.hostname = ip.hostname"#
     )
     .fetch(conn.get_ref())
+    .map(|e| e.context("failed to execute query"))
     .try_fold(
         HashMap::<String, MachineStatus>::new(),
-        |mut acc, mut record| async move {
-            let ips = &mut acc
-                .entry(record.hostname.clone())
-                .or_insert_with(|| MachineStatus {
-                    fields: machine_status::MachineStatus {
-                        hostname: take(&mut record.hostname).try_into().unwrap(),
-                        external_ip: record.external_ip.parse().unwrap(),
-                        ip_connections: vec![],
-                    },
-                    last_heartbeat: record.last_heartbeat,
-                })
-                .fields
-                .ip_connections;
+        |mut acc, record| async move {
+            let mut entry = acc.entry(record.hostname.clone());
+            let ips = match entry {
+                Entry::Occupied(ref mut s) => &mut s.get_mut().fields.ip_connections,
+                Entry::Vacant(v) => {
+                    let hostname = record.hostname.try_into().context("parse hostname")?;
+                    let ssh = record
+                        .ssh_port
+                        .map(u16::try_from)
+                        .transpose()
+                        .context("parse port")?;
+                    let external_ip = record.external_ip.parse().context("parse external ip")?;
+
+                    &mut v
+                        .insert(MachineStatus {
+                            fields: machine_status::MachineStatus {
+                                hostname,
+                                ssh,
+                                external_ip,
+                                ip_connections: vec![],
+                            },
+                            last_heartbeat: record.last_heartbeat,
+                        })
+                        .fields
+                        .ip_connections
+                }
+            };
 
             if let (Some(local_ip), Some(gateway_ip), gateway_mac) =
                 (record.local_ip, record.gateway_ip, record.gateway_mac)
@@ -127,8 +147,7 @@ pub async fn get(conn: web::Data<PgPool>) -> Result<HttpResponse, MachineStatusE
             Ok(acc)
         },
     )
-    .await
-    .context("failed to execute query")?;
+    .await?;
 
     Ok(HttpResponse::Ok().json(status))
 }

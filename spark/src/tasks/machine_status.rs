@@ -34,7 +34,7 @@ async fn get_external_ip() -> anyhow::Result<IpAddr> {
                 io::Error::new(io::ErrorKind::Other, e)
             }
             let string = std::str::from_utf8(&o.stdout).map_err(to_io_e)?;
-            Ok(IpAddr::from_str(string.trim()).map_err(to_io_e)?)
+            IpAddr::from_str(string.trim()).map_err(to_io_e)
         });
     match dig {
         Ok(dig) => Ok(dig),
@@ -59,7 +59,7 @@ async fn gateway_ip_and_mac() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
         let ip_str = String::from_utf8(take(&mut out.stdout))?;
         let ip_str = ip_str.trim();
         let ip =
-            IpAddr::from_str(&ip_str).with_context(|| format!("tried to parse: {:?}", ip_str))?;
+            IpAddr::from_str(ip_str).with_context(|| format!("tried to parse: {:?}", ip_str))?;
         let mut out = Command::new("sh")
             .args([
                 "-c",
@@ -121,12 +121,13 @@ pub async fn get_hostname() -> anyhow::Result<Hostname> {
     .await?
 }
 
-async fn get_current_status() -> anyhow::Result<MachineStatus> {
+async fn get_current_status(config: &Config) -> anyhow::Result<MachineStatus> {
     let (hostname, ip_connections, external_ip) =
         tokio::try_join!(get_hostname(), get_ip_connections(), get_external_ip())?;
 
     Ok(MachineStatus {
         hostname,
+        ssh: config.network.map(|x| x.ssh),
         ip_connections,
         external_ip,
     })
@@ -136,7 +137,7 @@ pub async fn start(config: &Config) -> Result<Infallible, UrlParseError> {
     let client = AuthenticatedClient::new(config.token.clone(), &config.backend_url)?;
     loop {
         let _span = info_span!("post machine status");
-        match get_current_status().await {
+        match get_current_status(config).await {
             Ok(status) => {
                 let result = client
                     .post("/machine/status")
