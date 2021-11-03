@@ -6,6 +6,7 @@ use std::net::IpAddr;
 pub struct MachineStatus {
     pub hostname: Hostname,
     pub ip_connections: Vec<IpConnection>,
+    #[serde(default)]
     pub ssh: Option<u16>,
     pub external_ip: IpAddr,
 }
@@ -20,5 +21,6 @@ impl MachineStatus {
 pub struct IpConnection {
     pub local_ip: IpAddr,
     pub gateway_ip: IpAddr,
+    #[serde(default)]
     pub gateway_mac: Option<MacAddr>,
 }

@@ -17,6 +17,7 @@ fn well_formed_json() -> serde_json::Value {
             "gateway_mac": MACAddress().fake::<String>().to_lowercase(),
         }],
         "external_ip": IP().fake::<std::net::IpAddr>(),
+        "ssh": null,
     })
 }
 

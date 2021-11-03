@@ -2,6 +2,8 @@
 pub struct Settings {
     pub port: u16,
     pub db: DbSettings,
+    #[serde(default)]
+    pub allow_any_localhost_token: bool,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -29,10 +31,13 @@ impl DbSettings {
     }
 }
 
+pub const PREFIX: &str = "BLIND_ETER";
+
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let mut settings = config::Config::default();
 
     settings.merge(config::File::with_name("configuration"))?;
+    settings.merge(config::Environment::with_prefix(PREFIX))?;
 
     settings.try_into()
 }

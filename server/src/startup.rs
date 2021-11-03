@@ -7,9 +7,15 @@ use tracing_actix_web::TracingLogger;
 
 use crate::routes::*;
 
-pub fn run(listener: TcpListener, connection: PgPool) -> std::io::Result<Server> {
+pub fn run(
+    listener: TcpListener,
+    connection: PgPool,
+    allow_any_localhost_token: bool,
+) -> std::io::Result<Server> {
     let conn = web::Data::new(connection);
-    let bearer_auth = HttpAuthentication::bearer(crate::auth::verify_token);
+    let bearer_auth = HttpAuthentication::bearer(move |r, b| {
+        crate::auth::verify_token(r, b, allow_any_localhost_token)
+    });
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())

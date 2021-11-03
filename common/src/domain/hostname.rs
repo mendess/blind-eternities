@@ -62,9 +62,29 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
+    use std::ops::Range;
+
     use super::*;
+    use fake::Dummy;
     use proptest::prelude::*;
+    use rand::{distributions::Uniform, prelude::Distribution, seq::SliceRandom, Rng};
+
+    pub struct FakeHostname;
+
+    impl Dummy<FakeHostname> for Hostname {
+        fn dummy_with_rng<R: Rng + ?Sized>(_: &FakeHostname, rng: &mut R) -> Self {
+            const RANGES: [Range<char>; 3] = [('a'..'z'), ('A'..'Z'), ('0'..'9')];
+            Hostname::try_from(
+                std::iter::repeat_with(|| {
+                    Uniform::from(RANGES.choose(rng).unwrap().clone()).sample(rng)
+                })
+                .take(10)
+                .collect::<String>(),
+            )
+            .unwrap()
+        }
+    }
 
     proptest! {
         #[test]

@@ -19,5 +19,10 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Failed to connect to Postgres");
 
-    run(TcpListener::bind(("localhost", conf.port))?, connection)?.await
+    run(
+        TcpListener::bind(("localhost", conf.port))?,
+        connection,
+        conf.allow_any_localhost_token,
+    )?
+    .await
 }

@@ -55,8 +55,17 @@ impl Drop for TestApp {
     }
 }
 
-impl TestApp {
-    pub async fn spawn() -> Self {
+pub struct TestAppBuilder {
+    allow_any_localhost_token: bool,
+}
+
+impl TestAppBuilder {
+    pub fn allow_any_localhost_token(&mut self, b: bool) -> &mut Self {
+        self.allow_any_localhost_token = b;
+        self
+    }
+
+    pub async fn spawn(&mut self) -> TestApp {
         Lazy::force(&TRACING);
 
         let listener = TcpListener::bind(("localhost", 0)).expect("Failed to bind random port");
@@ -67,9 +76,10 @@ impl TestApp {
 
         let connection = configure_database(&conf.db).await;
 
-        let server = startup::run(listener, connection.clone()).expect("Failed to bind address");
+        let server = startup::run(listener, connection.clone(), self.allow_any_localhost_token)
+            .expect("Failed to bind address");
         let _ = tokio::spawn(server);
-        let app = Self {
+        let app = TestApp {
             address: format!("http://localhost:{}", port),
             db_pool: connection,
             db_name: conf.db.database_name,
@@ -78,6 +88,18 @@ impl TestApp {
         };
         app.insert_test_token().await;
         app
+    }
+}
+
+impl TestApp {
+    pub async fn spawn() -> Self {
+        Self::builder().spawn().await
+    }
+
+    pub fn builder() -> TestAppBuilder {
+        TestAppBuilder {
+            allow_any_localhost_token: true,
+        }
     }
 
     async fn insert_test_token(&self) {

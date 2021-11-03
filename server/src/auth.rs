@@ -28,6 +28,7 @@ impl ResponseError for AuthError {
 pub async fn verify_token(
     req: ServiceRequest,
     bearer: BearerAuth,
+    allow_any_localhost_token: bool,
 ) -> Result<ServiceRequest, actix_web::Error> {
     let conn = req
         .app_data::<web::Data<PgPool>>()
@@ -40,7 +41,7 @@ pub async fn verify_token(
         }
     }
 
-    if matches!(req.peer_addr(), Some(ip) if is_localhost(ip)) {
+    if allow_any_localhost_token && matches!(req.peer_addr(), Some(ip) if is_localhost(ip)) {
         return Ok(req);
     }
 
