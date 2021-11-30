@@ -2058,6 +2058,7 @@ dependencies = [
  "dirs 4.0.0",
  "futures",
  "hostname",
+ "itertools",
  "once_cell",
  "pnet",
  "reqwest",

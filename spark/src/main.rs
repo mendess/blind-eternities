@@ -5,7 +5,6 @@ mod routing;
 use std::{os::unix::prelude::ExitStatusExt, process::ExitStatus};
 
 use common::telemetry::{get_subscriber_no_bunny, init_subscriber};
-use routing::SshOpts;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -26,9 +25,8 @@ enum Cmd {
 
 #[derive(StructOpt, Debug)]
 enum SshTool {
-    Ssh(SshOpts),
-    Scp,
-    Rsync,
+    Ssh(routing::SshOpts),
+    Rsync(routing::RsyncOpts),
 }
 
 async fn app() -> anyhow::Result<ExitStatus> {
@@ -46,7 +44,7 @@ async fn app() -> anyhow::Result<ExitStatus> {
             .map(|_| ExitStatus::from_raw(1)),
         Cmd::Route(tool) => match tool {
             SshTool::Ssh(opts) => routing::ssh(opts, config).await,
-            _ => todo!(),
+            SshTool::Rsync(opts) => routing::rsync(opts, config).await,
         },
     }
 }
