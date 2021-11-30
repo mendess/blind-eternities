@@ -69,12 +69,12 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
     let graph = NetGraph::from_iter(
         statuses
             .iter()
-            .inspect(|(n, _)| debug!("{:#?}", n))
+            .inspect(|(n, _)| debug!("found machine: '{}'", n))
             .map(|(_, m)| m),
     );
 
     let path = match graph.find_path(&get_hostname().await?, &opts.destination) {
-        Some(path) => path,
+        Some(path) => dbg!(path),
         None => {
             return Err(anyhow::anyhow!(
                 "Path could not be found to '{}'",
