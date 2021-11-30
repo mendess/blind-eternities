@@ -112,7 +112,7 @@ pub async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
     .await
 }
 
-pub async fn get_hostname() -> anyhow::Result<Hostname> {
+pub(crate) async fn get_hostname() -> anyhow::Result<Hostname> {
     tokio::task::spawn_blocking(|| {
         Ok(Hostname::try_from(
             hostname::get()?.to_string_lossy().into_owned(),

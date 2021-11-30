@@ -1,19 +1,19 @@
 use blind_eternities::configuration::get_configuration;
 use sqlx::PgPool;
-use std::env::args;
+use std::env;
 use uuid::Uuid;
 
-#[tokio::main]
-async fn main() {
-    let hostname = match args().nth(1) {
+async fn _main() -> i32 {
+    let mut args = env::args().skip(1);
+    let hostname = match args.next() {
         Some(hostname) => hostname,
         None => {
-            println!("Usage {} [HOSTNAME]", args().next().unwrap());
-            std::process::exit(1);
+            println!("Usage {} [HOSTNAME]", env::args().next().unwrap());
+            return 1;
         }
     };
 
-    let uuid = Uuid::new_v4();
+    let delete = matches!(args.next().as_deref(), Some("-d" | "--delete"));
 
     let conf = get_configuration().expect("Failed to read configuration");
     let conn_string = conf.db.connection_string();
@@ -22,18 +22,44 @@ async fn main() {
         .await
         .expect("Failed to connect to Postgres");
 
-    let r = sqlx::query!(
-        "INSERT INTO api_tokens (token, created_at, hostname) VALUES ($1, NOW(), $2)",
-        uuid,
-        hostname
-    )
-    .execute(&connection)
-    .await;
-
-    if let Err(e) = r {
-        println!("Failed to create token: {:?}", e);
-        std::process::exit(1);
+    let r = if delete {
+        sqlx::query!(
+            "DELETE FROM api_tokens WHERE hostname = $1 RETURNING token",
+            hostname
+        )
+        .fetch_one(&connection)
+        .await
+        .map(|t| t.token)
     } else {
-        println!("Token created: '{}'", uuid);
+        let uuid = Uuid::new_v4();
+
+        sqlx::query!(
+            "INSERT INTO api_tokens (token, created_at, hostname) VALUES ($1, NOW(), $2)",
+            uuid,
+            hostname
+        )
+        .execute(&connection)
+        .await
+        .map(|_| uuid)
+    };
+
+    match r {
+        Ok(uuid) if delete => {
+            println!("Token deleted: '{}'", uuid);
+            0
+        }
+        Ok(uuid) => {
+            println!("Token created: '{}'", uuid);
+            0
+        }
+        Err(e) => {
+            println!("Failed to create token: {:#?}", e);
+            1
+        }
     }
+}
+
+#[tokio::main]
+async fn main() {
+    std::process::exit(_main().await);
 }

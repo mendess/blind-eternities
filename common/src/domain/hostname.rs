@@ -1,7 +1,11 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 use sqlx::{Database, Decode};
-use std::convert::TryFrom;
+use std::{
+    convert::TryFrom,
+    fmt::{self, Display},
+    str::FromStr,
+};
 
 static HOSTNAME: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"^([a-zA-Z0-9]{1,63}\.)*([a-zA-Z0-9]{1,63})$"#).unwrap());
@@ -42,9 +46,23 @@ impl TryFrom<&str> for Hostname {
     }
 }
 
+impl FromStr for Hostname {
+    type Err = <Hostname as TryFrom<String>>::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::try_from(s)
+    }
+}
+
 impl AsRef<str> for Hostname {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl Display for Hostname {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
