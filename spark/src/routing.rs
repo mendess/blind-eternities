@@ -17,10 +17,14 @@ pub(super) struct SshOpts {
     destination: Hostname,
     #[structopt(short, long)]
     username: Option<String>,
+    #[structopt(short, long, default_value = "22")]
+    port: u16,
 }
 
 pub(super) async fn ssh(opts: SshOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
-    let args = route_to_ssh_hops(opts, config).await?;
+    let mut args = route_to_ssh_hops(&opts, config).await?;
+    args.push("-p".to_string());
+    args.push(opts.port.to_string());
     Ok(Command::new("ssh").args(args).spawn()?.wait().await?)
 }
 
@@ -35,7 +39,7 @@ pub(super) struct RsyncOpts {
 
 pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
     #[allow(unstable_name_collisions)]
-    let bridge = route_to_ssh_hops(opts.ssh_opts, config)
+    let bridge = route_to_ssh_hops(&opts.ssh_opts, config)
         .await?
         .iter()
         .map(|s| s.as_str())
@@ -55,7 +59,7 @@ pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::R
     r
 }
 
-async fn route_to_ssh_hops(opts: SshOpts, config: &'static Config) -> anyhow::Result<Vec<String>> {
+async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::Result<Vec<String>> {
     let statuses = fetch_statuses(config).await?;
     // TODO: there might be stale statuses here
     if statuses.is_empty() {
@@ -79,7 +83,10 @@ async fn route_to_ssh_hops(opts: SshOpts, config: &'static Config) -> anyhow::Re
         }
     };
 
-    Ok(path_to_args(&path, opts.username))
+    Ok(path_to_args(
+        &path,
+        opts.username.clone().unwrap_or_else(whoami::username),
+    ))
 }
 
 async fn fetch_statuses(config: &'static Config) -> anyhow::Result<HashMap<String, MachineStatus>> {
@@ -94,8 +101,7 @@ async fn fetch_statuses(config: &'static Config) -> anyhow::Result<HashMap<Strin
     Ok(statuses)
 }
 
-fn path_to_args(path: &[IpAddr], username: Option<String>) -> Vec<String> {
-    let username = username.unwrap_or_else(whoami::username);
+fn path_to_args(path: &[IpAddr], username: String) -> Vec<String> {
     let mut args = vec![];
     let (path, tail) = path.split_at(path.len().saturating_sub(1));
     for ip in path {
@@ -124,7 +130,7 @@ mod tests {
         let path = repeat(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))
             .take(2)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, Some("user".into())), expect);
+        assert_eq!(path_to_args(&path, "user".into()), expect);
     }
 
     #[test]
@@ -133,7 +139,7 @@ mod tests {
         let path = repeat(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))
             .take(1)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, Some("user".into())), expect);
+        assert_eq!(path_to_args(&path, "user".into()), expect);
     }
 
     #[test]
@@ -150,6 +156,6 @@ mod tests {
         let path = repeat(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))
             .take(3)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, Some("user".into())), expect);
+        assert_eq!(path_to_args(&path, "user".into()), expect);
     }
 }
