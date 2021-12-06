@@ -64,6 +64,7 @@ impl<'hostname> Node<'hostname> {
     }
 }
 
+#[derive(Debug)]
 pub struct NetGraph<'hostname> {
     graph: Graph<Node<'hostname>, usize>,
 }

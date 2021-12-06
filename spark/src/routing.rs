@@ -66,12 +66,14 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
         debug!("there are no statuses");
     }
 
+    debug!("statuses: {:?}", statuses);
     let graph = NetGraph::from_iter(
         statuses
             .iter()
             .inspect(|(n, _)| debug!("found machine: '{}'", n))
             .map(|(_, m)| m),
     );
+    debug!("graph: {:?}", graph);
 
     let path = match graph.find_path(&get_hostname().await?, &opts.destination) {
         Some(path) => dbg!(path),
@@ -82,6 +84,7 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
             ));
         }
     };
+    debug!("path: {:?}", path);
 
     Ok(path_to_args(
         &path,
