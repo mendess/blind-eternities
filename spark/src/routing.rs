@@ -7,7 +7,7 @@ use std::{
 
 use common::{
     algorithms::net_graph::NetGraph,
-    domain::{Hostname, MachineStatus},
+    domain::{machine_status::MachineStatusFull, Hostname},
     net::AuthenticatedClient,
 };
 use itertools::Itertools;
@@ -136,14 +136,16 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
     Ok(args)
 }
 
-async fn fetch_statuses(config: &'static Config) -> anyhow::Result<HashMap<String, MachineStatus>> {
+async fn fetch_statuses(
+    config: &'static Config,
+) -> anyhow::Result<HashMap<String, MachineStatusFull>> {
     let client = AuthenticatedClient::new(config.token.clone(), &config.backend_url)?;
     let statuses = client
         .get("/machine/status")
         .expect("route shoud be well constructed")
         .send()
         .await?
-        .json::<HashMap<String, MachineStatus>>()
+        .json::<HashMap<String, MachineStatusFull>>()
         .await?;
     Ok(statuses)
 }
@@ -163,7 +165,7 @@ fn path_to_args(path: &[IpAddr], username: String) -> Vec<String> {
     args
 }
 
-fn build_net_graph(statuses: &HashMap<String, MachineStatus>) -> NetGraph {
+fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph {
     NetGraph::from_iter(
         statuses
             .iter()

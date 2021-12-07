@@ -7,17 +7,10 @@ use std::{
 
 use actix_web::{web, HttpResponse, ResponseError};
 use anyhow::Context;
-use chrono::{NaiveDateTime, Utc};
-use common::domain::machine_status::{self, IpConnection};
+use chrono::Utc;
+use common::domain::machine_status::{self, IpConnection, MachineStatusFull};
 use futures::stream::{StreamExt, TryStreamExt};
 use sqlx::PgPool;
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct MachineStatus {
-    #[serde(flatten)]
-    fields: machine_status::MachineStatus,
-    last_heartbeat: NaiveDateTime,
-}
 
 #[derive(thiserror::Error, Debug)]
 pub enum MachineStatusError {
@@ -106,7 +99,7 @@ pub async fn get(conn: web::Data<PgPool>) -> Result<HttpResponse, MachineStatusE
     .fetch(conn.get_ref())
     .map(|e| e.context("failed to execute query"))
     .try_fold(
-        HashMap::<String, MachineStatus>::new(),
+        HashMap::<String, MachineStatusFull>::new(),
         |mut acc, record| async move {
             let mut entry = acc.entry(record.hostname.clone());
             let ips = match entry {
@@ -121,7 +114,7 @@ pub async fn get(conn: web::Data<PgPool>) -> Result<HttpResponse, MachineStatusE
                     let external_ip = record.external_ip.parse().context("parse external ip")?;
 
                     &mut v
-                        .insert(MachineStatus {
+                        .insert(MachineStatusFull {
                             fields: machine_status::MachineStatus {
                                 hostname,
                                 ssh,

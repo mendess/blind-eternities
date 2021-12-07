@@ -6,10 +6,11 @@ use std::{
     net::IpAddr,
 };
 
+use chrono::{NaiveDateTime, Utc};
 use petgraph::{algo::astar::astar, graph::NodeIndex, Graph};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use crate::domain::{Hostname, MachineStatus};
+use crate::domain::{machine_status::MachineStatusFull, Hostname, MachineStatus};
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 struct Routing {
@@ -28,7 +29,7 @@ impl Routing {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Node<'hostname> {
-    Machine(&'hostname MachineStatus),
+    Machine(&'hostname MachineStatusFull),
     Internet(Routing),
 }
 
@@ -48,14 +49,11 @@ impl Display for Node<'_> {
 
 impl<'hostname> Node<'hostname> {
     fn is_host(&self, host: &Hostname) -> bool {
-        matches!(self, Node::Machine(MachineStatus { hostname, .. }) if hostname == host)
+        matches!(self, Node::Machine(m) if m.hostname == *host)
     }
 
     fn share_nat(&self, other: &MachineStatus) -> bool {
-        matches!(
-            self,
-            Node::Machine(MachineStatus { external_ip, .. }) if *external_ip == other.external_ip
-        )
+        matches!(self, Node::Machine(m) if m.external_ip == other.external_ip)
     }
 
     fn unwrap_as_internet_mut(&mut self) -> &mut Routing {
@@ -76,8 +74,8 @@ impl<'hostname> NetGraph<'hostname> {
     const INTRANET_WEIGHT: usize = 1;
 }
 
-impl<'hostname> FromIterator<&'hostname MachineStatus> for NetGraph<'hostname> {
-    fn from_iter<T: IntoIterator<Item = &'hostname MachineStatus>>(iter: T) -> Self {
+impl<'hostname> FromIterator<&'hostname MachineStatusFull> for NetGraph<'hostname> {
+    fn from_iter<T: IntoIterator<Item = &'hostname MachineStatusFull>>(iter: T) -> Self {
         let mut graph = Graph::new();
 
         // create the internet
@@ -155,9 +153,29 @@ impl<'hostname> NetGraph<'hostname> {
     ) -> io::Result<()> {
         const COLOR_NAME: &str = r#" color="cornflowerblue""#;
         tokio::pin!(out);
-        out.write_all(b"digraph {{\n").await?;
+
+        let today = Utc::now().naive_utc();
+        let yesterday = NaiveDateTime::new(today.date().pred(), today.time());
+
+        let today = today.timestamp_millis();
+        let yesterday = yesterday.timestamp_millis();
+        out.write_all(b"digraph {{\n    node [colorscheme=ylorrd9]\n")
+            .await?;
         for (i, l) in self.graph.node_weights().enumerate() {
-            let s = format!(r#"    {} [ label = "{}" ]{}"#, i, l, '\n');
+            let color = if let Node::Machine(s) = l {
+                let hb = s.last_heartbeat.timestamp_millis();
+                if hb > yesterday {
+                    String::from("color=9")
+                } else {
+                    format!(
+                        "color={}",
+                        1 + ((7 / (today - yesterday)) * (hb - yesterday))
+                    )
+                }
+            } else {
+                String::new()
+            };
+            let s = format!(r#"    {} [ label = "{}"{} ]{}"#, i, l, color, '\n');
             out.write_all(s.as_bytes()).await?;
         }
         let mut edges = HashMap::new();
@@ -207,18 +225,22 @@ mod test {
         hostname::tests::FakeHostname,
         machine_status::{IpConnection, MachineStatus},
     };
+    use chrono::Utc;
     use fake::{faker::internet::en::IP, Fake};
 
-    fn mock_machine_status() -> MachineStatus {
-        MachineStatus {
-            hostname: FakeHostname.fake(),
-            ip_connections: vec![IpConnection {
-                local_ip: IP().fake(),
-                gateway_ip: IP().fake(),
-                gateway_mac: None,
-            }],
-            external_ip: IP().fake(),
-            ssh: None,
+    fn mock_machine_status() -> MachineStatusFull {
+        MachineStatusFull {
+            fields: MachineStatus {
+                hostname: FakeHostname.fake(),
+                ip_connections: vec![IpConnection {
+                    local_ip: IP().fake(),
+                    gateway_ip: IP().fake(),
+                    gateway_mac: None,
+                }],
+                external_ip: IP().fake(),
+                ssh: None,
+            },
+            last_heartbeat: Utc::now().naive_utc(),
         }
     }
 
@@ -248,7 +270,9 @@ mod test {
         let host1 = mock_machine_status().also(|m| m.external_ip = external_ip);
         let host2 = mock_machine_status().also(|m| m.external_ip = external_ip);
         let v = [host1, host2];
-        let path = NetGraph::from_iter(&v).find_path(&v[0].hostname, &v[1].hostname);
+        let netgraph = NetGraph::from_iter(&v);
+        let path =
+            netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[1].hostname).unwrap());
         assert_eq!(path, Some(vec![v[1].ip_connections[0].local_ip]))
     }
 
@@ -257,7 +281,9 @@ mod test {
         let host1 = mock_machine_status();
         let host2 = mock_machine_status().also(|m| m.ssh = Some(22));
         let v = [host1, host2];
-        let path = NetGraph::from_iter(&v).find_path(&v[0].hostname, &v[1].hostname);
+        let netgraph = NetGraph::from_iter(&v);
+        let path =
+            netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[1].hostname).unwrap());
         assert_eq!(path, Some(vec![v[1].external_ip]))
     }
 
@@ -273,7 +299,9 @@ mod test {
             (host2, host3)
         };
         let v = [host1, host2, host3];
-        let path = NetGraph::from_iter(&v).find_path(&v[0].hostname, &v[2].hostname);
+        let netgraph = NetGraph::from_iter(&v);
+        let path =
+            netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[1].hostname).unwrap());
         assert_eq!(
             path,
             Some(vec![v[1].external_ip, v[2].ip_connections[0].local_ip])
