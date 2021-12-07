@@ -6,7 +6,7 @@ use std::{
     net::IpAddr,
 };
 
-use chrono::{NaiveDateTime, Utc};
+use chrono::{Duration, Utc};
 use petgraph::{algo::astar::astar, graph::NodeIndex, Graph};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
@@ -155,22 +155,26 @@ impl<'hostname> NetGraph<'hostname> {
         tokio::pin!(out);
 
         let today = Utc::now().naive_utc();
-        let yesterday = NaiveDateTime::new(today.date().pred(), today.time());
+        let yesterday = today - Duration::hours(12);
 
         let today = today.timestamp_millis();
         let yesterday = yesterday.timestamp_millis();
-        out.write_all(b"digraph {{\n    node [colorscheme=ylorrd9]\n")
+        out.write_all(b"digraph {\n    node [colorscheme=rdylgn9]\n")
             .await?;
         for (i, l) in self.graph.node_weights().enumerate() {
             let color = if let Node::Machine(s) = l {
                 let hb = s.last_heartbeat.timestamp_millis();
-                if hb > yesterday {
-                    String::from("color=9")
+                if hb < yesterday {
+                    String::from(" style=filled fillcolor=1")
                 } else {
-                    format!(
-                        "color={}",
-                        1 + ((7 / (today - yesterday)) * (hb - yesterday))
-                    )
+                    let color = 1 + ((7 * (hb - yesterday)) / (today - yesterday));
+                    eprintln!(
+                        "node: {} @ {:?} :: {}",
+                        s.hostname,
+                        s.last_heartbeat,
+                        9 - color
+                    );
+                    format!(" style=filled fillcolor={}", 9 - color)
                 }
             } else {
                 String::new()
@@ -196,7 +200,7 @@ impl<'hostname> NetGraph<'hostname> {
         }
         for (_, (edge @ [from, to], w, bidirectional)) in edges {
             let s = format!(
-                r#"    {} -> {} [ label = "{}"{}{} ]"#,
+                "    {} -> {} [ label = \"{}\"{}{} ]\n",
                 from.index(),
                 to.index(),
                 w,
@@ -213,7 +217,7 @@ impl<'hostname> NetGraph<'hostname> {
             );
             out.write_all(s.as_bytes()).await?;
         }
-        out.write_all(b"}}\n").await?;
+        out.write_all(b"}\n").await?;
         Ok(())
     }
 }
