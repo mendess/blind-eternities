@@ -23,8 +23,8 @@ pub(super) struct SshOpts {
 
 pub(super) async fn ssh(opts: SshOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
     let mut args = route_to_ssh_hops(&opts, config).await?;
-    args.push("-p".to_string());
-    args.push(opts.port.to_string());
+    args.insert(0, opts.port.to_string());
+    args.insert(0, "-p".to_string());
     debug!("running ssh with args {:?}", args);
     Ok(Command::new("ssh").args(args).spawn()?.wait().await?)
 }
