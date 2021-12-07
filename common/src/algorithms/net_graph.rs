@@ -176,16 +176,18 @@ impl<'hostname> NetGraph<'hostname> {
                 }
             }
         }
-        for (_, ([from, to], w, bidirectional)) in edges {
+        for (_, (edge @ [from, to], w, bidirectional)) in edges {
             let s = format!(
                 r#"    {} -> {} [ label = "{}"{}{} ]"#,
                 from.index(),
                 to.index(),
                 w,
                 if bidirectional { r#" dir="both""# } else { "" },
-                if let Some(true) = path
-                    .map(|nodes| nodes.iter().any(|n| *n == from) && nodes.iter().any(|n| *n == to))
-                {
+                if let Some(true) = path.map(|nodes| {
+                    nodes
+                        .windows(2)
+                        .any(|n| n == edge || (bidirectional && n == [to, from]))
+                }) {
                     COLOR_NAME
                 } else {
                     ""
