@@ -25,6 +25,7 @@ pub(super) async fn ssh(opts: SshOpts, config: &'static Config) -> anyhow::Resul
     let mut args = route_to_ssh_hops(&opts, config).await?;
     args.push("-p".to_string());
     args.push(opts.port.to_string());
+    debug!("running ssh with args {:?}", args);
     Ok(Command::new("ssh").args(args).spawn()?.wait().await?)
 }
 
@@ -105,6 +106,7 @@ async fn fetch_statuses(config: &'static Config) -> anyhow::Result<HashMap<Strin
 }
 
 fn path_to_args(path: &[IpAddr], username: String) -> Vec<String> {
+    info!("{}@localhost -> {}", username, path.iter().format(" -> "));
     let mut args = vec![];
     let (path, tail) = path.split_at(path.len().saturating_sub(1));
     for ip in path {
@@ -115,7 +117,6 @@ fn path_to_args(path: &[IpAddr], username: String) -> Vec<String> {
     if let [last] = tail {
         args.push(format!("{}@{}", username, last));
     }
-    info!("{}@localhost -> {}", username, args.iter().format(" -> "));
     args
 }
 
