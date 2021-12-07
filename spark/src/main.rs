@@ -27,6 +27,7 @@ enum Cmd {
 enum SshTool {
     Ssh(routing::SshOpts),
     Rsync(routing::RsyncOpts),
+    Show(routing::ShowRouteOpts),
 }
 
 async fn app() -> anyhow::Result<ExitStatus> {
@@ -45,6 +46,9 @@ async fn app() -> anyhow::Result<ExitStatus> {
         Cmd::Route(tool) => match tool {
             SshTool::Ssh(opts) => routing::ssh(opts, config).await,
             SshTool::Rsync(opts) => routing::rsync(opts, config).await,
+            SshTool::Show(opts) => routing::show_route(opts, config)
+                .await
+                .map(|_| ExitStatus::from_raw(0)),
         },
     }
 }

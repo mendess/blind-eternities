@@ -1,11 +1,14 @@
 use std::{
     collections::HashMap,
     fmt::{self, Display},
+    fs::File,
+    io::{self, Write},
     iter::FromIterator,
     net::IpAddr,
+    path::Path,
 };
 
-use petgraph::{algo::astar::astar, graph::NodeIndex, Graph};
+use petgraph::{algo::astar::astar, dot::Dot, graph::NodeIndex, Graph};
 
 use crate::domain::{Hostname, MachineStatus};
 
@@ -140,6 +143,12 @@ impl<'hostname> NetGraph<'hostname> {
             }
         }
         Some(v)
+    }
+
+    pub fn to_dot(&self, filename: &Path) -> io::Result<()> {
+        let dot = Dot::new(&self.graph);
+        write!(File::create(filename)?, "{}", dot)?;
+        Ok(())
     }
 }
 

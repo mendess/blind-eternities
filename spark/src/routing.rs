@@ -60,6 +60,18 @@ pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::R
     r
 }
 
+#[derive(Debug, StructOpt)]
+pub struct ShowRouteOpts {
+    filename: PathBuf,
+}
+
+pub(super) async fn show_route(opts: ShowRouteOpts, config: &'static Config) -> anyhow::Result<()> {
+    let statuses = fetch_statuses(config).await?;
+    let graph = build_net_graph(&statuses);
+    graph.to_dot(&opts.filename)?;
+    Ok(())
+}
+
 async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::Result<Vec<String>> {
     let statuses = fetch_statuses(config).await?;
     // TODO: there might be stale statuses here
@@ -67,14 +79,7 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
         debug!("there are no statuses");
     }
 
-    debug!("statuses: {:?}", statuses);
-    let graph = NetGraph::from_iter(
-        statuses
-            .iter()
-            .inspect(|(n, _)| debug!("found machine: '{}'", n))
-            .map(|(_, m)| m),
-    );
-    debug!("graph: {:?}", graph);
+    let graph = build_net_graph(&statuses);
 
     let path = match graph.find_path(&get_hostname().await?, &opts.destination) {
         Some(path) => dbg!(path),
@@ -85,7 +90,6 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
             ));
         }
     };
-    debug!("path: {:?}", path);
 
     Ok(path_to_args(
         &path,
@@ -118,6 +122,15 @@ fn path_to_args(path: &[IpAddr], username: String) -> Vec<String> {
         args.push(format!("{}@{}", username, last));
     }
     args
+}
+
+fn build_net_graph(statuses: &HashMap<String, MachineStatus>) -> NetGraph {
+    NetGraph::from_iter(
+        statuses
+            .iter()
+            .inspect(|(n, _)| debug!("found machine: '{}'", n))
+            .map(|(_, m)| m),
+    )
 }
 
 #[cfg(test)]
