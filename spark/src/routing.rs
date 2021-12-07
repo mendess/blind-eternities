@@ -1,4 +1,9 @@
-use std::{collections::HashMap, net::IpAddr, path::PathBuf, process::ExitStatus};
+use std::{
+    collections::HashMap,
+    net::IpAddr,
+    path::PathBuf,
+    process::{ExitStatus, Stdio},
+};
 
 use common::{
     algorithms::net_graph::NetGraph,
@@ -7,7 +12,7 @@ use common::{
 };
 use itertools::Itertools;
 use structopt::StructOpt;
-use tokio::process::Command;
+use tokio::{fs::File, process::Command};
 use tracing::{debug, info};
 
 use crate::{config::Config, daemon::machine_status::get_hostname};
@@ -60,13 +65,43 @@ pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::R
 
 #[derive(Debug, StructOpt)]
 pub struct ShowRouteOpts {
-    filename: PathBuf,
+    #[structopt(short, long)]
+    filename: Option<PathBuf>,
+    #[structopt(short, long)]
+    destination: Option<Hostname>,
 }
 
 pub(super) async fn show_route(opts: ShowRouteOpts, config: &'static Config) -> anyhow::Result<()> {
     let statuses = fetch_statuses(config).await?;
     let graph = build_net_graph(&statuses);
-    graph.to_dot(&opts.filename)?;
+    let path = match opts.destination.as_ref() {
+        Some(d) => graph.find_path(&get_hostname().await?, d),
+        None => None,
+    };
+    match &opts.filename {
+        Some(filename) => {
+            let file = File::create(filename).await?;
+            graph.to_dot(file, path.as_deref()).await?;
+        }
+        None => {
+            let (file, temp_path) = tempfile::NamedTempFile::new()?.into_parts();
+            let mut dot = Command::new("dot")
+                .arg("-Tpng")
+                .stdin(Stdio::piped())
+                .stdout(file)
+                .spawn()?;
+            graph
+                .to_dot(
+                    dot.stdin
+                        .take()
+                        .ok_or_else(|| anyhow::anyhow!("can't get stdin of dot"))?,
+                    path.as_deref(),
+                )
+                .await?;
+            dot.wait().await?;
+            open::that(temp_path)?;
+        }
+    }
     Ok(())
 }
 
@@ -79,7 +114,10 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
 
     let graph = build_net_graph(&statuses);
 
-    let path = match graph.find_path(&get_hostname().await?, &opts.destination) {
+    let path = match graph
+        .find_path(&get_hostname().await?, &opts.destination)
+        .and_then(|p| graph.path_to_ips(&p))
+    {
         Some(path) => dbg!(path),
         None => {
             return Err(anyhow::anyhow!(

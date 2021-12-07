@@ -1,14 +1,13 @@
 use std::{
-    collections::HashMap,
+    collections::{hash_map::Entry, HashMap},
     fmt::{self, Display},
-    fs::File,
-    io::{self, Write},
+    io,
     iter::FromIterator,
     net::IpAddr,
-    path::Path,
 };
 
-use petgraph::{algo::astar::astar, dot::Dot, graph::NodeIndex, Graph};
+use petgraph::{algo::astar::astar, graph::NodeIndex, Graph};
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use crate::domain::{Hostname, MachineStatus};
 
@@ -115,7 +114,7 @@ impl<'hostname> FromIterator<&'hostname MachineStatus> for NetGraph<'hostname> {
 }
 
 impl<'hostname> NetGraph<'hostname> {
-    pub fn find_path(&self, from: &Hostname, to: &Hostname) -> Option<Vec<IpAddr>> {
+    pub fn find_path(&self, from: &Hostname, to: &Hostname) -> Option<Vec<NodeIndex<u32>>> {
         let graph = &self.graph;
         let from = graph.node_indices().find(|i| graph[*i].is_host(from))?;
 
@@ -126,17 +125,21 @@ impl<'hostname> NetGraph<'hostname> {
             |e| *e.weight(),
             |_| 0,
         )?;
-        let mut i = nodes.into_iter();
+        Some(nodes)
+    }
+
+    pub fn path_to_ips(&self, nodes: &[NodeIndex<u32>]) -> Option<Vec<IpAddr>> {
+        let mut i = nodes.iter();
         i.next(); // skip myself
         let mut v = vec![];
         while let Some(ni) = i.next() {
-            match &graph[ni] {
+            match &self.graph[*ni] {
                 Node::Machine(n) => v.push(n.ip_connections.first()?.local_ip),
                 Node::Internet(routing) => {
                     // the next one will have the ip determined by the routing table
                     let ni = i.next().expect("a path can't end on the internet");
                     let ip = routing
-                        .get(&ni)
+                        .get(ni)
                         .expect("the internet must now all paths it leads to");
                     v.push(ip);
                 }
@@ -145,9 +148,52 @@ impl<'hostname> NetGraph<'hostname> {
         Some(v)
     }
 
-    pub fn to_dot(&self, filename: &Path) -> io::Result<()> {
-        let dot = Dot::new(&self.graph);
-        write!(File::create(filename)?, "{}", dot)?;
+    pub async fn to_dot<W: AsyncWrite>(
+        &self,
+        out: W,
+        path: Option<&[NodeIndex<u32>]>,
+    ) -> io::Result<()> {
+        const COLOR_NAME: &str = r#" color="cornflowerblue""#;
+        tokio::pin!(out);
+        out.write_all(b"digraph {{\n").await?;
+        for (i, l) in self.graph.node_weights().enumerate() {
+            let s = format!(r#"    {} [ label = "{}" ]{}"#, i, l, '\n');
+            out.write_all(s.as_bytes()).await?;
+        }
+        let mut edges = HashMap::new();
+        for e in self.graph.raw_edges() {
+            if e.source() == e.target() {
+                continue;
+            }
+            let mut a = [e.source(), e.target()];
+            a.sort();
+            match edges.entry(a) {
+                Entry::Vacant(v) => {
+                    v.insert(([e.source(), e.target()], e.weight, false));
+                }
+                Entry::Occupied(mut o) => {
+                    o.insert(([e.source(), e.target()], e.weight, true));
+                }
+            }
+        }
+        for (_, ([from, to], w, bidirectional)) in edges {
+            let s = format!(
+                r#"    {} -> {} [ label = "{}"{}{} ]"#,
+                from.index(),
+                to.index(),
+                w,
+                if bidirectional { r#" dir="both""# } else { "" },
+                if let Some(true) = path
+                    .map(|nodes| nodes.iter().any(|n| *n == from) && nodes.iter().any(|n| *n == to))
+                {
+                    COLOR_NAME
+                } else {
+                    ""
+                }
+            );
+            out.write_all(s.as_bytes()).await?;
+        }
+        out.write_all(b"}}\n").await?;
         Ok(())
     }
 }
