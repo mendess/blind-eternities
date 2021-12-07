@@ -22,9 +22,7 @@ pub(super) struct SshOpts {
 }
 
 pub(super) async fn ssh(opts: SshOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
-    let mut args = route_to_ssh_hops(&opts, config).await?;
-    args.insert(0, opts.port.to_string());
-    args.insert(0, "-p".to_string());
+    let args = route_to_ssh_hops(&opts, config).await?;
     debug!("running ssh with args {:?}", args);
     Ok(Command::new("ssh").args(args).spawn()?.wait().await?)
 }
@@ -91,10 +89,13 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
         }
     };
 
-    Ok(path_to_args(
+    let mut args = path_to_args(
         &path,
         opts.username.clone().unwrap_or_else(whoami::username),
-    ))
+    );
+    args.insert(0, opts.port.to_string());
+    args.insert(0, "-p".to_string());
+    Ok(args)
 }
 
 async fn fetch_statuses(config: &'static Config) -> anyhow::Result<HashMap<String, MachineStatus>> {
