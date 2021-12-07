@@ -139,6 +139,7 @@ pub async fn start(config: &Config) -> Result<Infallible, UrlParseError> {
         let _span = info_span!("post machine status");
         match get_current_status(config).await {
             Ok(status) => {
+                debug!("posting machine status: {:#?}", status);
                 let result = client
                     .post("/machine/status")
                     .expect("building a request")
