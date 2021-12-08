@@ -1,6 +1,7 @@
 mod config;
 mod daemon;
 mod routing;
+mod util;
 
 use std::{os::unix::prelude::ExitStatusExt, process::ExitStatus};
 

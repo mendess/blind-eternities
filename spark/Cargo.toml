@@ -27,6 +27,7 @@ whoami = "1.2.1"
 itertools = "0.10.1"
 tempfile = "3"
 open = "2"
+chrono = "0.4.19"
 
 
 [dependencies.tokio]

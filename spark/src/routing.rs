@@ -5,6 +5,7 @@ use std::{
     process::{ExitStatus, Stdio},
 };
 
+use chrono::Utc;
 use common::{
     algorithms::net_graph::NetGraph,
     domain::{machine_status::MachineStatusFull, Hostname},
@@ -15,7 +16,7 @@ use structopt::StructOpt;
 use tokio::{fs::File, process::Command};
 use tracing::{debug, info};
 
-use crate::{config::Config, daemon::machine_status::get_hostname};
+use crate::{config::Config, util::get_current_status};
 
 #[derive(StructOpt, Debug)]
 pub(super) struct SshOpts {
@@ -72,10 +73,12 @@ pub struct ShowRouteOpts {
 }
 
 pub(super) async fn show_route(opts: ShowRouteOpts, config: &'static Config) -> anyhow::Result<()> {
-    let statuses = fetch_statuses(config).await?;
+    let (statuses, hostname) = fetch_statuses(config).await?;
+
     let graph = build_net_graph(&statuses);
+
     let path = match opts.destination.as_ref() {
-        Some(d) => graph.find_path(&get_hostname().await?, d),
+        Some(d) => graph.find_path(&hostname, d),
         None => None,
     };
     match &opts.filename {
@@ -106,7 +109,7 @@ pub(super) async fn show_route(opts: ShowRouteOpts, config: &'static Config) -> 
 }
 
 async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::Result<Vec<String>> {
-    let statuses = fetch_statuses(config).await?;
+    let (statuses, hostname) = fetch_statuses(config).await?;
     // TODO: there might be stale statuses here
     if statuses.is_empty() {
         debug!("there are no statuses");
@@ -115,10 +118,10 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
     let graph = build_net_graph(&statuses);
 
     let path = match graph
-        .find_path(&get_hostname().await?, &opts.destination)
+        .find_path(&hostname, &opts.destination)
         .and_then(|p| graph.path_to_ips(&p))
     {
-        Some(path) => dbg!(path),
+        Some(path) => path,
         None => {
             return Err(anyhow::anyhow!(
                 "Path could not be found to '{}'",
@@ -138,16 +141,24 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
 
 async fn fetch_statuses(
     config: &'static Config,
-) -> anyhow::Result<HashMap<String, MachineStatusFull>> {
+) -> anyhow::Result<(HashMap<String, MachineStatusFull>, Hostname)> {
     let client = AuthenticatedClient::new(config.token.clone(), &config.backend_url)?;
-    let statuses = client
+    let mut statuses = client
         .get("/machine/status")
         .expect("route shoud be well constructed")
         .send()
         .await?
         .json::<HashMap<String, MachineStatusFull>>()
         .await?;
-    Ok(statuses)
+    let this = MachineStatusFull {
+        fields: get_current_status(config).await?,
+        last_heartbeat: Utc::now().naive_utc(),
+    };
+
+    let hostname = this.hostname.clone();
+    statuses.insert(this.hostname.to_string(), this);
+
+    Ok((statuses, hostname))
 }
 
 fn path_to_args(path: &[IpAddr], username: String) -> Vec<String> {
@@ -165,7 +176,7 @@ fn path_to_args(path: &[IpAddr], username: String) -> Vec<String> {
     args
 }
 
-fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph {
+fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph<'_> {
     NetGraph::from_iter(
         statuses
             .iter()

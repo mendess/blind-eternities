@@ -168,13 +168,8 @@ impl<'hostname> NetGraph<'hostname> {
                     String::from(" style=filled fillcolor=1")
                 } else {
                     let color = 1 + ((7 * (hb - yesterday)) / (today - yesterday));
-                    eprintln!(
-                        "node: {} @ {:?} :: {}",
-                        s.hostname,
-                        s.last_heartbeat,
-                        9 - color
-                    );
-                    format!(" style=filled fillcolor={}", 9 - color)
+                    eprintln!("node: {} @ {:?} :: {}", s.hostname, s.last_heartbeat, color);
+                    format!(" style=filled fillcolor={}", color)
                 }
             } else {
                 String::new()
@@ -305,7 +300,7 @@ mod test {
         let v = [host1, host2, host3];
         let netgraph = NetGraph::from_iter(&v);
         let path =
-            netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[1].hostname).unwrap());
+            netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[2].hostname).unwrap());
         assert_eq!(
             path,
             Some(vec![v[1].external_ip, v[2].ip_connections[0].local_ip])
