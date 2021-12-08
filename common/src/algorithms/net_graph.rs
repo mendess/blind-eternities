@@ -165,10 +165,11 @@ impl<'hostname> NetGraph<'hostname> {
             let color = if let Node::Machine(s) = l {
                 let hb = s.last_heartbeat.timestamp_millis();
                 if hb < yesterday {
+                    tracing::info!("node: {} @ {:?} :: {}", s.hostname, s.last_heartbeat, 1);
                     String::from(" style=filled fillcolor=1")
                 } else {
                     let color = 1 + ((7 * (hb - yesterday)) / (today - yesterday));
-                    eprintln!("node: {} @ {:?} :: {}", s.hostname, s.last_heartbeat, color);
+                    tracing::info!("node: {} @ {:?} :: {}", s.hostname, s.last_heartbeat, color);
                     format!(" style=filled fillcolor={}", color)
                 }
             } else {
