@@ -161,29 +161,61 @@ impl<'hostname> NetGraph<'hostname> {
         tokio::pin!(out);
 
         let today = Utc::now().naive_utc();
-        let yesterday = today - Duration::hours(12);
+        let yesterday = today - Duration::hours(2);
 
         let today = today.timestamp_millis();
         let yesterday = yesterday.timestamp_millis();
         out.write_all(b"digraph {\n    node [colorscheme=rdylgn9]\n")
             .await?;
-        for (i, l) in self.graph.node_weights().enumerate() {
-            let color = if let Node::Machine(s) = l {
-                let hb = s.last_heartbeat.timestamp_millis();
-                if hb < yesterday {
-                    tracing::info!("node: {} @ {:?} :: {}", s.hostname, s.last_heartbeat, 1);
+        let mut by_subnet = HashMap::<_, Vec<_>>::new();
+        let mut internet = None;
+        for i in self.graph.node_indices() {
+            if let Node::Machine(s) = self.graph[i] {
+                by_subnet.entry(s.external_ip).or_default().push((i, s));
+            } else {
+                internet = Some(i);
+            }
+        }
+        let internet = internet.unwrap();
+        out.write_all(
+            format!(
+                "    {} [ label = \"{}\" ]\n",
+                internet.index(),
+                self.graph[internet]
+            )
+            .as_bytes(),
+        )
+        .await?;
+        for (ip, nodes) in by_subnet.into_iter() {
+            let subgraph_label = ip.to_string().replace(".", "_");
+            out.write_all(format!("    subgraph cluster_{} {{\n", subgraph_label).as_bytes())
+                .await?;
+            for (i, n) in nodes {
+                let hb = n.last_heartbeat.timestamp_millis();
+                let color = if hb < yesterday {
+                    tracing::info!("node: {} @ {:?} :: {}", n.hostname, n.last_heartbeat, 1);
                     String::from(" style=filled fillcolor=1")
                 } else {
                     let color = 1 + ((7 * (hb - yesterday)) / (today - yesterday));
-                    tracing::info!("node: {} @ {:?} :: {}", s.hostname, s.last_heartbeat, color);
+                    tracing::info!("node: {} @ {:?} :: {}", n.hostname, n.last_heartbeat, color);
                     format!(" style=filled fillcolor={}", color)
-                }
-            } else {
-                String::new()
-            };
-            let s = format!(r#"    {} [ label = "{}"{} ]{}"#, i, l, color, '\n');
-            out.write_all(s.as_bytes()).await?;
+                };
+                out.write_all(
+                    format!(
+                        "        {} [ label = \"{}\" {} ]\n",
+                        i.index(),
+                        Node::Machine(n),
+                        color
+                    )
+                    .as_bytes(),
+                )
+                .await?;
+            }
+            out.write_all(format!("        label = \"{}\"\n", ip).as_bytes())
+                .await?;
+            out.write_all(b"    }\n").await?;
         }
+
         let mut edges = HashMap::new();
         for e in self.graph.raw_edges() {
             if e.source() == e.target() {
@@ -310,7 +342,10 @@ mod test {
             netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[2].hostname).unwrap());
         assert_eq!(
             path,
-            Some(vec![(v[1].external_ip, 222), (v[2].ip_connections[0].local_ip, 22)])
+            Some(vec![
+                (v[1].external_ip, 222),
+                (v[2].ip_connections[0].local_ip, 22)
+            ])
         )
     }
 
