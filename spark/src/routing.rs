@@ -8,7 +8,10 @@ use std::{
 use chrono::Utc;
 use common::{
     algorithms::net_graph::NetGraph,
-    domain::{machine_status::MachineStatusFull, Hostname},
+    domain::{
+        machine_status::{MachineStatusFull, Port},
+        Hostname,
+    },
     net::AuthenticatedClient,
 };
 use itertools::Itertools;
@@ -18,19 +21,26 @@ use tracing::{debug, info};
 
 use crate::{config::Config, util::get_current_status};
 
+enum PseudoTty {
+    None,
+    Allocate,
+}
+
 #[derive(StructOpt, Debug)]
 pub(super) struct SshOpts {
     destination: Hostname,
     #[structopt(short, long)]
     username: Option<String>,
-    #[structopt(short, long, default_value = "22")]
-    port: u16,
 }
 
 pub(super) async fn ssh(opts: SshOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
-    let args = route_to_ssh_hops(&opts, config).await?;
+    let args = route_to_ssh_hops(&opts, config, PseudoTty::Allocate).await?;
+    let (ssh, args) = args
+        .split_first()
+        .expect("There should be at least one string here 🤔");
+
     debug!("running ssh with args {:?}", args);
-    Ok(Command::new("ssh").args(args).spawn()?.wait().await?)
+    Ok(Command::new(ssh).args(args).spawn()?.wait().await?)
 }
 
 #[derive(StructOpt, Debug)]
@@ -44,12 +54,12 @@ pub(super) struct RsyncOpts {
 
 pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
     #[allow(unstable_name_collisions)]
-    let bridge = route_to_ssh_hops(&opts.ssh_opts, config)
+    let bridge = route_to_ssh_hops(&opts.ssh_opts, config, PseudoTty::None)
         .await?
         .iter()
         .map(|s| s.as_str())
         .intersperse(" ")
-        .fold(String::from("ssh "), |acc, e| acc + e);
+        .collect();
     let args = [
         format!("-{}", opts.rsync_options),
         String::from("-e"),
@@ -108,7 +118,11 @@ pub(super) async fn show_route(opts: ShowRouteOpts, config: &'static Config) -> 
     Ok(())
 }
 
-async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::Result<Vec<String>> {
+async fn route_to_ssh_hops(
+    opts: &SshOpts,
+    config: &'static Config,
+    pseudo_tty: PseudoTty,
+) -> anyhow::Result<Vec<String>> {
     let (statuses, hostname) = fetch_statuses(config).await?;
     // TODO: there might be stale statuses here
     if statuses.is_empty() {
@@ -130,13 +144,11 @@ async fn route_to_ssh_hops(opts: &SshOpts, config: &'static Config) -> anyhow::R
         }
     };
 
-    let mut args = path_to_args(
+    Ok(path_to_args(
         &path,
         opts.username.clone().unwrap_or_else(whoami::username),
-    );
-    args.insert(0, opts.port.to_string());
-    args.insert(0, "-p".to_string());
-    Ok(args)
+        pseudo_tty,
+    ))
 }
 
 async fn fetch_statuses(
@@ -150,6 +162,7 @@ async fn fetch_statuses(
         .await?
         .json::<HashMap<String, MachineStatusFull>>()
         .await?;
+
     let this = MachineStatusFull {
         fields: get_current_status(config).await?,
         last_heartbeat: Utc::now().naive_utc(),
@@ -161,17 +174,22 @@ async fn fetch_statuses(
     Ok((statuses, hostname))
 }
 
-fn path_to_args(path: &[IpAddr], username: String) -> Vec<String> {
-    info!("{}@localhost -> {}", username, path.iter().format(" -> "));
-    let mut args = vec![];
-    let (path, tail) = path.split_at(path.len().saturating_sub(1));
-    for ip in path {
-        args.push(String::from("-t"));
-        args.push(format!("{}@{}", username, ip));
-        args.push(String::from("ssh"))
-    }
-    if let [last] = tail {
-        args.push(format!("{}@{}", username, last));
+fn path_to_args(path: &[(IpAddr, Port)], username: String, pseudo_tty: PseudoTty) -> Vec<String> {
+    info!(
+        "{}@localhost -> {}",
+        username,
+        path.iter()
+            .format_with(" -> ", |(ip, port), f| f(&format_args!("{}:{}", ip, port)))
+    );
+    let mut args = Vec::with_capacity(path.len() * 5);
+    for (ip, port) in path {
+        args.push("ssh".into());
+        args.push("-p".into());
+        args.push(port.to_string());
+        if let PseudoTty::Allocate = pseudo_tty {
+            args.push("-t".into());
+        }
+        args.push(format!("{}@{}", username, ip))
     }
     args
 }
@@ -195,36 +213,86 @@ mod tests {
 
     #[test]
     fn one_hop() {
-        let expect = ["-t", "user@192.168.1.1", "ssh", "user@192.168.1.1"];
-        let path = repeat(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))
+        let expect = [
+            "ssh",
+            "-p",
+            "222",
+            "-t",
+            "user@192.168.1.1",
+            "ssh",
+            "-p",
+            "222",
+            "-t",
+            "user@192.168.1.1",
+        ];
+        let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 222))
             .take(2)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, "user".into()), expect);
+        assert_eq!(
+            path_to_args(&path, "user".into(), PseudoTty::Allocate),
+            expect
+        );
     }
 
     #[test]
     fn no_hop() {
-        let expect = ["user@192.168.1.1"];
-        let path = repeat(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))
+        let expect = ["ssh", "-p", "22", "-t", "user@192.168.1.1"];
+        let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
             .take(1)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, "user".into()), expect);
+        assert_eq!(
+            path_to_args(&path, "user".into(), PseudoTty::Allocate),
+            expect
+        );
     }
 
     #[test]
     fn three_hops() {
         let expect = [
+            "ssh",
+            "-p",
+            "22",
             "-t",
             "user@192.168.1.1",
             "ssh",
+            "-p",
+            "22",
             "-t",
             "user@192.168.1.1",
             "ssh",
+            "-p",
+            "22",
+            "-t",
             "user@192.168.1.1",
         ];
-        let path = repeat(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))
+        let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
             .take(3)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, "user".into()), expect);
+        assert_eq!(
+            path_to_args(&path, "user".into(), PseudoTty::Allocate),
+            expect
+        );
+    }
+
+    #[test]
+    fn three_hops_no_tty() {
+        let expect = [
+            "ssh",
+            "-p",
+            "22",
+            "user@192.168.1.1",
+            "ssh",
+            "-p",
+            "22",
+            "user@192.168.1.1",
+            "ssh",
+            "-p",
+            "22",
+            "user@192.168.1.1",
+        ];
+        let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
+            .take(3)
+            .collect::<Vec<_>>();
+        assert_eq!(path_to_args(&path, "user".into(), PseudoTty::None), expect);
     }
 }

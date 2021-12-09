@@ -6,12 +6,14 @@ use std::net::IpAddr;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
+pub type Port = u16;
+
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MachineStatus {
     pub hostname: Hostname,
     pub ip_connections: Vec<IpConnection>,
     #[serde(default)]
-    pub ssh: Option<u16>,
+    pub ssh: Option<Port>,
     pub external_ip: IpAddr,
 }
 

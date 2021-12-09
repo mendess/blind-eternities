@@ -10,19 +10,22 @@ use chrono::{Duration, Utc};
 use petgraph::{algo::astar::astar, graph::NodeIndex, Graph};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use crate::domain::{machine_status::MachineStatusFull, Hostname, MachineStatus};
+use crate::domain::{
+    machine_status::{MachineStatusFull, Port},
+    Hostname, MachineStatus,
+};
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
-struct Routing {
-    table: HashMap<NodeIndex<u32>, IpAddr>,
+struct Internet {
+    table: HashMap<NodeIndex<u32>, (IpAddr, Port)>,
 }
 
-impl Routing {
-    fn connect_to(&mut self, node: NodeIndex<u32>, machine: &MachineStatus) {
-        self.table.insert(node, machine.external_ip);
+impl Internet {
+    fn connect_to(&mut self, node: NodeIndex<u32>, machine: IpAddr, port: Port) {
+        self.table.insert(node, (machine, port));
     }
 
-    fn get(&self, node: &NodeIndex<u32>) -> Option<IpAddr> {
+    fn get(&self, node: &NodeIndex<u32>) -> Option<(IpAddr, Port)> {
         self.table.get(node).copied()
     }
 }
@@ -30,7 +33,7 @@ impl Routing {
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Node<'hostname> {
     Machine(&'hostname MachineStatusFull),
-    Internet(Routing),
+    Internet(Internet),
 }
 
 impl Display for Node<'_> {
@@ -56,7 +59,7 @@ impl<'hostname> Node<'hostname> {
         matches!(self, Node::Machine(m) if m.external_ip == other.external_ip)
     }
 
-    fn unwrap_as_internet_mut(&mut self) -> &mut Routing {
+    fn unwrap_as_internet_mut(&mut self) -> &mut Internet {
         match self {
             Self::Internet(r) => r,
             _ => panic!("Unwrapped as internet but self is {:?}", self),
@@ -82,17 +85,20 @@ impl<'hostname> FromIterator<&'hostname MachineStatusFull> for NetGraph<'hostnam
         let internet_idx = graph.add_node(Node::Internet(Default::default()));
 
         for machine in iter {
-            let machine_idx = graph.add_node(Node::Machine(machine)); // create a machine
+            // create a machine
+            let machine_idx = graph.add_node(Node::Machine(machine));
 
             // connect machine to internet
             graph.add_edge(machine_idx, internet_idx, Self::INTERNET_WEIGHT);
 
             // establish a port forwward
-            if machine.ssh.is_some() {
+            if let Some(port) = machine.ssh {
                 graph.add_edge(internet_idx, machine_idx, Self::INTERNET_WEIGHT);
-                graph[internet_idx]
-                    .unwrap_as_internet_mut()
-                    .connect_to(machine_idx, machine);
+                graph[internet_idx].unwrap_as_internet_mut().connect_to(
+                    machine_idx,
+                    machine.external_ip,
+                    port,
+                );
             }
 
             // find all the friends of this network
@@ -126,13 +132,13 @@ impl<'hostname> NetGraph<'hostname> {
         Some(nodes)
     }
 
-    pub fn path_to_ips(&self, nodes: &[NodeIndex<u32>]) -> Option<Vec<IpAddr>> {
+    pub fn path_to_ips(&self, nodes: &[NodeIndex<u32>]) -> Option<Vec<(IpAddr, Port)>> {
         let mut i = nodes.iter();
         i.next(); // skip myself
         let mut v = vec![];
         while let Some(ni) = i.next() {
             match &self.graph[*ni] {
-                Node::Machine(n) => v.push(n.ip_connections.first()?.local_ip),
+                Node::Machine(n) => v.push((n.ip_connections.first()?.local_ip, 22)),
                 Node::Internet(routing) => {
                     // the next one will have the ip determined by the routing table
                     let ni = i.next().expect("a path can't end on the internet");
@@ -273,18 +279,18 @@ mod test {
         let netgraph = NetGraph::from_iter(&v);
         let path =
             netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[1].hostname).unwrap());
-        assert_eq!(path, Some(vec![v[1].ip_connections[0].local_ip]))
+        assert_eq!(path, Some(vec![(v[1].ip_connections[0].local_ip, 22)]))
     }
 
     #[test]
     fn internet_one_hop() {
         let host1 = mock_machine_status();
-        let host2 = mock_machine_status().also(|m| m.ssh = Some(22));
+        let host2 = mock_machine_status().also(|m| m.ssh = Some(222));
         let v = [host1, host2];
         let netgraph = NetGraph::from_iter(&v);
         let path =
             netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[1].hostname).unwrap());
-        assert_eq!(path, Some(vec![v[1].external_ip]))
+        assert_eq!(path, Some(vec![(v[1].external_ip, 222)]))
     }
 
     #[test]
@@ -294,7 +300,7 @@ mod test {
             let external_ip = IP().fake();
             let host2 = mock_machine_status()
                 .also(|m| m.external_ip = external_ip)
-                .also(|m| m.ssh = Some(22));
+                .also(|m| m.ssh = Some(222));
             let host3 = mock_machine_status().also(|m| m.external_ip = external_ip);
             (host2, host3)
         };
@@ -304,7 +310,7 @@ mod test {
             netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[2].hostname).unwrap());
         assert_eq!(
             path,
-            Some(vec![v[1].external_ip, v[2].ip_connections[0].local_ip])
+            Some(vec![(v[1].external_ip, 222), (v[2].ip_connections[0].local_ip, 22)])
         )
     }
 
