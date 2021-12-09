@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     net::IpAddr,
+    os::unix::prelude::ExitStatusExt,
     path::PathBuf,
     process::{ExitStatus, Stdio},
 };
@@ -31,6 +32,8 @@ pub(super) struct SshOpts {
     destination: Hostname,
     #[structopt(short, long)]
     username: Option<String>,
+    #[structopt(long = "dry-run")]
+    dry_run: bool,
 }
 
 pub(super) async fn ssh(opts: SshOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
@@ -40,7 +43,11 @@ pub(super) async fn ssh(opts: SshOpts, config: &'static Config) -> anyhow::Resul
         .expect("There should be at least one string here 🤔");
 
     debug!("running ssh with args {:?}", args);
-    Ok(Command::new(ssh).args(args).spawn()?.wait().await?)
+    if opts.dry_run {
+        Ok(ExitStatus::from_raw(0))
+    } else {
+        Ok(Command::new(ssh).args(args).spawn()?.wait().await?)
+    }
 }
 
 #[derive(StructOpt, Debug)]
@@ -61,7 +68,11 @@ pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::R
         .intersperse(" ")
         .collect();
     let args = [
-        format!("-{}", opts.rsync_options),
+        format!(
+            "-{}{}",
+            opts.rsync_options,
+            if opts.ssh_opts.dry_run { "n" } else { "" }
+        ),
         String::from("-e"),
         bridge,
         opts.source_path.to_str().unwrap().to_owned(),
