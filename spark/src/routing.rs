@@ -55,8 +55,7 @@ pub(super) struct RsyncOpts {
     rsync_options: String,
     #[structopt(flatten)]
     ssh_opts: SshOpts,
-    source_path: PathBuf,
-    dest_path: PathBuf,
+    paths: Vec<PathBuf>,
 }
 
 pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
@@ -67,7 +66,7 @@ pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::R
         .map(|s| s.as_str())
         .intersperse(" ")
         .collect();
-    let args = [
+    let mut args = vec![
         format!(
             "-{}{}",
             opts.rsync_options,
@@ -75,9 +74,15 @@ pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::R
         ),
         String::from("-e"),
         bridge,
-        opts.source_path.to_str().unwrap().to_owned(),
-        format!(":{}", opts.dest_path.to_str().unwrap()),
     ];
+    args.reserve(opts.paths.len());
+    let (files, dest) = opts.paths.split_at(opts.paths.len().saturating_sub(1));
+    for f in files {
+        args.push(f.to_str().unwrap().to_string());
+    }
+    if let [dest] = dest {
+        args.push(format!(":{}", dest.to_str().unwrap()))
+    }
     debug!("running rsync with args: {:?}", args);
     info!("------- running rsync -------");
     let r = Ok(Command::new("rsync").args(args).spawn()?.wait().await?);
