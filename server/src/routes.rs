@@ -1,3 +1,4 @@
+mod bulb;
 mod health_check;
 pub mod machine_status;
 

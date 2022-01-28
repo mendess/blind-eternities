@@ -26,6 +26,7 @@ actix-web-httpauth = "=0.6.0-beta.2"
 thiserror = "1"
 anyhow = "1"
 uuid = { version = "0.8.2", features = ["v4"] }
+yeelight = { git = "https://github.com/leixb/yeelight", rev = "1bf04fa4080692c4d85b99fe775e0e1f0cdf93f1" }
 
 [dependencies.sqlx]
 version = "0.5"
