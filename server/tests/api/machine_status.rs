@@ -1,16 +1,16 @@
-use crate::helpers::TestApp;
+use crate::helpers::{TestApp, fake_hostname};
 use chrono::{NaiveDateTime, Utc};
 use fake::{
     faker::internet::en::{MACAddress, IP},
-    Fake, StringFaker,
+    Fake,
 };
 use reqwest::StatusCode;
 use serde_json::json;
 
 fn well_formed_json() -> serde_json::Value {
-    let fake_hosname = StringFaker::with((b'a'..b'z').collect(), 4..20);
+    let fake_hostname = fake_hostname();
     json!({
-        "hostname": fake_hosname.fake::<String>(),
+        "hostname": fake_hostname.fake::<String>(),
         "ip_connections": [{
             "local_ip": IP().fake::<std::net::IpAddr>(),
             "gateway_ip": IP().fake::<std::net::IpAddr>(),

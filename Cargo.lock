@@ -391,6 +391,7 @@ dependencies = [
  "tracing-log",
  "tracing-subscriber",
  "uuid",
+ "yeelight",
 ]
 
 [[package]]
@@ -702,6 +703,12 @@ name = "dotenv"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
+
+[[package]]
+name = "dtoa"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56899898ce76aaf4a0f24d914c97ea6ed976d42fec6ad33fcbb0a1103e07b2b0"
 
 [[package]]
 name = "either"
@@ -1993,6 +2000,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.8.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8c608a35705a5d3cdc9fbe403147647ff34b921f8e833e49306df898f9b20af"
+dependencies = [
+ "dtoa",
+ "indexmap",
+ "serde 1.0.130",
+ "yaml-rust",
+]
+
+[[package]]
 name = "sha-1"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2906,6 +2925,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
 dependencies = [
  "linked-hash-map",
+]
+
+[[package]]
+name = "yeelight"
+version = "0.3.0"
+source = "git+https://github.com/leixb/yeelight?rev=1bf04fa4080692c4d85b99fe775e0e1f0cdf93f1#1bf04fa4080692c4d85b99fe775e0e1f0cdf93f1"
+dependencies = [
+ "itertools",
+ "serde 1.0.130",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
 ]
 
 [[package]]

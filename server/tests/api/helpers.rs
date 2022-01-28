@@ -1,10 +1,11 @@
-use std::net::TcpListener;
+use std::{net::TcpListener, ops::Range};
 
 use blind_eternities::{
     configuration::{get_configuration, DbSettings},
     startup,
 };
 use common::telemetry::{get_subscriber, init_subscriber};
+use fake::StringFaker;
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
@@ -127,8 +128,18 @@ impl TestApp {
         self.http.get(&format!("{}/{}", self.address, path))
     }
 
+    #[allow(dead_code)]
+    pub fn get_authed(&self, path: &str) -> reqwest::RequestBuilder {
+        self.get(path).bearer_auth(self.token)
+    }
+
     pub fn post(&self, path: &str) -> reqwest::RequestBuilder {
         self.http.post(&format!("{}/{}", self.address, path))
+    }
+
+    #[allow(dead_code)]
+    pub fn post_authed(&self, path: &str) -> reqwest::RequestBuilder {
+        self.post(path).bearer_auth(self.token)
     }
 }
 
@@ -152,4 +163,8 @@ async fn configure_database(config: &DbSettings) -> PgPool {
         .expect("Failed to migrate the database");
 
     connection_pool
+}
+
+pub fn fake_hostname() -> StringFaker<Range<usize>> {
+    StringFaker::with((b'a'..b'z').collect(), 4..20)
 }
