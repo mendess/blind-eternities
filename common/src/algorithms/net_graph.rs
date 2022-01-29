@@ -134,11 +134,18 @@ impl<'hostname> NetGraph<'hostname> {
 
     pub fn path_to_ips(&self, nodes: &[NodeIndex<u32>]) -> Option<Vec<(IpAddr, Port)>> {
         let mut i = nodes.iter();
-        i.next(); // skip myself
         let mut v = vec![];
         while let Some(ni) = i.next() {
             match &self.graph[*ni] {
-                Node::Machine(n) => v.push((n.ip_connections.first()?.local_ip, 22)),
+                Node::Machine(n) => {
+                    let ip = n
+                        .ip_connections
+                        .iter()
+                        .find(|ip| ip.local_ip.is_ipv4())
+                        .or_else(|| n.ip_connections.first())?
+                        .local_ip;
+                    v.push((ip, 22))
+                }
                 Node::Internet(routing) => {
                     // the next one will have the ip determined by the routing table
                     let ni = i.next().expect("a path can't end on the internet");
@@ -311,7 +318,13 @@ mod test {
         let netgraph = NetGraph::from_iter(&v);
         let path =
             netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[1].hostname).unwrap());
-        assert_eq!(path, Some(vec![(v[1].ip_connections[0].local_ip, 22)]))
+        assert_eq!(
+            path,
+            Some(vec![
+                (v[0].ip_connections[0].local_ip, 22),
+                (v[1].ip_connections[0].local_ip, 22)
+            ])
+        )
     }
 
     #[test]
@@ -322,7 +335,13 @@ mod test {
         let netgraph = NetGraph::from_iter(&v);
         let path =
             netgraph.path_to_ips(&netgraph.find_path(&v[0].hostname, &v[1].hostname).unwrap());
-        assert_eq!(path, Some(vec![(v[1].external_ip, 222)]))
+        assert_eq!(
+            path,
+            Some(vec![
+                (v[0].ip_connections[0].local_ip, 22),
+                (v[1].external_ip, 222)
+            ])
+        )
     }
 
     #[test]
@@ -343,6 +362,7 @@ mod test {
         assert_eq!(
             path,
             Some(vec![
+                (v[0].ip_connections[0].local_ip, 22),
                 (v[1].external_ip, 222),
                 (v[2].ip_connections[0].local_ip, 22)
             ])

@@ -1,9 +1,11 @@
 use std::{
     collections::HashMap,
-    net::IpAddr,
+    fmt, iter,
+    net::{IpAddr, Ipv4Addr},
     os::unix::prelude::ExitStatusExt,
     path::PathBuf,
     process::{ExitStatus, Stdio},
+    str::FromStr,
 };
 
 use chrono::Utc;
@@ -27,11 +29,37 @@ enum PseudoTty {
     Allocate,
 }
 
+#[derive(Debug)]
+pub struct DestinationRef {
+    username: String,
+    hostname: Hostname,
+}
+
+impl FromStr for DestinationRef {
+    type Err = <Hostname as FromStr>::Err;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.split_once('@') {
+            Some((username, hostname)) => Ok(DestinationRef {
+                hostname: hostname.parse()?,
+                username: username.parse::<Hostname>()?.into_string(),
+            }),
+            None => Ok(DestinationRef {
+                hostname: s.parse()?,
+                username: whoami::username(),
+            }),
+        }
+    }
+}
+
+impl fmt::Display for DestinationRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "{}@{}", self.username, self.hostname)
+    }
+}
+
 #[derive(StructOpt, Debug)]
 pub(super) struct SshOpts {
-    destination: Hostname,
-    #[structopt(short, long)]
-    username: Option<String>,
+    destination: DestinationRef,
     #[structopt(long = "dry-run")]
     dry_run: bool,
 }
@@ -148,10 +176,16 @@ async fn route_to_ssh_hops(
     let graph = build_net_graph(&statuses);
 
     let path = match graph
-        .find_path(&hostname, &opts.destination)
+        .find_path(&hostname, &opts.destination.hostname)
         .and_then(|p| graph.path_to_ips(&p))
     {
-        Some(path) => path,
+        Some(mut path) => {
+            // if we have more than one target we can skip localhost
+            if path.len() > 1 {
+                path.remove(0);
+            }
+            path
+        }
         None => {
             return Err(anyhow::anyhow!(
                 "Path could not be found to '{}'",
@@ -160,22 +194,25 @@ async fn route_to_ssh_hops(
         }
     };
 
-    Ok(path_to_args(
-        &path,
-        opts.username.clone().unwrap_or_else(whoami::username),
-        pseudo_tty,
-    ))
+    Ok(path_to_args(&path, &opts.destination.username, pseudo_tty))
 }
 
 async fn fetch_statuses(
     config: &'static Config,
 ) -> anyhow::Result<(HashMap<String, MachineStatusFull>, Hostname)> {
     let client = AuthenticatedClient::new(config.token.clone(), &config.backend_url)?;
-    let mut statuses = client
+    let response = client
         .get("/machine/status")
-        .expect("route shoud be well constructed")
+        .expect("route should be well constructed")
         .send()
-        .await?
+        .await?;
+    if !response.status().is_success() {
+        return Err(anyhow::anyhow!(
+            "http error: {}",
+            response.status().canonical_reason().unwrap_or("unknown")
+        ));
+    }
+    let mut statuses = response
         .json::<HashMap<String, MachineStatusFull>>()
         .await?;
 
@@ -190,11 +227,12 @@ async fn fetch_statuses(
     Ok((statuses, hostname))
 }
 
-fn path_to_args(path: &[(IpAddr, Port)], username: String, pseudo_tty: PseudoTty) -> Vec<String> {
+fn path_to_args(path: &[(IpAddr, Port)], username: &str, pseudo_tty: PseudoTty) -> Vec<String> {
     info!(
-        "{}@localhost -> {}",
+        "user: {} => {}",
         username,
-        path.iter()
+        iter::once(&(IpAddr::V4(Ipv4Addr::LOCALHOST), 22))
+            .chain(path.iter())
             .format_with(" -> ", |(ip, port), f| f(&format_args!("{}:{}", ip, port)))
     );
     let mut args = Vec::with_capacity(path.len() * 5);
@@ -244,10 +282,7 @@ mod tests {
         let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 222))
             .take(2)
             .collect::<Vec<_>>();
-        assert_eq!(
-            path_to_args(&path, "user".into(), PseudoTty::Allocate),
-            expect
-        );
+        assert_eq!(path_to_args(&path, "user", PseudoTty::Allocate), expect);
     }
 
     #[test]
@@ -256,10 +291,7 @@ mod tests {
         let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
             .take(1)
             .collect::<Vec<_>>();
-        assert_eq!(
-            path_to_args(&path, "user".into(), PseudoTty::Allocate),
-            expect
-        );
+        assert_eq!(path_to_args(&path, "user", PseudoTty::Allocate), expect);
     }
 
     #[test]
@@ -284,10 +316,7 @@ mod tests {
         let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
             .take(3)
             .collect::<Vec<_>>();
-        assert_eq!(
-            path_to_args(&path, "user".into(), PseudoTty::Allocate),
-            expect
-        );
+        assert_eq!(path_to_args(&path, "user", PseudoTty::Allocate), expect);
     }
 
     #[test]
@@ -309,6 +338,6 @@ mod tests {
         let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
             .take(3)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, "user".into(), PseudoTty::None), expect);
+        assert_eq!(path_to_args(&path, "user", PseudoTty::None), expect);
     }
 }

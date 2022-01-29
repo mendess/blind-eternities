@@ -14,6 +14,12 @@ static HOSTNAME: Lazy<Regex> =
 #[serde(try_from = "String")]
 pub struct Hostname(String);
 
+impl Hostname {
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
 #[derive(thiserror::Error, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub enum HostnameParseError {
     #[error("invalid chars")]

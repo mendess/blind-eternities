@@ -1,10 +1,9 @@
 #!/bin/bash
 
-CONTAINER_NAME=multiverse-db
+CONTAINER_NAME=blind-eternities-db
+DB=blind_eternities
 if [[ "$T" ]]; then
-    DB=multiverse_test
-else
-    DB=multiverse
+    DB=${DB}_test
 fi
 
 if ! pgrep docker >/dev/null; then
