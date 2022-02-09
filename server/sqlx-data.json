@@ -1,0 +1,119 @@
+{
+  "db": "PostgreSQL",
+  "3017c33d06259e6c3c04718fc21e0062389b2b1dd1adfcdcbdc3f77770521005": {
+    "query": "INSERT INTO ip_connection (hostname, local_ip, gateway_ip, gateway_mac)\n            VALUES ($1, $2, $3, $4)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar"
+        ]
+      },
+      "nullable": []
+    }
+  },
+  "33015d694e9f4ec982485668f0c61e1fcf1215d2ac128c445aa261c240a99a04": {
+    "query": "SELECT\n            ms.hostname as \"hostname!\",\n            external_ip as \"external_ip!\",\n            last_heartbeat as \"last_heartbeat!\",\n            local_ip as \"local_ip?\",\n            gateway_ip as \"gateway_ip?\",\n            ssh_port,\n            gateway_mac\n         FROM machine_status ms\n         LEFT JOIN ip_connection ip ON ms.hostname = ip.hostname",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "hostname!",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 1,
+          "name": "external_ip!",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 2,
+          "name": "last_heartbeat!",
+          "type_info": "Timestamp"
+        },
+        {
+          "ordinal": 3,
+          "name": "local_ip?",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 4,
+          "name": "gateway_ip?",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 5,
+          "name": "ssh_port",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 6,
+          "name": "gateway_mac",
+          "type_info": "Varchar"
+        }
+      ],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  },
+  "3c560270149415b25fb7575dbc31fe26148e079fe14fefea1f98b5418c51bdee": {
+    "query": "SELECT token FROM api_tokens WHERE token = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "token",
+          "type_info": "Uuid"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "4b4816d6ef8afc25c7b77223fd883cf39390604878eba12289274128b5e456a0": {
+    "query": "DELETE FROM ip_connection WHERE hostname = $1",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      },
+      "nullable": []
+    }
+  },
+  "4fac0c86931f508aadd6675c5b9b462cb8b90294a71f9d7f2da1804078e85014": {
+    "query": "INSERT INTO machine_status (hostname, external_ip, last_heartbeat, ssh_port)\n        VALUES ($1, $2, $3, $4)\n        ON CONFLICT (hostname) DO UPDATE\n        SET external_ip = $2, last_heartbeat = $3, ssh_port = $4\n        ",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Timestamp",
+          "Int4"
+        ]
+      },
+      "nullable": []
+    }
+  }
+}
