@@ -12,14 +12,16 @@ pub struct DbSettings {
     pub password: String,
     pub port: u16,
     pub host: String,
-    pub database_name: String,
+    pub name: String,
+    #[serde(default)]
+    pub migrate: bool,
 }
 
 impl DbSettings {
     pub fn connection_string(&self) -> String {
         format!(
             "postgres://{}:{}@{}:{}/{}",
-            self.username, self.password, self.host, self.port, self.database_name
+            self.username, self.password, self.host, self.port, self.name
         )
     }
 
@@ -36,8 +38,8 @@ pub const PREFIX: &str = "BLIND_ETER";
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let mut settings = config::Config::default();
 
-    settings.merge(config::File::with_name("configuration"))?;
-    settings.merge(config::Environment::with_prefix(PREFIX))?;
+    settings.merge(config::File::with_name("configuration").required(false))?;
+    settings.merge(config::Environment::with_prefix(PREFIX).separator("_"))?;
 
     settings.try_into()
 }

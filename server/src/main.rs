@@ -19,6 +19,13 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Failed to connect to Postgres");
 
+    if conf.db.migrate {
+        sqlx::migrate!("./migrations")
+            .run(&connection)
+            .await
+            .expect("Failed to migrate the database");
+    }
+
     run(
         TcpListener::bind(("0.0.0.0", conf.port))?,
         connection,
