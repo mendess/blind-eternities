@@ -1,8 +1,8 @@
 use std::{error::Error, mem::take, net::IpAddr, str::FromStr};
 
 use anyhow::Context;
-use common::domain::{Hostname, MacAddr, MachineStatus, machine_status::IpConnection};
-use futures::{stream, TryStreamExt, StreamExt};
+use common::domain::{machine_status::IpConnection, Hostname, MacAddr, MachineStatus};
+use futures::{stream, StreamExt, TryStreamExt};
 use pnet::datalink;
 use tokio::{io, process::Command};
 use tracing::warn;
@@ -42,7 +42,12 @@ async fn get_external_ip() -> anyhow::Result<IpAddr> {
                 warn!("consider installing dig for better performance");
             }
             Ok(IpAddr::from_str(
-                &reqwest::get("https://ifconfig.me").await?.text().await?,
+                &reqwest::get("https://ifconfig.me")
+                    .await
+                    .context("requesting ifconfig.md")?
+                    .text()
+                    .await
+                    .context("parsing ip from ifconfig.me")?,
             )?)
         }
     }
@@ -62,7 +67,7 @@ async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
         .await?,
     )
     .then(|network| async move {
-        let (gateway_ip, gateway_mac) = gateway_ip_and_mac().await?;
+        let (gateway_ip, gateway_mac) = gateway_ip_and_mac().await.context("getting ip and mac")?;
         Ok(IpConnection {
             local_ip: network.ip(),
             gateway_ip,
@@ -77,10 +82,17 @@ async fn gateway_ip_and_mac() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
     let mut out = Command::new("sh")
         .args(["-c", "ip route | grep default | awk '{print $3}'"])
         .output()
-        .await?;
+        .await
+        .context("running ip route")?;
 
     if out.status.success() {
-        let ip_str = String::from_utf8(take(&mut out.stdout))?;
+        let ip_str = String::from_utf8(take(&mut out.stdout)).map_err(|e| {
+            anyhow::anyhow!(
+                "failed to convert {:?} to utf8. Details: {:?}",
+                e.as_bytes(),
+                e.utf8_error()
+            )
+        })?;
         let ip_str = ip_str.trim();
         let ip =
             IpAddr::from_str(ip_str).with_context(|| format!("tried to parse: {:?}", ip_str))?;
@@ -90,7 +102,8 @@ async fn gateway_ip_and_mac() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
                 &format!("ip neigh | grep '{} ' | awk '{{ print $5 }}'", ip_str),
             ])
             .output()
-            .await?;
+            .await
+            .context("running 'ip neigh'")?;
         if let Some(mac) = out
             .status
             .success()
@@ -112,8 +125,11 @@ async fn gateway_ip_and_mac() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
 }
 
 pub(crate) async fn get_current_status(config: &Config) -> anyhow::Result<MachineStatus> {
-    let (hostname, ip_connections, external_ip) =
-        tokio::try_join!(get_hostname(), get_ip_connections(), get_external_ip())?;
+    let (hostname, ip_connections, external_ip) = tokio::try_join!(
+        async { get_hostname().await.context("getting hostname") },
+        async { get_ip_connections().await.context("getting ip connections") },
+        async { get_external_ip().await.context("getting external ip") },
+    )?;
 
     Ok(MachineStatus {
         hostname,
