@@ -12,7 +12,10 @@ use crate::config::Config;
 pub(crate) async fn get_hostname() -> anyhow::Result<Hostname> {
     tokio::task::spawn_blocking(|| {
         Ok(Hostname::try_from(
-            hostname::get()?.to_string_lossy().into_owned(),
+            hostname::get()
+                .context("fetching hostname")?
+                .to_string_lossy()
+                .into_owned(),
         )?)
     })
     .await?
@@ -79,11 +82,18 @@ async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
 }
 
 async fn gateway_ip_and_mac() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
-    let mut out = Command::new("sh")
-        .args(["-c", "ip route | grep default | awk '{print $3}'"])
-        .output()
-        .await
-        .context("running ip route")?;
+    let mut out = if cfg!(target_os = "macos") {
+        Command::new("sh")
+            .args(["-c", "route -n get default | grep gateway | cut -d: -f2"])
+            .output()
+            .await
+    } else {
+        Command::new("sh")
+            .args(["-c", "ip route | grep default | awk '{print $3}'"])
+            .output()
+            .await
+    }
+    .context("running ip route")?;
 
     if out.status.success() {
         let ip_str = String::from_utf8(take(&mut out.stdout)).map_err(|e| {
