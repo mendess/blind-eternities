@@ -20,8 +20,20 @@ impl Hostname {
     }
 }
 
+#[derive(thiserror::Error, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+pub struct HostnameParseError {
+    pub value: String,
+    pub reason: HostnameParseErrorReason,
+}
+
+impl Display for HostnameParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(thiserror::Error, Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
-pub enum HostnameParseError {
+pub enum HostnameParseErrorReason {
     #[error("invalid chars")]
     InvalidChars,
     #[error("too long (max is 253 chars)")]
@@ -36,10 +48,16 @@ impl TryFrom<String> for Hostname {
             if HOSTNAME.is_match(&value) {
                 Ok(Hostname(value))
             } else {
-                Err(HostnameParseError::InvalidChars)
+                Err(HostnameParseError {
+                    value,
+                    reason: HostnameParseErrorReason::InvalidChars,
+                })
             }
         } else {
-            Err(HostnameParseError::TooLong)
+            Err(HostnameParseError {
+                value,
+                reason: HostnameParseErrorReason::TooLong,
+            })
         }
     }
 }
@@ -118,12 +136,18 @@ pub mod tests {
 
         #[test]
         fn contains_bad_chars(s in r#"([_+)({}\[\]$#%^&*!@]){1,100}"#) {
-            prop_assert_eq!(Hostname::try_from(s), Err(HostnameParseError::InvalidChars));
+            prop_assert_eq!(
+                Hostname::try_from(s.clone()),
+                Err(HostnameParseError { reason: HostnameParseErrorReason::InvalidChars, value: s })
+            );
         }
 
         #[test]
         fn too_long(s in "[a-z]{400}") {
-            prop_assert_eq!(Hostname::try_from(s), Err(HostnameParseError::TooLong));
+            prop_assert_eq!(
+                Hostname::try_from(s.clone()),
+                Err(HostnameParseError { reason: HostnameParseErrorReason::TooLong, value: s })
+            );
         }
     }
 }

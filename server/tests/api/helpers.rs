@@ -73,7 +73,7 @@ impl TestAppBuilder {
         let port = listener.local_addr().unwrap().port();
 
         let mut conf = get_configuration().expect("Failed to read configuration");
-        conf.db.database_name = Uuid::new_v4().to_string();
+        conf.db.name = Uuid::new_v4().to_string();
 
         let connection = configure_database(&conf.db).await;
 
@@ -83,7 +83,7 @@ impl TestAppBuilder {
         let app = TestApp {
             address: format!("http://localhost:{}", port),
             db_pool: connection,
-            db_name: conf.db.database_name,
+            db_name: conf.db.name,
             http: reqwest::Client::new(),
             token: uuid::Uuid::new_v4(),
         };
@@ -149,7 +149,7 @@ async fn configure_database(config: &DbSettings) -> PgPool {
         .await
         .expect("Failed to connect to Postgres");
     connection
-        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .execute(format!(r#"CREATE DATABASE "{}";"#, config.name).as_str())
         .await
         .expect("Failed to create database.");
 
