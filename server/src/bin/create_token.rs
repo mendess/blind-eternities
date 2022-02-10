@@ -1,5 +1,5 @@
 use blind_eternities::configuration::get_configuration;
-use sqlx::PgPool;
+use sqlx::{Row, PgPool};
 use std::env;
 use uuid::Uuid;
 
@@ -23,24 +23,20 @@ async fn _main() -> i32 {
         .expect("Failed to connect to Postgres");
 
     let r = if delete {
-        sqlx::query!(
-            "DELETE FROM api_tokens WHERE hostname = $1 RETURNING token",
-            hostname
-        )
-        .fetch_one(&connection)
-        .await
-        .map(|t| t.token)
+        sqlx::query("DELETE FROM api_tokens WHERE hostname = $1 RETURNING token")
+            .bind(&hostname)
+            .fetch_one(&connection)
+            .await
+            .map(|row| row.get(0))
     } else {
         let uuid = Uuid::new_v4();
 
-        sqlx::query!(
-            "INSERT INTO api_tokens (token, created_at, hostname) VALUES ($1, NOW(), $2)",
-            uuid,
-            hostname
-        )
-        .execute(&connection)
-        .await
-        .map(|_| uuid)
+        sqlx::query("INSERT INTO api_tokens (token, created_at, hostname) VALUES ($1, NOW(), $2)")
+            .bind(&uuid)
+            .bind(&hostname)
+            .execute(&connection)
+            .await
+            .map(|_| uuid)
     };
 
     match r {
