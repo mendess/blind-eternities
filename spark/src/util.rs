@@ -89,7 +89,7 @@ async fn gateway_ip_and_mac() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
             .await
     } else {
         Command::new("sh")
-            .args(["-c", "ip route | grep default | awk '{print $3}'"])
+            .args(["-c", "ip route get 1.1.1.1 | awk '{print $3}' | head -1"])
             .output()
             .await
     }
