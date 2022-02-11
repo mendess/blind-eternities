@@ -31,16 +31,14 @@ enum SshTool {
     Show(routing::ShowRouteOpts),
 }
 
-async fn app() -> anyhow::Result<ExitStatus> {
-    let args = Args::from_args();
-
+async fn app(args: &Args) -> anyhow::Result<ExitStatus> {
     init_subscriber(get_subscriber_no_bunny(
         if args.verbose { "debug" } else { "info" }.into(),
     ));
 
     let config = config::load_configuration().unwrap();
 
-    match args.cmd {
+    match &args.cmd {
         Cmd::Daemon => daemon::run_all(config)
             .await
             .map(|_| ExitStatus::from_raw(1)),
@@ -53,16 +51,10 @@ async fn app() -> anyhow::Result<ExitStatus> {
         },
     }
 }
+
 #[tokio::main]
-async fn main() {
-    match app().await {
-        Ok(status) => match status.code() {
-            Some(c) => std::process::exit(c),
-            None => std::process::exit(139),
-        },
-        Err(e) => {
-            tracing::error!("{:#?}", e);
-            std::process::exit(1)
-        }
-    }
+async fn main() -> anyhow::Result<()> {
+    let args = Args::from_args();
+    let status = app(&args).await?;
+    std::process::exit(status.code().unwrap_or(139))
 }

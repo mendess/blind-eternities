@@ -8,6 +8,7 @@ use std::{
     str::FromStr,
 };
 
+use anyhow::Context;
 use chrono::Utc;
 use common::{
     algorithms::net_graph::NetGraph,
@@ -64,8 +65,10 @@ pub(super) struct SshOpts {
     dry_run: bool,
 }
 
-pub(super) async fn ssh(opts: SshOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
-    let args = route_to_ssh_hops(&opts, config, PseudoTty::Allocate).await?;
+pub(super) async fn ssh(opts: &SshOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
+    let args = route_to_ssh_hops(opts, config, PseudoTty::Allocate)
+        .await
+        .context("getting ssh hops")?;
     let (ssh, args) = args
         .split_first()
         .expect("There should be at least one string here 🤔");
@@ -74,7 +77,12 @@ pub(super) async fn ssh(opts: SshOpts, config: &'static Config) -> anyhow::Resul
     if opts.dry_run {
         Ok(ExitStatus::from_raw(0))
     } else {
-        Ok(Command::new(ssh).args(args).spawn()?.wait().await?)
+        Ok(Command::new(ssh)
+            .args(args)
+            .spawn()?
+            .wait()
+            .await
+            .context("waiting for the ssh command")?)
     }
 }
 
@@ -86,7 +94,7 @@ pub(super) struct RsyncOpts {
     paths: Vec<PathBuf>,
 }
 
-pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
+pub(super) async fn rsync(opts: &RsyncOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
     #[allow(unstable_name_collisions)]
     let bridge = route_to_ssh_hops(&opts.ssh_opts, config, PseudoTty::None)
         .await?
@@ -113,7 +121,12 @@ pub(super) async fn rsync(opts: RsyncOpts, config: &'static Config) -> anyhow::R
     }
     debug!("running rsync with args: {:?}", args);
     info!("------- running rsync -------");
-    let r = Ok(Command::new("rsync").args(args).spawn()?.wait().await?);
+    let r = Ok(Command::new("rsync")
+        .args(args)
+        .spawn()?
+        .wait()
+        .await
+        .context("waiting for rsync")?);
     info!("-----------------------------");
     r
 }
@@ -126,7 +139,7 @@ pub struct ShowRouteOpts {
     destination: Option<Hostname>,
 }
 
-pub(super) async fn show_route(opts: ShowRouteOpts, config: &'static Config) -> anyhow::Result<()> {
+pub(super) async fn show_route(opts: &ShowRouteOpts, config: &'static Config) -> anyhow::Result<()> {
     let (statuses, hostname) = fetch_statuses(config).await?;
 
     let graph = build_net_graph(&statuses);
@@ -137,8 +150,11 @@ pub(super) async fn show_route(opts: ShowRouteOpts, config: &'static Config) -> 
     };
     match &opts.filename {
         Some(filename) => {
-            let file = File::create(filename).await?;
-            graph.to_dot(file, path.as_deref()).await?;
+            let file = File::create(filename).await.context("creating dot file")?;
+            graph
+                .to_dot(file, path.as_deref())
+                .await
+                .context("writing dot file")?;
         }
         None => {
             let (file, temp_path) = tempfile::NamedTempFile::new()?.into_parts();
@@ -146,7 +162,8 @@ pub(super) async fn show_route(opts: ShowRouteOpts, config: &'static Config) -> 
                 .arg("-Tpng")
                 .stdin(Stdio::piped())
                 .stdout(file)
-                .spawn()?;
+                .spawn()
+                .context("rendering dot to png")?;
             graph
                 .to_dot(
                     dot.stdin
@@ -155,8 +172,10 @@ pub(super) async fn show_route(opts: ShowRouteOpts, config: &'static Config) -> 
                     path.as_deref(),
                 )
                 .await?;
-            dot.wait().await?;
-            open::that(temp_path)?;
+            dot.wait()
+                .await
+                .context("waiting for dot to png conversion")?;
+            open::that(temp_path).context("opening rendered graph")?;
         }
     }
     Ok(())
@@ -200,12 +219,14 @@ async fn route_to_ssh_hops(
 async fn fetch_statuses(
     config: &'static Config,
 ) -> anyhow::Result<(HashMap<String, MachineStatusFull>, Hostname)> {
-    let client = AuthenticatedClient::new(config.token.clone(), &config.backend_url)?;
+    let client = AuthenticatedClient::new(config.token.clone(), &config.backend_url)
+        .context("creating an authenticated client")?;
     let response = client
         .get("/machine/status")
         .expect("route should be well constructed")
         .send()
-        .await?;
+        .await
+        .context("requesting statuses from backend")?;
     if !response.status().is_success() {
         return Err(anyhow::anyhow!(
             "http error: {}",
@@ -214,10 +235,13 @@ async fn fetch_statuses(
     }
     let mut statuses = response
         .json::<HashMap<String, MachineStatusFull>>()
-        .await?;
+        .await
+        .context("parsing status json")?;
 
     let this = MachineStatusFull {
-        fields: get_current_status(config).await?,
+        fields: get_current_status(config)
+            .await
+            .context("getting the local status")?,
         last_heartbeat: Utc::now().naive_utc(),
     };
 
