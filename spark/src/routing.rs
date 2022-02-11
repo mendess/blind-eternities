@@ -139,7 +139,10 @@ pub struct ShowRouteOpts {
     destination: Option<Hostname>,
 }
 
-pub(super) async fn show_route(opts: &ShowRouteOpts, config: &'static Config) -> anyhow::Result<()> {
+pub(super) async fn show_route(
+    opts: &ShowRouteOpts,
+    config: &'static Config,
+) -> anyhow::Result<()> {
     let (statuses, hostname) = fetch_statuses(config).await?;
 
     let graph = build_net_graph(&statuses);
@@ -172,10 +175,15 @@ pub(super) async fn show_route(opts: &ShowRouteOpts, config: &'static Config) ->
                     path.as_deref(),
                 )
                 .await?;
-            dot.wait()
+            let status = dot
+                .wait()
                 .await
                 .context("waiting for dot to png conversion")?;
-            open::that(temp_path).context("opening rendered graph")?;
+            if status.success() {
+                open::that(temp_path).context("opening rendered graph")?;
+            } else {
+                return Err(anyhow::anyhow!("dot finished with exit code: {}", status));
+            }
         }
     }
     Ok(())
