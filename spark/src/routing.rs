@@ -180,7 +180,8 @@ pub(super) async fn show_route(
                 .await
                 .context("waiting for dot to png conversion")?;
             if status.success() {
-                open::that(temp_path).context("opening rendered graph")?;
+                open::that(&temp_path)
+                    .with_context(|| format!("opening rendered graph: {}", temp_path.display()))?;
             } else {
                 return Err(anyhow::anyhow!("dot finished with exit code: {}", status));
             }
