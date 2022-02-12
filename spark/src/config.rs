@@ -1,16 +1,22 @@
+use std::collections::HashMap;
+
 use dirs::config_dir;
 use once_cell::sync::Lazy;
 
-#[derive(Debug, serde::Deserialize)]
+use crate::routing::DestinationRef;
+
+#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 pub struct Config {
     pub token: String,
     pub backend_url: String,
-    pub network: Option<Networking>,
+    #[serde(default)]
+    pub network: Networking,
 }
 
-#[derive(Debug, Copy, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize, Default, PartialEq, Eq)]
 pub struct Networking {
-    pub ssh: u16,
+    pub ssh: Option<u16>,
+    pub aliases: HashMap<String, DestinationRef>,
 }
 
 static CONFIG: Lazy<anyhow::Result<Config>> = Lazy::new(|| {
@@ -31,4 +37,18 @@ static CONFIG: Lazy<anyhow::Result<Config>> = Lazy::new(|| {
 
 pub fn load_configuration() -> Result<&'static Config, &'static anyhow::Error> {
     CONFIG.as_ref()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn network_is_optional() {
+        let conf = r#"{ "token": "token", "backend_url": "url" }"#;
+
+        let conf = serde_json::from_str::<Config>(conf).expect("network should be fully optional");
+        assert_eq!(conf.network.ssh, None);
+        assert_eq!(conf.network.aliases, HashMap::default());
+    }
 }

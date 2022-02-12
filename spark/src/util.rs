@@ -143,7 +143,7 @@ pub(crate) async fn get_current_status(config: &Config) -> anyhow::Result<Machin
 
     Ok(MachineStatus {
         hostname,
-        ssh: config.network.map(|x| x.ssh),
+        ssh: config.network.ssh,
         ip_connections,
         external_ip,
     })
