@@ -194,15 +194,11 @@ pub(super) async fn show_route(opts: &ShowRouteOpts, config: &Config) -> anyhow:
 }
 
 pub(crate) async fn copy_id(opts: &SshOpts, config: &Config) -> anyhow::Result<ExitStatus> {
-    let dest_ref = resolve_alias(&config.network.aliases, &opts.destination);
+    let (username, hostname) = resolve_alias(&config.network.aliases, &opts.destination);
 
-    let path = find_path(opts, config, dest_ref).await?;
+    let path = find_path(opts, config, hostname).await?;
 
-    let username = dest_ref
-        .username
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(whoami::username);
+    let username = username.cloned().unwrap_or_else(whoami::username);
 
     let args = path_to_args(&path, &username, PseudoTty::None);
 
@@ -247,7 +243,7 @@ pub(crate) async fn copy_id(opts: &SshOpts, config: &Config) -> anyhow::Result<E
 async fn find_path(
     opts: &SshOpts,
     config: &Config,
-    dest_ref: &DestinationRef,
+    dest_hostname: &Hostname,
 ) -> anyhow::Result<Vec<(IpAddr, u16)>> {
     let (statuses, hostname) = fetch_statuses(config).await?;
     // TODO: there might be stale statuses here
@@ -258,7 +254,7 @@ async fn find_path(
     let graph = build_net_graph(&statuses);
 
     let path = match graph
-        .find_path(&hostname, &dest_ref.hostname)
+        .find_path(&hostname, dest_hostname)
         .and_then(|p| graph.path_to_ips(&p))
     {
         Some(mut path) => {
@@ -284,11 +280,11 @@ async fn route_to_ssh_hops(
     config: &Config,
     pseudo_tty: PseudoTty,
 ) -> anyhow::Result<Vec<String>> {
-    let dest_ref = resolve_alias(&config.network.aliases, &opts.destination);
+    let (username, hostname) = resolve_alias(&config.network.aliases, &opts.destination);
 
-    let path = find_path(opts, config, dest_ref).await?;
+    let path = find_path(opts, config, hostname).await?;
 
-    Ok(match &dest_ref.username {
+    Ok(match username {
         Some(u) => path_to_args(&path, u, pseudo_tty).flatten().collect(),
         None => path_to_args(&path, &whoami::username(), pseudo_tty)
             .flatten()
@@ -405,13 +401,16 @@ fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph<'_
 fn resolve_alias<'a>(
     aliases: &'a HashMap<String, DestinationRef>,
     dest: &'a DestinationRef,
-) -> &'a DestinationRef {
+) -> (Option<&'a String>, &'a Hostname) {
     match aliases.get(dest.hostname.as_ref()) {
         Some(d) => {
             tracing::debug!("resolving alias {} as {}", dest.hostname, d);
-            d
+            (
+                dest.username.as_ref().or_else(|| d.username.as_ref()),
+                &d.hostname,
+            )
         }
-        None => dest,
+        None => (dest.username.as_ref(), &dest.hostname),
     }
 }
 
