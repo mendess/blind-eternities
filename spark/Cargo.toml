@@ -28,6 +28,7 @@ itertools = "0.10.1"
 tempfile = "3"
 open = "2"
 chrono = "0.4.19"
+arrayvec = "0.7.2"
 
 
 [dependencies.tokio]

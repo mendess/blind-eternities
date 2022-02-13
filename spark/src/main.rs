@@ -28,6 +28,7 @@ enum Cmd {
 enum SshTool {
     Ssh(routing::SshOpts),
     Rsync(routing::RsyncOpts),
+    CopyId(routing::SshOpts),
     Show(routing::ShowRouteOpts),
 }
 
@@ -48,6 +49,7 @@ async fn app(args: &Args) -> anyhow::Result<ExitStatus> {
             SshTool::Show(opts) => routing::show_route(opts, config)
                 .await
                 .map(|_| ExitStatus::from_raw(0)),
+            SshTool::CopyId(opts) => routing::copy_id(opts, config).await,
         },
     }
 }

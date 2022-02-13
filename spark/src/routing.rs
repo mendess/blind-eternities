@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     fmt, iter,
+    mem::replace,
     net::{IpAddr, Ipv4Addr},
     os::unix::prelude::ExitStatusExt,
     path::PathBuf,
@@ -9,6 +10,7 @@ use std::{
 };
 
 use anyhow::Context;
+use arrayvec::ArrayVec;
 use chrono::Utc;
 use common::{
     algorithms::net_graph::NetGraph,
@@ -25,6 +27,7 @@ use tracing::{debug, info};
 
 use crate::{config::Config, util::get_current_status};
 
+#[derive(Debug, Clone, Copy)]
 enum PseudoTty {
     None,
     Allocate,
@@ -68,7 +71,7 @@ pub(super) struct SshOpts {
     dry_run: bool,
 }
 
-pub(super) async fn ssh(opts: &SshOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
+pub(super) async fn ssh(opts: &SshOpts, config: &Config) -> anyhow::Result<ExitStatus> {
     let args = route_to_ssh_hops(opts, config, PseudoTty::Allocate)
         .await
         .context("getting ssh hops")?;
@@ -97,7 +100,7 @@ pub(super) struct RsyncOpts {
     paths: Vec<PathBuf>,
 }
 
-pub(super) async fn rsync(opts: &RsyncOpts, config: &'static Config) -> anyhow::Result<ExitStatus> {
+pub(super) async fn rsync(opts: &RsyncOpts, config: &Config) -> anyhow::Result<ExitStatus> {
     #[allow(unstable_name_collisions)]
     let bridge = route_to_ssh_hops(&opts.ssh_opts, config, PseudoTty::None)
         .await?
@@ -142,10 +145,7 @@ pub struct ShowRouteOpts {
     destination: Option<Hostname>,
 }
 
-pub(super) async fn show_route(
-    opts: &ShowRouteOpts,
-    config: &'static Config,
-) -> anyhow::Result<()> {
+pub(super) async fn show_route(opts: &ShowRouteOpts, config: &Config) -> anyhow::Result<()> {
     let (statuses, hostname) = fetch_statuses(config).await?;
 
     let graph = build_net_graph(&statuses);
@@ -193,11 +193,62 @@ pub(super) async fn show_route(
     Ok(())
 }
 
-async fn route_to_ssh_hops(
+pub(crate) async fn copy_id(opts: &SshOpts, config: &Config) -> anyhow::Result<ExitStatus> {
+    let dest_ref = resolve_alias(&config.network.aliases, &opts.destination);
+
+    let path = find_path(opts, config, dest_ref).await?;
+
+    let username = dest_ref
+        .username
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(whoami::username);
+
+    let args = path_to_args(&path, &username, PseudoTty::None);
+
+    let mut cmd = Vec::<String>::new();
+
+    let mut copy_id_cmd = String::from("ssh-copy-id");
+    for partial_cmd in args {
+        let program_index = cmd.len();
+        partial_cmd.extend_args_with(|s| cmd.push(s), ["-o", "BatchMode=yes"]);
+        cmd.push("true".into());
+        tracing::debug!("running {:?}", &cmd[program_index..]);
+        let has_key_setup = Command::new(&cmd[program_index])
+            .args(&cmd[(program_index + 1)..])
+            .status()
+            .await?
+            .success();
+        cmd.pop(); // remove true command
+
+        if !has_key_setup {
+            let ssh = replace(&mut cmd[program_index], copy_id_cmd);
+            tracing::debug!(
+                "running {:?}",
+                &cmd[program_index..(cmd.len().saturating_sub(2))]
+            );
+            if !opts.dry_run {
+                let status = Command::new(&cmd[0])
+                    .args(&cmd[1..(cmd.len().saturating_sub(2))])
+                    .spawn()?
+                    .wait()
+                    .await?;
+                if !status.success() {
+                    return Err(anyhow::anyhow!("failed to run copy id"));
+                }
+            }
+            copy_id_cmd = replace(&mut cmd[program_index], ssh);
+        }
+    }
+
+    Ok(ExitStatus::from_raw(0))
+}
+
+async fn find_path(
     opts: &SshOpts,
-    config: &'static Config,
-    pseudo_tty: PseudoTty,
-) -> anyhow::Result<Vec<String>> {
+    config: &Config,
+    dest_ref: &DestinationRef,
+) -> anyhow::Result<Vec<(IpAddr, u16)>> {
     let (statuses, hostname) = fetch_statuses(config).await?;
     // TODO: there might be stale statuses here
     if statuses.is_empty() {
@@ -205,8 +256,6 @@ async fn route_to_ssh_hops(
     }
 
     let graph = build_net_graph(&statuses);
-
-    let dest_ref = resolve_alias_hostname(&config.network.aliases, &opts.destination);
 
     let path = match graph
         .find_path(&hostname, &dest_ref.hostname)
@@ -227,14 +276,28 @@ async fn route_to_ssh_hops(
         }
     };
 
+    Ok(path)
+}
+
+async fn route_to_ssh_hops(
+    opts: &SshOpts,
+    config: &Config,
+    pseudo_tty: PseudoTty,
+) -> anyhow::Result<Vec<String>> {
+    let dest_ref = resolve_alias(&config.network.aliases, &opts.destination);
+
+    let path = find_path(opts, config, dest_ref).await?;
+
     Ok(match &dest_ref.username {
-        Some(u) => path_to_args(&path, u, pseudo_tty),
-        None => path_to_args(&path, &whoami::username(), pseudo_tty),
+        Some(u) => path_to_args(&path, u, pseudo_tty).flatten().collect(),
+        None => path_to_args(&path, &whoami::username(), pseudo_tty)
+            .flatten()
+            .collect(),
     })
 }
 
 async fn fetch_statuses(
-    config: &'static Config,
+    config: &Config,
 ) -> anyhow::Result<(HashMap<String, MachineStatusFull>, Hostname)> {
     let client = AuthenticatedClient::new(config.token.clone(), &config.backend_url)
         .context("creating an authenticated client")?;
@@ -268,7 +331,53 @@ async fn fetch_statuses(
     Ok((statuses, hostname))
 }
 
-fn path_to_args(path: &[(IpAddr, Port)], username: &str, pseudo_tty: PseudoTty) -> Vec<String> {
+struct SshCommand<'u> {
+    port: u16,
+    tty: PseudoTty,
+    username: &'u str,
+    ip: IpAddr,
+}
+
+impl SshCommand<'_> {
+    fn extend_args_with<F, E, I>(&self, mut push: F, extra_args: E)
+    where
+        F: FnMut(String),
+        E: IntoIterator<Item = I>,
+        I: Into<String>,
+    {
+        push("ssh".into());
+        push("-p".into());
+        push(self.port.to_string());
+        if let PseudoTty::Allocate = self.tty {
+            push("-t".into());
+        }
+        push(format!("{}@{}", self.username, self.ip));
+        for a in extra_args {
+            push(a.into())
+        }
+    }
+
+    fn extend_args<F: FnMut(String)>(&self, push: F) {
+        self.extend_args_with::<_, _, String>(push, [])
+    }
+}
+
+impl IntoIterator for SshCommand<'_> {
+    type IntoIter = <ArrayVec<String, 5> as IntoIterator>::IntoIter;
+    type Item = <ArrayVec<String, 5> as IntoIterator>::Item;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let mut args = ArrayVec::new();
+        self.extend_args(|s| args.push(s));
+        args.into_iter()
+    }
+}
+
+fn path_to_args<'a>(
+    path: &'a [(IpAddr, Port)],
+    username: &'a str,
+    pseudo_tty: PseudoTty,
+) -> impl Iterator<Item = SshCommand<'a>> {
     info!(
         "user: {} => {}",
         username,
@@ -276,17 +385,12 @@ fn path_to_args(path: &[(IpAddr, Port)], username: &str, pseudo_tty: PseudoTty) 
             .chain(path.iter())
             .format_with(" -> ", |(ip, port), f| f(&format_args!("{}:{}", ip, port)))
     );
-    let mut args = Vec::with_capacity(path.len() * 5);
-    for (ip, port) in path {
-        args.push("ssh".into());
-        args.push("-p".into());
-        args.push(port.to_string());
-        if let PseudoTty::Allocate = pseudo_tty {
-            args.push("-t".into());
-        }
-        args.push(format!("{}@{}", username, ip))
-    }
-    args
+    path.iter().map(move |&(ip, port)| SshCommand {
+        ip,
+        port,
+        username,
+        tty: pseudo_tty,
+    })
 }
 
 fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph<'_> {
@@ -298,7 +402,7 @@ fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph<'_
     )
 }
 
-fn resolve_alias_hostname<'a>(
+fn resolve_alias<'a>(
     aliases: &'a HashMap<String, DestinationRef>,
     dest: &'a DestinationRef,
 ) -> &'a DestinationRef {
@@ -336,7 +440,12 @@ mod tests {
         let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 222))
             .take(2)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, "user", PseudoTty::Allocate), expect);
+        assert_eq!(
+            path_to_args(&path, "user", PseudoTty::Allocate)
+                .flatten()
+                .collect::<Vec<_>>(),
+            expect
+        );
     }
 
     #[test]
@@ -345,7 +454,12 @@ mod tests {
         let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
             .take(1)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, "user", PseudoTty::Allocate), expect);
+        assert_eq!(
+            path_to_args(&path, "user", PseudoTty::Allocate)
+                .flatten()
+                .collect::<Vec<_>>(),
+            expect
+        );
     }
 
     #[test]
@@ -370,7 +484,12 @@ mod tests {
         let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
             .take(3)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, "user", PseudoTty::Allocate), expect);
+        assert_eq!(
+            path_to_args(&path, "user", PseudoTty::Allocate)
+                .flatten()
+                .collect::<Vec<_>>(),
+            expect
+        );
     }
 
     #[test]
@@ -392,6 +511,11 @@ mod tests {
         let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
             .take(3)
             .collect::<Vec<_>>();
-        assert_eq!(path_to_args(&path, "user", PseudoTty::None), expect);
+        assert_eq!(
+            path_to_args(&path, "user", PseudoTty::None)
+                .flatten()
+                .collect::<Vec<_>>(),
+            expect
+        );
     }
 }
