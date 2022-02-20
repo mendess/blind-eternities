@@ -26,7 +26,7 @@ enum Cmd {
 
 #[derive(StructOpt, Debug)]
 enum SshTool {
-    Ssh(routing::SshOpts),
+    Ssh(routing::SshCommandOpts),
     Rsync(routing::RsyncOpts),
     CopyId(routing::SshOpts),
     Show(routing::ShowRouteOpts),

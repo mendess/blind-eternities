@@ -34,20 +34,20 @@ enum PseudoTty {
 }
 
 #[derive(Debug, Clone, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DestinationRef {
+pub struct Destination {
     username: Option<String>,
     hostname: Hostname,
 }
 
-impl FromStr for DestinationRef {
+impl FromStr for Destination {
     type Err = <Hostname as FromStr>::Err;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.split_once('@') {
-            Some((username, hostname)) => Ok(DestinationRef {
+            Some((username, hostname)) => Ok(Destination {
                 hostname: hostname.parse()?,
                 username: Some(username.parse::<Hostname>()?.into_string()),
             }),
-            None => Ok(DestinationRef {
+            None => Ok(Destination {
                 hostname: s.parse()?,
                 username: None,
             }),
@@ -55,7 +55,7 @@ impl FromStr for DestinationRef {
     }
 }
 
-impl fmt::Display for DestinationRef {
+impl fmt::Display for Destination {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.username {
             Some(u) => write!(f, "{}@{}", u, self.hostname),
@@ -66,25 +66,39 @@ impl fmt::Display for DestinationRef {
 
 #[derive(StructOpt, Debug)]
 pub(super) struct SshOpts {
-    destination: DestinationRef,
+    destination: Destination,
     #[structopt(long = "dry-run")]
     dry_run: bool,
 }
 
-pub(super) async fn ssh(opts: &SshOpts, config: &Config) -> anyhow::Result<ExitStatus> {
-    let args = route_to_ssh_hops(opts, config, PseudoTty::Allocate)
+#[derive(StructOpt, Debug)]
+pub(super) struct SshCommandOpts {
+    #[structopt(flatten)]
+    core: SshOpts,
+    #[structopt(short("c"), long("shell"), conflicts_with("args"))]
+    sub_shell: Option<String>,
+    args: Vec<String>,
+}
+
+pub(super) async fn ssh(opts: &SshCommandOpts, config: &Config) -> anyhow::Result<ExitStatus> {
+    let args = route_to_ssh_hops(&opts.core, config, PseudoTty::Allocate)
         .await
         .context("getting ssh hops")?;
     let (ssh, args) = args
         .split_first()
         .expect("There should be at least one string here 🤔");
 
-    debug!("running ssh with args {:?}", args);
-    if opts.dry_run {
+    let mut cmd = std::process::Command::new(ssh);
+    cmd.args(args);
+    match &opts.sub_shell {
+        Some(script) => cmd.args(["bash", "-c", script]),
+        None => cmd.args(&opts.args),
+    };
+    debug!("running ssh with args [{:?}]", cmd.get_args().format(", "));
+    if opts.core.dry_run {
         Ok(ExitStatus::from_raw(0))
     } else {
-        Ok(Command::new(ssh)
-            .args(args)
+        Ok(Command::from(cmd)
             .spawn()?
             .wait()
             .await
@@ -107,28 +121,27 @@ pub(super) async fn rsync(opts: &RsyncOpts, config: &Config) -> anyhow::Result<E
         .iter()
         .map(|s| s.as_str())
         .intersperse(" ")
-        .collect();
-    let mut args = vec![
-        format!(
-            "-{}{}",
-            opts.rsync_options,
-            if opts.ssh_opts.dry_run { "n" } else { "" }
-        ),
-        "-e".into(),
-        bridge,
-    ];
-    args.reserve(opts.paths.len());
+        .collect::<String>();
+    let mut cmd = std::process::Command::new("rsync");
+    cmd.arg(format!(
+        "-{}{}",
+        opts.rsync_options,
+        if opts.ssh_opts.dry_run { "n" } else { "" }
+    ));
+    cmd.args(["-e", &bridge]);
     let (files, dest) = opts.paths.split_at(opts.paths.len().saturating_sub(1));
     for f in files {
-        args.push(f.to_str().unwrap().to_string());
+        cmd.arg(f.to_str().unwrap());
     }
     if let [dest] = dest {
-        args.push(format!(":{}", dest.to_str().unwrap()))
+        cmd.arg(format!(":{}", dest.to_str().unwrap()));
     }
-    debug!("running rsync with args: {:?}", args);
+    debug!(
+        "running rsync with args: [{:?}]",
+        cmd.get_args().format(", ")
+    );
     info!("------- running rsync -------");
-    let r = Ok(Command::new("rsync")
-        .args(args)
+    let r = Ok(Command::from(cmd)
         .spawn()?
         .wait()
         .await
@@ -202,16 +215,16 @@ pub(crate) async fn copy_id(opts: &SshOpts, config: &Config) -> anyhow::Result<E
 
     let args = path_to_args(&path, &username, PseudoTty::None);
 
-    let mut cmd = Vec::<String>::new();
+    let mut cmd = Vec::new();
 
     let mut copy_id_cmd = String::from("ssh-copy-id");
     for partial_cmd in args {
         let program_index = cmd.len();
         partial_cmd.extend_args_with(|s| cmd.push(s), ["-o", "BatchMode=yes"]);
         cmd.push("true".into());
-        tracing::debug!("running {:?}", &cmd[program_index..]);
-        let has_key_setup = Command::new(&cmd[program_index])
-            .args(&cmd[(program_index + 1)..])
+        tracing::debug!("running {:?}", cmd);
+        let has_key_setup = Command::new(&cmd[0])
+            .args(&cmd[1..])
             .status()
             .await?
             .success();
@@ -219,10 +232,7 @@ pub(crate) async fn copy_id(opts: &SshOpts, config: &Config) -> anyhow::Result<E
 
         if !has_key_setup {
             let ssh = replace(&mut cmd[program_index], copy_id_cmd);
-            tracing::debug!(
-                "running {:?}",
-                &cmd[program_index..(cmd.len().saturating_sub(2))]
-            );
+            tracing::debug!("running {:?}", cmd);
             if !opts.dry_run {
                 let status = Command::new(&cmd[0])
                     .args(&cmd[1..(cmd.len().saturating_sub(2))])
@@ -399,8 +409,8 @@ fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph<'_
 }
 
 fn resolve_alias<'a>(
-    aliases: &'a HashMap<String, DestinationRef>,
-    dest: &'a DestinationRef,
+    aliases: &'a HashMap<String, Destination>,
+    dest: &'a Destination,
 ) -> (Option<&'a String>, &'a Hostname) {
     match aliases.get(dest.hostname.as_ref()) {
         Some(d) => {

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use dirs::config_dir;
 use once_cell::sync::Lazy;
 
-use crate::routing::DestinationRef;
+use crate::routing::Destination;
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 pub struct Config {
@@ -16,7 +16,7 @@ pub struct Config {
 #[derive(Debug, Clone, serde::Deserialize, Default, PartialEq, Eq)]
 pub struct Networking {
     pub ssh: Option<u16>,
-    pub aliases: HashMap<String, DestinationRef>,
+    pub aliases: HashMap<String, Destination>,
 }
 
 static CONFIG: Lazy<anyhow::Result<Config>> = Lazy::new(|| {
