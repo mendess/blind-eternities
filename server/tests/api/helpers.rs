@@ -1,5 +1,6 @@
 use std::{net::TcpListener, ops::Range};
 
+use actix_rt::task::spawn_blocking;
 use blind_eternities::{
     configuration::{get_configuration, DbSettings},
     startup,
@@ -69,14 +70,22 @@ impl TestAppBuilder {
     pub async fn spawn(&mut self) -> TestApp {
         Lazy::force(&TRACING);
 
+        tracing::debug!("creating socket");
         let listener = TcpListener::bind(("localhost", 0)).expect("Failed to bind random port");
         let port = listener.local_addr().unwrap().port();
+        let _spawn_span = tracing::debug_span!("spawning test app", port);
 
-        let mut conf = get_configuration().expect("Failed to read configuration");
+        tracing::debug!("loading configuration");
+        let mut conf =
+            spawn_blocking(|| get_configuration().expect("Failed to read configuration"))
+                .await
+                .unwrap();
         conf.db.name = Uuid::new_v4().to_string();
 
+        tracing::debug!("configuring database");
         let connection = configure_database(&conf.db).await;
 
+        tracing::debug!("starting server");
         let server = startup::run(listener, connection.clone(), self.allow_any_localhost_token)
             .expect("Failed to bind address");
         let _ = tokio::spawn(server);
@@ -87,7 +96,9 @@ impl TestAppBuilder {
             http: reqwest::Client::new(),
             token: uuid::Uuid::new_v4(),
         };
+        tracing::debug!("inserting auth token");
         app.insert_test_token().await;
+        tracing::debug!(?app, "app created");
         app
     }
 }

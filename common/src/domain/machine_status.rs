@@ -15,6 +15,8 @@ pub struct MachineStatus {
     #[serde(default)]
     pub ssh: Option<Port>,
     pub external_ip: IpAddr,
+    #[serde(default)]
+    pub default_user: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

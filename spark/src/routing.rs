@@ -13,11 +13,8 @@ use anyhow::Context;
 use arrayvec::ArrayVec;
 use chrono::Utc;
 use common::{
-    algorithms::net_graph::NetGraph,
-    domain::{
-        machine_status::{MachineStatusFull, Port},
-        Hostname,
-    },
+    algorithms::net_graph::{NetGraph, SimpleNode},
+    domain::{machine_status::MachineStatusFull, Hostname},
     net::AuthenticatedClient,
 };
 use itertools::Itertools;
@@ -254,7 +251,7 @@ async fn find_path(
     opts: &SshOpts,
     config: &Config,
     dest_hostname: &Hostname,
-) -> anyhow::Result<Vec<(IpAddr, u16)>> {
+) -> anyhow::Result<Vec<SimpleNode>> {
     let (statuses, hostname) = fetch_statuses(config).await?;
     // TODO: there might be stale statuses here
     if statuses.is_empty() {
@@ -380,23 +377,43 @@ impl IntoIterator for SshCommand<'_> {
 }
 
 fn path_to_args<'a>(
-    path: &'a [(IpAddr, Port)],
+    path: &'a [SimpleNode],
     username: &'a str,
     pseudo_tty: PseudoTty,
 ) -> impl Iterator<Item = SshCommand<'a>> {
     info!(
-        "user: {} => {}",
-        username,
-        iter::once(&(IpAddr::V4(Ipv4Addr::LOCALHOST), 22))
-            .chain(path.iter())
-            .format_with(" -> ", |(ip, port), f| f(&format_args!("{}:{}", ip, port)))
+        "{}",
+        iter::once((Some(username), IpAddr::V4(Ipv4Addr::LOCALHOST), 22))
+            .chain(
+                path.iter()
+                    .map(|node| (node.default_username.as_deref(), node.ip, node.port))
+            )
+            .format_with(" -> ", |(def_user, ip, port), f| f(&format_args!(
+                "{}@{}:{}",
+                def_user.unwrap_or(username),
+                ip,
+                port
+            )))
     );
-    path.iter().map(move |&(ip, port)| SshCommand {
-        ip,
-        port,
-        username,
-        tty: pseudo_tty,
-    })
+    path.iter().enumerate().map(
+        move |(
+            i,
+            SimpleNode {
+                default_username,
+                ip,
+                port,
+            },
+        )| SshCommand {
+            ip: *ip,
+            port: *port,
+            username: if i == path.len().saturating_sub(1) {
+                username
+            } else {
+                default_username.as_deref().unwrap_or(username)
+            },
+            tty: pseudo_tty,
+        },
+    )
 }
 
 fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph<'_> {
@@ -446,9 +463,13 @@ mod tests {
             "-t",
             "user@192.168.1.1",
         ];
-        let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 222))
-            .take(2)
-            .collect::<Vec<_>>();
+        let path = repeat(SimpleNode {
+            default_username: None,
+            ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+            port: 222,
+        })
+        .take(2)
+        .collect::<Vec<_>>();
         assert_eq!(
             path_to_args(&path, "user", PseudoTty::Allocate)
                 .flatten()
@@ -460,9 +481,13 @@ mod tests {
     #[test]
     fn no_hop() {
         let expect = ["ssh", "-p", "22", "-t", "user@192.168.1.1"];
-        let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
-            .take(1)
-            .collect::<Vec<_>>();
+        let path = repeat(SimpleNode {
+            default_username: None,
+            ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+            port: 22,
+        })
+        .take(1)
+        .collect::<Vec<_>>();
         assert_eq!(
             path_to_args(&path, "user", PseudoTty::Allocate)
                 .flatten()
@@ -490,9 +515,13 @@ mod tests {
             "-t",
             "user@192.168.1.1",
         ];
-        let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
-            .take(3)
-            .collect::<Vec<_>>();
+        let path = repeat(SimpleNode {
+            default_username: None,
+            ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+            port: 22,
+        })
+        .take(3)
+        .collect::<Vec<_>>();
         assert_eq!(
             path_to_args(&path, "user", PseudoTty::Allocate)
                 .flatten()
@@ -517,11 +546,47 @@ mod tests {
             "22",
             "user@192.168.1.1",
         ];
-        let path = repeat((IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 22))
-            .take(3)
-            .collect::<Vec<_>>();
+        let path = repeat(SimpleNode {
+            default_username: None,
+            ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+            port: 22,
+        })
+        .take(3)
+        .collect::<Vec<_>>();
         assert_eq!(
             path_to_args(&path, "user", PseudoTty::None)
+                .flatten()
+                .collect::<Vec<_>>(),
+            expect
+        );
+    }
+
+    #[test]
+    fn correct_usernames_are_picked() {
+        let expect = [
+            "ssh",
+            "-p",
+            "22",
+            "mendess@192.168.1.1",
+            "ssh",
+            "-p",
+            "22",
+            "pedromendes@192.168.1.1",
+        ];
+        let path = vec![
+            SimpleNode {
+                default_username: Some("mendess".into()),
+                ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                port: 22,
+            },
+            SimpleNode {
+                default_username: None,
+                ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                port: 22,
+            },
+        ];
+        assert_eq!(
+            path_to_args(&path, "pedromendes", PseudoTty::None)
                 .flatten()
                 .collect::<Vec<_>>(),
             expect

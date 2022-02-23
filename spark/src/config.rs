@@ -11,6 +11,8 @@ pub struct Config {
     pub backend_url: String,
     #[serde(default)]
     pub network: Networking,
+    #[serde(default)]
+    pub default_user: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, Default, PartialEq, Eq)]

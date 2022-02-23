@@ -146,5 +146,6 @@ pub(crate) async fn get_current_status(config: &Config) -> anyhow::Result<Machin
         ssh: config.network.ssh,
         ip_connections,
         external_ip,
+        default_user: config.default_user.clone(),
     })
 }

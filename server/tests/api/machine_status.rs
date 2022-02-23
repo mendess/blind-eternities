@@ -1,4 +1,4 @@
-use crate::helpers::{TestApp, fake_hostname};
+use crate::helpers::{fake_hostname, TestApp};
 use chrono::{NaiveDateTime, Utc};
 use fake::{
     faker::internet::en::{MACAddress, IP},
@@ -18,6 +18,7 @@ fn well_formed_json() -> serde_json::Value {
         }],
         "external_ip": IP().fake::<std::net::IpAddr>(),
         "ssh": null,
+        "default_user": null,
     })
 }
 

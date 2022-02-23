@@ -92,7 +92,8 @@ pub async fn get(conn: web::Data<PgPool>) -> Result<HttpResponse, MachineStatusE
             local_ip as "local_ip?",
             gateway_ip as "gateway_ip?",
             ssh_port,
-            gateway_mac
+            gateway_mac,
+            default_user
          FROM machine_status ms
          LEFT JOIN ip_connection ip ON ms.hostname = ip.hostname"#
     )
@@ -120,6 +121,7 @@ pub async fn get(conn: web::Data<PgPool>) -> Result<HttpResponse, MachineStatusE
                                 ssh,
                                 external_ip,
                                 ip_connections: vec![],
+                                default_user: record.default_user,
                             },
                             last_heartbeat: record.last_heartbeat,
                         })

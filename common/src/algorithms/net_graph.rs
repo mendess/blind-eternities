@@ -65,6 +65,13 @@ impl<'hostname> Node<'hostname> {
             _ => panic!("Unwrapped as internet but self is {:?}", self),
         }
     }
+
+    fn unwrap_as_machine(&self) -> &MachineStatusFull {
+        match self {
+            Self::Machine(r) => r,
+            _ => panic!("Unwrapped as internet but self is {:?}", self),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -117,6 +124,13 @@ impl<'hostname> FromIterator<&'hostname MachineStatusFull> for NetGraph<'hostnam
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SimpleNode {
+    pub default_username: Option<String>,
+    pub ip: IpAddr,
+    pub port: Port,
+}
+
 impl<'hostname> NetGraph<'hostname> {
     pub fn find_path(&self, from: &Hostname, to: &Hostname) -> Option<Vec<NodeIndex<u32>>> {
         let graph = &self.graph;
@@ -132,7 +146,7 @@ impl<'hostname> NetGraph<'hostname> {
         Some(nodes)
     }
 
-    pub fn path_to_ips(&self, nodes: &[NodeIndex<u32>]) -> Option<Vec<(IpAddr, Port)>> {
+    pub fn path_to_ips(&self, nodes: &[NodeIndex<u32>]) -> Option<Vec<SimpleNode>> {
         let mut i = nodes.iter();
         let mut v = vec![];
         while let Some(ni) = i.next() {
@@ -144,15 +158,23 @@ impl<'hostname> NetGraph<'hostname> {
                         .find(|ip| ip.local_ip.is_ipv4())
                         .or_else(|| n.ip_connections.first())?
                         .local_ip;
-                    v.push((ip, 22))
+                    v.push(SimpleNode {
+                        default_username: n.default_user.clone(),
+                        ip,
+                        port: 22,
+                    })
                 }
                 Node::Internet(routing) => {
                     // the next one will have the ip determined by the routing table
                     let ni = i.next().expect("a path can't end on the internet");
-                    let ip = routing
+                    let (ip, port) = routing
                         .get(ni)
-                        .expect("the internet must now all paths it leads to");
-                    v.push(ip);
+                        .expect("the internet must know all paths it leads to");
+                    v.push(SimpleNode {
+                        default_username: self.graph[*ni].unwrap_as_machine().default_user.clone(),
+                        ip,
+                        port,
+                    });
                 }
             }
         }
@@ -284,6 +306,7 @@ mod test {
                 }],
                 external_ip: IP().fake(),
                 ssh: None,
+                default_user: None,
             },
             last_heartbeat: Utc::now().naive_utc(),
         }
@@ -321,8 +344,16 @@ mod test {
         assert_eq!(
             path,
             Some(vec![
-                (v[0].ip_connections[0].local_ip, 22),
-                (v[1].ip_connections[0].local_ip, 22)
+                SimpleNode {
+                    default_username: None,
+                    ip: v[0].ip_connections[0].local_ip,
+                    port: 22
+                },
+                SimpleNode {
+                    default_username: None,
+                    ip: v[1].ip_connections[0].local_ip,
+                    port: 22
+                }
             ])
         )
     }
@@ -338,8 +369,16 @@ mod test {
         assert_eq!(
             path,
             Some(vec![
-                (v[0].ip_connections[0].local_ip, 22),
-                (v[1].external_ip, 222)
+                SimpleNode {
+                    default_username: None,
+                    ip: v[0].ip_connections[0].local_ip,
+                    port: 22,
+                },
+                SimpleNode {
+                    default_username: None,
+                    ip: v[1].external_ip,
+                    port: 222,
+                }
             ])
         )
     }
@@ -362,9 +401,21 @@ mod test {
         assert_eq!(
             path,
             Some(vec![
-                (v[0].ip_connections[0].local_ip, 22),
-                (v[1].external_ip, 222),
-                (v[2].ip_connections[0].local_ip, 22)
+                SimpleNode {
+                    default_username: None,
+                    ip: v[0].ip_connections[0].local_ip,
+                    port: 22,
+                },
+                SimpleNode {
+                    default_username: None,
+                    ip: v[1].external_ip,
+                    port: 222,
+                },
+                SimpleNode {
+                    default_username: None,
+                    ip: v[2].ip_connections[0].local_ip,
+                    port: 22,
+                }
             ])
         )
     }
