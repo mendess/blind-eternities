@@ -29,12 +29,13 @@ tempfile = "3"
 open = "2"
 chrono = "0.4.19"
 arrayvec = "0.7.2"
+namespaced-tmp = { git = "https://github.com/mendess/namespaced-tmp", features = ["async", "user"] }
 
 
 [dependencies.tokio]
 version = "1"
 default-features = false
-features = ["macros", "rt", "time", "process", "fs"]
+features = ["macros", "rt", "time", "process", "fs", "net"]
 
 [dependencies.reqwest]
 version = "0.11"

@@ -6,6 +6,7 @@ mod util;
 use std::{os::unix::prelude::ExitStatusExt, process::ExitStatus};
 
 use common::telemetry::{get_subscriber_no_bunny, init_subscriber};
+use daemon::ipc::Command;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -20,6 +21,8 @@ struct Args {
 enum Cmd {
     /// run as a daemon
     Daemon,
+    /// msg
+    Msg(Command),
     #[structopt(flatten)]
     Route(SshTool),
 }
@@ -51,6 +54,9 @@ async fn app(args: &Args) -> anyhow::Result<ExitStatus> {
                 .map(|_| ExitStatus::from_raw(0)),
             SshTool::CopyId(opts) => routing::copy_id(opts, config).await,
         },
+        Cmd::Msg(msg) => daemon::ipc::send(msg)
+            .await
+            .map(|_| ExitStatus::from_raw(0)),
     }
 }
 

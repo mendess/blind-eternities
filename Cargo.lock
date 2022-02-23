@@ -1307,6 +1307,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "namespaced-tmp"
+version = "1.0.0"
+source = "git+https://github.com/mendess/namespaced-tmp#4c9e51debf3c149684d0dbdbd24b6523e1571a15"
+dependencies = [
+ "tokio",
+ "whoami",
+]
+
+[[package]]
 name = "nom"
 version = "5.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2088,6 +2097,7 @@ dependencies = [
  "futures",
  "hostname",
  "itertools",
+ "namespaced-tmp",
  "once_cell",
  "open",
  "pnet",
