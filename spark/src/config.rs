@@ -32,6 +32,8 @@ pub fn load_configuration() -> anyhow::Result<Config> {
         })
         .ok_or_else(|| anyhow::anyhow!("Failed to find configuration file"))?;
 
+    tracing::debug!(?config_path);
+
     settings
         .merge(config::Environment::new().prefix("SPARK").separator("_"))?
         .merge(config::File::with_name(&config_path.display().to_string()).required(false))?;

@@ -1,8 +1,11 @@
 use std::net::TcpListener;
 
-use blind_eternities::{configuration::{Settings, get_configuration}, startup::run};
+use blind_eternities::{
+    configuration::{get_configuration, Settings},
+    startup::run,
+};
 use common::telemetry::{get_subscriber, init_subscriber};
-use sqlx::{PgPool, PgConnection, Connection, Executor};
+use sqlx::{Connection, Executor, PgConnection, PgPool};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -37,18 +40,21 @@ async fn migrate(config: &Settings) -> PgPool {
         .expect("Failed to connect to Postgres");
     let exists = connection
         .fetch_one(
-            format!("SELECT 1 FROM pg_catalog.pg_database WHERE datname = '{}'", config.db.name)
-                .as_str()
+            format!(
+                "SELECT 1 FROM pg_catalog.pg_database WHERE datname = '{}'",
+                config.db.name
+            )
+            .as_str(),
         )
         .await;
     match exists {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(sqlx::Error::RowNotFound) => {
             connection
                 .execute(format!(r#"CREATE DATABASE "{}";"#, config.db.name).as_str())
                 .await
                 .expect("Failed to create database.");
-        },
+        }
         Err(e) => {
             Result::<(), _>::Err(e).expect("failed to inspect db");
         }

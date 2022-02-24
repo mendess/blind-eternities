@@ -23,8 +23,10 @@ async fn socket_path() -> io::Result<PathBuf> {
 }
 
 pub async fn start(_config: Arc<Config>) -> io::Result<impl Future<Output = ()>> {
+    tracing::debug!("loading socket path");
     let path = socket_path().await?;
-    tokio::fs::remove_file(&path).await?;
+    tracing::debug!(?path);
+    let _ = tokio::fs::remove_file(&path).await;
     tracing::info!("binding ipc socket: {:?}", path);
     let socket = UnixListener::bind(path)?;
     Ok(async move {

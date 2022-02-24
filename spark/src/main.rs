@@ -40,6 +40,8 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
     tracing::debug!("loading configuration");
     let config = config::load_configuration().context("loading configuration")?;
 
+    tracing::debug!(?args.cmd);
+
     match &args.cmd {
         Cmd::Daemon => daemon::run_all(config)
             .await

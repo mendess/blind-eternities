@@ -1,5 +1,5 @@
 use blind_eternities::configuration::get_configuration;
-use sqlx::{Row, PgPool};
+use sqlx::{PgPool, Row};
 use std::env;
 use uuid::Uuid;
 

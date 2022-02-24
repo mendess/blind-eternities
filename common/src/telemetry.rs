@@ -30,7 +30,7 @@ pub fn get_subscriber_no_bunny(env_filter: String) -> impl Subscriber + Sync + S
     let env_filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter));
 
-    let fmt = fmt::layer().event_format(fmt::format());
+    let fmt = fmt::layer().event_format(fmt::format()).pretty();
 
     Registry::default().with(env_filter).with(fmt)
 }
