@@ -17,7 +17,9 @@ pub struct Config {
 
 #[derive(Debug, Clone, serde::Deserialize, Default, PartialEq, Eq)]
 pub struct Networking {
+    #[serde(default)]
     pub ssh: Option<u16>,
+    #[serde(default)]
     pub aliases: HashMap<String, Destination>,
 }
 
