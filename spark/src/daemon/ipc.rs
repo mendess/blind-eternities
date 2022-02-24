@@ -1,7 +1,7 @@
 use crate::config::Config;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use std::{future::Future, io, os::unix::prelude::CommandExt, path::PathBuf};
+use std::{future::Future, io, os::unix::prelude::CommandExt, path::PathBuf, sync::Arc};
 use structopt::StructOpt;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -22,7 +22,7 @@ async fn socket_path() -> io::Result<PathBuf> {
     }
 }
 
-pub async fn start(_config: &'static Config) -> io::Result<impl Future<Output = ()>> {
+pub async fn start(_config: Arc<Config>) -> io::Result<impl Future<Output = ()>> {
     let path = socket_path().await?;
     tokio::fs::remove_file(&path).await?;
     tracing::info!("binding ipc socket: {:?}", path);
@@ -49,7 +49,10 @@ pub async fn send(cmd: &Command) -> anyhow::Result<()> {
     let mut msg =
         serde_json::to_string(cmd).with_context(|| format!("serializing cmd: {:?}", cmd))?;
     msg.push('\n');
-    socket.write_all(msg.as_bytes()).await.context("writing command")?;
+    socket
+        .write_all(msg.as_bytes())
+        .await
+        .context("writing command")?;
     Ok(())
 }
 

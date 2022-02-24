@@ -1,16 +1,16 @@
 use crate::{config::Config, util::get_current_status};
 use common::net::{auth_client::UrlParseError, AuthenticatedClient};
 use reqwest::StatusCode;
-use std::{future::Future, time::Duration};
+use std::{future::Future, sync::Arc, time::Duration};
 use tokio::time::sleep;
 use tracing::{debug, error, info_span};
 
-pub fn start(config: &Config) -> Result<impl Future<Output = ()> + '_, UrlParseError> {
+pub fn start(config: Arc<Config>) -> Result<impl Future<Output = ()>, UrlParseError> {
     let client = AuthenticatedClient::new(config.token.clone(), &config.backend_url)?;
     Ok(async move {
         loop {
             let _span = info_span!("post machine status");
-            match get_current_status(config).await {
+            match get_current_status(&*config).await {
                 Ok(status) => {
                     debug!("posting machine status: {:#?}", status);
                     let result = client

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
 use dirs::config_dir;
-use once_cell::sync::Lazy;
 
 use crate::routing::Destination;
 
@@ -21,7 +21,7 @@ pub struct Networking {
     pub aliases: HashMap<String, Destination>,
 }
 
-static CONFIG: Lazy<anyhow::Result<Config>> = Lazy::new(|| {
+pub fn load_configuration() -> anyhow::Result<Config> {
     let mut settings = config::Config::default();
 
     let config_path = config_dir()
@@ -32,13 +32,13 @@ static CONFIG: Lazy<anyhow::Result<Config>> = Lazy::new(|| {
         })
         .ok_or_else(|| anyhow::anyhow!("Failed to find configuration file"))?;
 
-    settings.merge(config::File::with_name(&config_path.display().to_string()))?;
+    settings
+        .merge(config::Environment::new().prefix("SPARK").separator("_"))?
+        .merge(config::File::with_name(&config_path.display().to_string()).required(false))?;
 
-    Ok(settings.try_into()?)
-});
-
-pub fn load_configuration() -> Result<&'static Config, &'static anyhow::Error> {
-    CONFIG.as_ref()
+    settings
+        .try_into()
+        .context("deserializing and creating settings")
 }
 
 #[cfg(test)]
