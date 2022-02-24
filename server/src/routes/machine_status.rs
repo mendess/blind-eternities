@@ -40,15 +40,16 @@ pub async fn post(
         .context("Failed to create transaction")?;
 
     sqlx::query!(
-        r#"INSERT INTO machine_status (hostname, external_ip, last_heartbeat, ssh_port)
-        VALUES ($1, $2, $3, $4)
+        r#"INSERT INTO machine_status (hostname, external_ip, last_heartbeat, ssh_port, default_user)
+        VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (hostname) DO UPDATE
-        SET external_ip = $2, last_heartbeat = $3, ssh_port = $4
+        SET external_ip = $2, last_heartbeat = $3, ssh_port = $4, default_user = $5
         "#,
         status.hostname.as_ref(),
         status.external_ip.to_string(),
         Utc::now().naive_utc(),
         status.ssh.map(i32::from),
+        status.default_user,
     )
     .execute(&mut transaction)
     .await

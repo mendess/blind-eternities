@@ -45,26 +45,29 @@ pub async fn start(_config: Arc<Config>) -> io::Result<impl Future<Output = ()>>
 
 pub async fn send(cmd: &Command) -> anyhow::Result<()> {
     let path = socket_path().await.context("getting socket path")?;
-    let mut socket = UnixStream::connect(path)
+    let socket = UnixStream::connect(path)
         .await
         .context("connecting to socket")?;
+    let (r, mut w) = socket.into_split();
     let mut msg =
         serde_json::to_string(cmd).with_context(|| format!("serializing cmd: {:?}", cmd))?;
     msg.push('\n');
-    socket
-        .write_all(msg.as_bytes())
+    w.write_all(msg.as_bytes())
         .await
         .context("writing command")?;
+    let mut s = String::new();
+    BufReader::new(r).read_line(&mut s).await?;
+    println!("{}", s);
     Ok(())
 }
 
-async fn handle_client(client: tokio::net::UnixStream) {
-    let (r, _w) = client.into_split();
+async fn handle_client(client: tokio::net::UnixStream) -> io::Result<()> {
+    let (r, mut w) = client.into_split();
     let mut reader = BufReader::new(r);
     let mut s = String::new();
     loop {
         match reader.read_line(&mut s).await {
-            Ok(0) => break,
+            Ok(0) => break Ok(()),
             Err(e) => {
                 tracing::error!("error reading line from client: {:?}", e)
             }
@@ -74,7 +77,9 @@ async fn handle_client(client: tokio::net::UnixStream) {
         let cmd = match serde_json::from_str::<Command>(&s) {
             Ok(cmd) => cmd,
             Err(e) => {
-                todo!("{:?}", e)
+                w.write_all(e.to_string().as_bytes()).await?;
+                w.write_all(b"\n").await?;
+                continue;
             }
         };
 
@@ -83,12 +88,16 @@ async fn handle_client(client: tokio::net::UnixStream) {
                 let exe = match std::env::current_exe() {
                     Ok(exe) => exe,
                     Err(e) => {
-                        todo!("{:?}", e)
+                        w.write_all(e.to_string().as_bytes()).await?;
+                        w.write_all(b"\n").await?;
+                        continue;
                     }
                 };
                 tracing::info!("realoading spark daemon");
+                w.write_all(b"about to exec, should be fine :)\n").await?;
                 let e = std::process::Command::new(exe).arg("daemon").exec();
-                todo!("{:?}", e)
+                w.write_all(e.to_string().as_bytes()).await?;
+                w.write_all(b"\n").await?;
             }
         }
     }

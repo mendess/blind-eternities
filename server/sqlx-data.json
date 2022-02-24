@@ -60,6 +60,22 @@
       ]
     }
   },
+  "1fb5fb176363c017c966f2355ac80cbb6b99849cbf4a899c2a909299caf234ff": {
+    "query": "INSERT INTO machine_status (hostname, external_ip, last_heartbeat, ssh_port, default_user)\n        VALUES ($1, $2, $3, $4, $5)\n        ON CONFLICT (hostname) DO UPDATE\n        SET external_ip = $2, last_heartbeat = $3, ssh_port = $4, default_user = $5\n        ",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Timestamp",
+          "Int4",
+          "Varchar"
+        ]
+      },
+      "nullable": []
+    }
+  },
   "3017c33d06259e6c3c04718fc21e0062389b2b1dd1adfcdcbdc3f77770521005": {
     "query": "INSERT INTO ip_connection (hostname, local_ip, gateway_ip, gateway_mac)\n            VALUES ($1, $2, $3, $4)",
     "describe": {
@@ -102,21 +118,6 @@
       "parameters": {
         "Left": [
           "Text"
-        ]
-      },
-      "nullable": []
-    }
-  },
-  "4fac0c86931f508aadd6675c5b9b462cb8b90294a71f9d7f2da1804078e85014": {
-    "query": "INSERT INTO machine_status (hostname, external_ip, last_heartbeat, ssh_port)\n        VALUES ($1, $2, $3, $4)\n        ON CONFLICT (hostname) DO UPDATE\n        SET external_ip = $2, last_heartbeat = $3, ssh_port = $4\n        ",
-    "describe": {
-      "columns": [],
-      "parameters": {
-        "Left": [
-          "Varchar",
-          "Varchar",
-          "Timestamp",
-          "Int4"
         ]
       },
       "nullable": []

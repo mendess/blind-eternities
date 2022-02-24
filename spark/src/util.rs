@@ -57,6 +57,7 @@ async fn get_external_ip() -> anyhow::Result<IpAddr> {
 }
 
 async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
+    let (gateway_ip, gateway_mac) = gateway_ip_and_mac().await.context("getting ip and mac")?;
     stream::iter(
         tokio::task::spawn_blocking(|| {
             datalink::interfaces()
@@ -70,7 +71,6 @@ async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
         .await?,
     )
     .then(|network| async move {
-        let (gateway_ip, gateway_mac) = gateway_ip_and_mac().await.context("getting ip and mac")?;
         Ok(IpConnection {
             local_ip: network.ip(),
             gateway_ip,
