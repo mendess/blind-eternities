@@ -14,7 +14,7 @@ pub enum Command {
 }
 
 async fn socket_path() -> io::Result<PathBuf> {
-    let (path, e) = namespaced_tmp::async_impl::in_user_tmp("spark-socket").await;
+    let (path, e) = namespaced_tmp::async_impl::in_tmp("spark", "socket").await;
     if let Some(e) = e {
         Err(e)
     } else {
