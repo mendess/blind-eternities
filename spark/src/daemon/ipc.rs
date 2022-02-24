@@ -1,9 +1,17 @@
 use crate::config::Config;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use std::{future::Future, io, os::unix::prelude::CommandExt, path::PathBuf, sync::Arc};
+use std::{
+    fs::Permissions,
+    future::Future,
+    io,
+    os::unix::prelude::{CommandExt, PermissionsExt},
+    path::PathBuf,
+    sync::Arc,
+};
 use structopt::StructOpt;
 use tokio::{
+    fs,
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{UnixListener, UnixStream},
 };
@@ -26,9 +34,10 @@ pub async fn start(_config: Arc<Config>) -> io::Result<impl Future<Output = ()>>
     tracing::debug!("loading socket path");
     let path = socket_path().await?;
     tracing::debug!(?path);
-    let _ = tokio::fs::remove_file(&path).await;
+    let _ = fs::remove_file(&path).await;
     tracing::info!("binding ipc socket: {:?}", path);
-    let socket = UnixListener::bind(path)?;
+    let socket = UnixListener::bind(&path)?;
+    fs::set_permissions(path, Permissions::from_mode(0o777)).await?;
     Ok(async move {
         loop {
             let (client, _) = match socket.accept().await {
