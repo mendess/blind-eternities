@@ -1,22 +1,7 @@
 {
   "db": "PostgreSQL",
-  "3017c33d06259e6c3c04718fc21e0062389b2b1dd1adfcdcbdc3f77770521005": {
-    "query": "INSERT INTO ip_connection (hostname, local_ip, gateway_ip, gateway_mac)\n            VALUES ($1, $2, $3, $4)",
-    "describe": {
-      "columns": [],
-      "parameters": {
-        "Left": [
-          "Varchar",
-          "Varchar",
-          "Varchar",
-          "Varchar"
-        ]
-      },
-      "nullable": []
-    }
-  },
-  "33015d694e9f4ec982485668f0c61e1fcf1215d2ac128c445aa261c240a99a04": {
-    "query": "SELECT\n            ms.hostname as \"hostname!\",\n            external_ip as \"external_ip!\",\n            last_heartbeat as \"last_heartbeat!\",\n            local_ip as \"local_ip?\",\n            gateway_ip as \"gateway_ip?\",\n            ssh_port,\n            gateway_mac\n         FROM machine_status ms\n         LEFT JOIN ip_connection ip ON ms.hostname = ip.hostname",
+  "1c18f3a5ad21b8041449b348daa17a2a7d07b3f4ce4da85eced72bf93c6c905d": {
+    "query": "SELECT\n            ms.hostname as \"hostname!\",\n            external_ip as \"external_ip!\",\n            last_heartbeat as \"last_heartbeat!\",\n            local_ip as \"local_ip?\",\n            gateway_ip as \"gateway_ip?\",\n            ssh_port,\n            gateway_mac,\n            default_user\n         FROM machine_status ms\n         LEFT JOIN ip_connection ip ON ms.hostname = ip.hostname",
     "describe": {
       "columns": [
         {
@@ -53,6 +38,11 @@
           "ordinal": 6,
           "name": "gateway_mac",
           "type_info": "Varchar"
+        },
+        {
+          "ordinal": 7,
+          "name": "default_user",
+          "type_info": "Varchar"
         }
       ],
       "parameters": {
@@ -65,8 +55,24 @@
         true,
         true,
         true,
+        true,
         true
       ]
+    }
+  },
+  "3017c33d06259e6c3c04718fc21e0062389b2b1dd1adfcdcbdc3f77770521005": {
+    "query": "INSERT INTO ip_connection (hostname, local_ip, gateway_ip, gateway_mac)\n            VALUES ($1, $2, $3, $4)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar"
+        ]
+      },
+      "nullable": []
     }
   },
   "3c560270149415b25fb7575dbc31fe26148e079fe14fefea1f98b5418c51bdee": {
