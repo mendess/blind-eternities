@@ -57,7 +57,7 @@ pub async fn send(cmd: &Command) -> anyhow::Result<()> {
         .context("writing command")?;
     let mut s = String::new();
     BufReader::new(r).read_line(&mut s).await?;
-    println!("{}", s);
+    println!("daemon: {}", s.trim());
     Ok(())
 }
 
