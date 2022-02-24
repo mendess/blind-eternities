@@ -223,10 +223,12 @@ impl<'hostname> NetGraph<'hostname> {
                 let hb = n.last_heartbeat.timestamp_millis();
                 let color = if hb < yesterday {
                     tracing::info!("node: {} @ {:?} :: {}", n.hostname, n.last_heartbeat, 1);
+                    tracing::debug!("node: {:#?} :: {}", n, 1);
                     String::from(" style=filled fillcolor=1")
                 } else {
                     let color = 1 + ((7 * (hb - yesterday)) / (today - yesterday));
                     tracing::info!("node: {} @ {:?} :: {}", n.hostname, n.last_heartbeat, color);
+                    tracing::debug!("node: {:#?} :: {}", n, color);
                     format!(" style=filled fillcolor={}", color)
                 };
                 out.write_all(
