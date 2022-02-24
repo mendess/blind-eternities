@@ -279,6 +279,8 @@ async fn find_path(
         }
     };
 
+    debug!(?path, "found a path");
+
     Ok(path)
 }
 
