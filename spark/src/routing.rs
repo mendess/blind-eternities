@@ -153,10 +153,19 @@ pub struct ShowRouteOpts {
     filename: Option<PathBuf>,
     #[structopt(short, long)]
     destination: Option<Hostname>,
+    #[structopt(short, long)]
+    list: bool,
 }
 
 pub(super) async fn show_route(opts: &ShowRouteOpts, config: &Config) -> anyhow::Result<()> {
     let (statuses, hostname) = fetch_statuses(config).await?;
+
+    if opts.list {
+        for s in statuses.keys() {
+            println!("{}", s);
+        }
+        return Ok(())
+    }
 
     let graph = build_net_graph(&statuses);
 

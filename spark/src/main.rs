@@ -25,7 +25,15 @@ enum Cmd {
     /// msg
     Msg(Command),
     #[structopt(flatten)]
+    SshInline(SshToolInline),
+    /// ssh tooling
     Route(SshTool),
+}
+
+#[derive(StructOpt, Debug)]
+enum SshToolInline {
+    Ssh(routing::SshCommandOpts),
+    Rsync(routing::RsyncOpts),
 }
 
 #[derive(StructOpt, Debug)]
@@ -46,14 +54,16 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
         Cmd::Daemon => daemon::run_all(config)
             .await
             .map(|_| ExitStatus::from_raw(1)),
-        Cmd::Route(tool) => match tool {
-            SshTool::Ssh(opts) => routing::ssh(opts, &config).await,
-            SshTool::Rsync(opts) => routing::rsync(opts, &config).await,
-            SshTool::Show(opts) => routing::show_route(opts, &config)
-                .await
-                .map(|_| ExitStatus::from_raw(0)),
-            SshTool::CopyId(opts) => routing::copy_id(opts, &config).await,
-        },
+        Cmd::Route(SshTool::Ssh(opts)) | Cmd::SshInline(SshToolInline::Ssh(opts)) => {
+            routing::ssh(opts, &config).await
+        }
+        Cmd::Route(SshTool::Rsync(opts)) | Cmd::SshInline(SshToolInline::Rsync(opts)) => {
+            routing::rsync(opts, &config).await
+        }
+        Cmd::Route(SshTool::Show(opts)) => routing::show_route(opts, &config)
+            .await
+            .map(|_| ExitStatus::from_raw(0)),
+        Cmd::Route(SshTool::CopyId(opts)) => routing::copy_id(opts, &config).await,
         Cmd::Msg(msg) => daemon::ipc::send(msg)
             .await
             .map(|_| ExitStatus::from_raw(0)),
