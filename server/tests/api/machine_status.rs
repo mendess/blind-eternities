@@ -22,6 +22,18 @@ fn well_formed_json() -> serde_json::Value {
     })
 }
 
+impl TestApp {
+    pub async fn post_machine_status(&self, body: impl ToString) -> reqwest::Response {
+        self.post("machine/status")
+            .header("Content-Type", "application/json")
+            .bearer_auth(self.token)
+            .body(body.to_string())
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+}
+
 #[actix_rt::test]
 async fn machine_status() {
     let app = TestApp::spawn().await;

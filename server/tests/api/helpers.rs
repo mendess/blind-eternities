@@ -125,21 +125,10 @@ impl TestApp {
         .expect("Failed to insert token");
     }
 
-    pub async fn post_machine_status(&self, body: impl ToString) -> reqwest::Response {
-        self.post("machine/status")
-            .header("Content-Type", "application/json")
-            .bearer_auth(self.token)
-            .body(body.to_string())
-            .send()
-            .await
-            .expect("Failed to execute request")
-    }
-
     pub fn get(&self, path: &str) -> reqwest::RequestBuilder {
         self.http.get(&format!("{}/{}", self.address, path))
     }
 
-    #[allow(dead_code)]
     pub fn get_authed(&self, path: &str) -> reqwest::RequestBuilder {
         self.get(path).bearer_auth(self.token)
     }
@@ -151,6 +140,18 @@ impl TestApp {
     #[allow(dead_code)]
     pub fn post_authed(&self, path: &str) -> reqwest::RequestBuilder {
         self.post(path).bearer_auth(self.token)
+    }
+
+    pub fn patch_authed(&self, path: &str) -> reqwest::RequestBuilder {
+        self.http
+            .patch(&format!("{}/{}", self.address, path))
+            .bearer_auth(self.token)
+    }
+
+    pub fn delete_authed(&self, path: &str) -> reqwest::RequestBuilder {
+        self.http
+            .delete(&format!("{}/{}", self.address, path))
+            .bearer_auth(self.token)
     }
 }
 

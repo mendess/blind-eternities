@@ -28,6 +28,19 @@ pub fn run(
                         .route(web::post().to(machine_status::post)),
                 ),
             )
+            .service(
+                web::scope("/music").service(
+                    web::scope("/players")
+                        .service(
+                            web::resource("")
+                                .route(web::get().to(music_players::index))
+                                .route(web::patch().to(music_players::reprioritize))
+                                .route(web::post().to(music_players::new_player))
+                                .route(web::delete().to(music_players::delete)),
+                        )
+                        .route("/current", web::get().to(music_players::current)),
+                ),
+            )
             .app_data(conn.clone())
     })
     .listen(listener)?
