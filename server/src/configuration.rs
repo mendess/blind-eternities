@@ -1,3 +1,5 @@
+use config::{Config, Environment, File};
+
 #[derive(Debug, serde::Deserialize)]
 pub struct Settings {
     pub port: u16,
@@ -36,10 +38,9 @@ impl DbSettings {
 pub const PREFIX: &str = "BLIND_ETER";
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-    let mut settings = config::Config::default();
-
-    settings.merge(config::File::with_name("configuration").required(false))?;
-    settings.merge(config::Environment::with_prefix(PREFIX).separator("_"))?;
-
-    settings.try_into()
+    Config::builder()
+        .add_source(File::with_name("configuration").required(false))
+        .add_source(Environment::with_prefix(PREFIX).separator("_"))
+        .build()
+        .and_then(Config::try_deserialize)
 }

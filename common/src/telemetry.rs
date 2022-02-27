@@ -7,10 +7,10 @@ use tracing_subscriber::{
     EnvFilter, Registry,
 };
 
-pub fn get_subscriber(
+pub fn get_subscriber<W: for<'a> MakeWriter<'a> + Send + Sync + 'static>(
     name: String,
     env_filter: String,
-    sink: impl MakeWriter + Send + Sync + 'static,
+    sink: W,
 ) -> impl Subscriber + Sync + Send {
     LogTracer::init().expect("Failed to set logger");
 

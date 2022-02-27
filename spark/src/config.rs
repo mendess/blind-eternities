@@ -24,24 +24,20 @@ pub struct Networking {
 }
 
 pub fn load_configuration() -> anyhow::Result<Config> {
-    let mut settings = config::Config::default();
-
     let config_path = config_dir()
         .map(|mut d| {
-            d.push("spark");
-            d.push("config");
+            d.extend(["spark", "config"]);
             d
         })
         .ok_or_else(|| anyhow::anyhow!("Failed to find configuration file"))?;
 
     tracing::debug!(?config_path);
 
-    settings
-        .merge(config::Environment::new().prefix("SPARK").separator("_"))?
-        .merge(config::File::with_name(&config_path.display().to_string()).required(false))?;
-
-    settings
-        .try_into()
+    config::Config::builder()
+        .add_source(config::Environment::with_prefix("SPARK").separator("_"))
+        .add_source(config::File::with_name(&config_path.display().to_string()).required(false))
+        .build()
+        .and_then(config::Config::try_deserialize)
         .context("deserializing and creating settings")
 }
 
