@@ -2301,6 +2301,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "spark-protocol"
+version = "0.1.0"
+dependencies = [
+ "namespaced-tmp",
+ "serde",
+ "serde_json",
+ "structopt",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

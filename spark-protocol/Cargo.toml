@@ -1,0 +1,29 @@
+[package]
+name = "spark-protocol"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1.31"
+structopt = "0.3"
+
+[dependencies.namespaced-tmp]
+git = "https://github.com/mendess/namespaced-tmp"
+features = ["async", "user"]
+
+[dependencies.tokio]
+version = "1.17.0"
+features = ["net", "io-util", "fs", "rt"]
+
+[dev-dependencies]
+tempfile = "3.3.0"
+
+[dev-dependencies.tokio]
+version = "1.17.0"
+features = ["rt", "macros", "time"]
+
+[features]

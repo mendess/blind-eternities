@@ -4,4 +4,5 @@ members = [
     "server",
     "common",
     "spark",
+    "spark-protocol",
 ]
