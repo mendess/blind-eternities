@@ -32,6 +32,7 @@ enum PseudoTty {
 
 #[derive(Debug, Clone, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Destination {
+    #[serde(default)]
     username: Option<String>,
     hostname: Hostname,
 }
@@ -164,7 +165,7 @@ pub(super) async fn show_route(opts: &ShowRouteOpts, config: &Config) -> anyhow:
         for s in statuses.keys() {
             println!("{}", s);
         }
-        return Ok(())
+        return Ok(());
     }
 
     let graph = build_net_graph(&statuses);
@@ -217,7 +218,7 @@ pub(crate) async fn copy_id(opts: &SshOpts, config: &Config) -> anyhow::Result<E
 
     let path = find_path(opts, config, hostname).await?;
 
-    let username = username.cloned().unwrap_or_else(whoami::username);
+    let username = username.map(String::from).unwrap_or_else(whoami::username);
 
     let args = path_to_args(&path, &username, PseudoTty::None);
 
@@ -439,16 +440,16 @@ fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph<'_
 fn resolve_alias<'a>(
     aliases: &'a HashMap<String, Destination>,
     dest: &'a Destination,
-) -> (Option<&'a String>, &'a Hostname) {
+) -> (Option<&'a str>, &'a Hostname) {
     match aliases.get(dest.hostname.as_ref()) {
         Some(d) => {
             tracing::debug!("resolving alias {} as {}", dest.hostname, d);
             (
-                dest.username.as_ref().or_else(|| d.username.as_ref()),
+                dest.username.as_deref().or(d.username.as_deref()),
                 &d.hostname,
             )
         }
-        None => (dest.username.as_ref(), &dest.hostname),
+        None => (dest.username.as_deref(), &dest.hostname),
     }
 }
 
