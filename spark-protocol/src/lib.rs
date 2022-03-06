@@ -4,10 +4,12 @@ pub mod server;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "structopt")]
 use structopt::StructOpt;
 use tokio::io;
 
-#[derive(Clone, Debug, Deserialize, StructOpt, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "structopt", derive(StructOpt))]
 pub enum Command {
     Reload,
 }
