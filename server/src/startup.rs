@@ -21,26 +21,8 @@ pub fn run(
             .wrap(TracingLogger::default())
             .wrap(bearer_auth.clone())
             .route("/health_check", web::get().to(health_check))
-            .service(
-                web::scope("/machine").service(
-                    web::resource("/status")
-                        .route(web::get().to(machine_status::get))
-                        .route(web::post().to(machine_status::post)),
-                ),
-            )
-            .service(
-                web::scope("/music").service(
-                    web::scope("/players")
-                        .service(
-                            web::resource("")
-                                .route(web::get().to(music_players::index))
-                                .route(web::patch().to(music_players::reprioritize))
-                                .route(web::post().to(music_players::new_player))
-                                .route(web::delete().to(music_players::delete)),
-                        )
-                        .route("/current", web::get().to(music_players::current)),
-                ),
-            )
+            .service(machine_status::routes())
+            .service(music_players::routes())
             .app_data(conn.clone())
     })
     .listen(listener)?

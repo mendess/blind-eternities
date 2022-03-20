@@ -12,6 +12,14 @@ use common::domain::machine_status::{self, IpConnection, MachineStatusFull};
 use futures::stream::{StreamExt, TryStreamExt};
 use sqlx::PgPool;
 
+pub fn routes() -> actix_web::Scope {
+    web::scope("/machine").service(
+        web::resource("/status")
+            .route(web::get().to(get))
+            .route(web::post().to(post)),
+    )
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum MachineStatusError {
     #[error(transparent)]

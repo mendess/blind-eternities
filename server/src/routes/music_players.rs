@@ -1,11 +1,23 @@
-use actix_web::{
-    http::StatusCode,
-    web, HttpResponse, ResponseError,
-};
+use actix_web::{http::StatusCode, web, HttpResponse, ResponseError};
 use anyhow::Context;
+use common::domain::Hostname;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use tracing::instrument;
+
+pub fn routes() -> actix_web::Scope {
+    web::scope("/music").service(
+        web::scope("/players")
+            .service(
+                web::resource("")
+                    .route(web::get().to(index))
+                    .route(web::patch().to(reprioritize))
+                    .route(web::post().to(new_player))
+                    .route(web::delete().to(delete)),
+            )
+            .route("/current", web::get().to(current)),
+    )
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum MusicPlayersError {
@@ -42,8 +54,8 @@ impl From<sqlx::Error> for MusicPlayersError {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Player {
-    hostname: String,
-    player: u16,
+    hostname: Hostname,
+    player: u8,
 }
 
 #[instrument(name = "list players", skip(conn))]
@@ -58,10 +70,15 @@ pub async fn index(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayers
     let players = players
         .into_iter()
         .map(|r| {
-            r.player.try_into().map(|player| Player {
-                hostname: r.hostname,
-                player,
-            })
+            u8::try_from(r.player)
+                .context("invalid player number in database")
+                .and_then(|player| {
+                    Ok(Player {
+                        hostname: Hostname::try_from(r.hostname)
+                            .context("invalid hostname in database")?,
+                        player,
+                    })
+                })
         })
         .collect::<Result<Vec<_>, _>>()
         .context("negative priorities found")?;
@@ -76,7 +93,7 @@ pub async fn reprioritize(
 ) -> Result<HttpResponse, MusicPlayersError> {
     sqlx::query!(
         "UPDATE music_player SET priority=DEFAULT WHERE hostname = $1 AND player = $2",
-        hostname,
+        hostname.as_ref(),
         i32::from(player),
     )
     .execute(&**conn)
@@ -92,7 +109,7 @@ pub async fn new_player(
 ) -> Result<HttpResponse, MusicPlayersError> {
     sqlx::query!(
         "INSERT INTO music_player (hostname, player) VALUES ($1, $2)",
-        hostname,
+        hostname.as_ref(),
         i32::from(player),
     )
     .execute(&**conn)
@@ -113,7 +130,7 @@ pub async fn current(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlaye
     let current = result.context("failed to find a player")?;
 
     Ok(HttpResponse::Ok().json(Player {
-        hostname: current.hostname,
+        hostname: Hostname::try_from(current.hostname).context("invalid hostname in database")?,
         player: current.player.try_into().context("monkas")?,
     }))
 }
@@ -125,7 +142,7 @@ pub async fn delete(
 ) -> Result<HttpResponse, MusicPlayersError> {
     let result = sqlx::query!(
         "DELETE FROM music_player WHERE hostname = $1 AND player = $2",
-        hostname,
+        hostname.as_ref(),
         i32::from(player),
     )
     .execute(&**conn)
