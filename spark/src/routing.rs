@@ -407,22 +407,15 @@ fn path_to_args<'a>(
                 port
             )))
     );
-    path.iter().enumerate().map(
-        move |(
-            i,
-            SimpleNode {
-                default_username,
-                ip,
-                port,
-            },
-        )| SshCommand {
+    path.iter().map(
+        move |SimpleNode {
+                  default_username,
+                  ip,
+                  port,
+              }| SshCommand {
             ip: *ip,
             port: *port,
-            username: if i == path.len().saturating_sub(1) {
-                username
-            } else {
-                default_username.as_deref().unwrap_or(username)
-            },
+            username: default_username.as_deref().unwrap_or(username),
             tty: pseudo_tty,
         },
     )
