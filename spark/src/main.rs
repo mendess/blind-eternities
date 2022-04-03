@@ -1,13 +1,13 @@
 mod config;
 mod daemon;
 mod routing;
+mod state;
 mod util;
 
 use std::{os::unix::prelude::ExitStatusExt, process::ExitStatus};
 
 use anyhow::Context;
 use common::telemetry::{get_subscriber_no_bunny, init_subscriber};
-use daemon::ipc::Command;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -23,7 +23,7 @@ enum Cmd {
     /// run as a daemon
     Daemon,
     /// msg
-    Msg(Command),
+    Msg(daemon::ipc::SparkCommand),
     #[structopt(flatten)]
     SshInline(SshToolInline),
     /// ssh tooling

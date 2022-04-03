@@ -1,4 +1,4 @@
-use crate::socket_path;
+use crate::{socket_path, Command};
 use std::{
     fs::Permissions,
     future::Future,
@@ -12,30 +12,31 @@ use tokio::{
     net::{self, UnixListener, UnixStream},
 };
 
-use super::{Command, ErrorResponse, Response};
+use super::{ErrorResponse, Response};
 
 struct Client {
     reader: BufReader<net::unix::OwnedReadHalf>,
     writer: BufWriter<net::unix::OwnedWriteHalf>,
 }
 
+#[derive(thiserror::Error, Debug)]
+enum RecvError {
+    #[error("IO({0})")]
+    Io(#[from] io::Error),
+    #[error("Serde({0})")]
+    Serde(#[from] serde_json::Error),
+}
+
 impl Client {
-    async fn recv(&mut self) -> io::Result<Option<Command>> {
-        let mut s = String::new();
-        let cmd = loop {
-            s.clear();
-            match self.reader.read_line(&mut s).await? {
-                0 => return Ok(None),
-                _ => match serde_json::from_str(&s) {
-                    Ok(cmd) => break cmd,
-                    Err(e) => {
-                        self.send(Err(ErrorResponse::DeserializingCommand(e.to_string())))
-                            .await?;
-                    }
-                },
+    async fn recv(&mut self) -> Result<Option<Command<'static>>, RecvError> {
+        loop {
+            let buf = self.reader.fill_buf().await?;
+            if let Some(i) = buf.iter().position(|b| *b == b'\n') {
+                let r = serde_json::from_slice(&buf[..i])?;
+                self.reader.consume(i + 1);
+                break Ok(r);
             }
-        };
-        Ok(Some(cmd))
+        }
     }
 
     async fn send(&mut self, r: Result<Response, ErrorResponse>) -> io::Result<()> {
@@ -71,9 +72,10 @@ impl ServerBuilder {
         ServerBuilder { path: Some(path) }
     }
 
+    // TODO: move to spark and finish implementing
     pub async fn serve<F, Fut>(self, handler: F) -> io::Result<()>
     where
-        F: Fn(Command) -> Fut + Clone + Send + 'static,
+        F: Fn(Command<'static>) -> Fut + Clone + Send + 'static,
         Fut: Future<Output = Result<Response, ErrorResponse>> + Send + 'static,
     {
         async fn create_socket<P: AsRef<Path>>(p: P) -> io::Result<UnixListener> {
@@ -97,9 +99,20 @@ impl ServerBuilder {
                 let handler = handler.clone();
                 async move {
                     let mut client = Client::from(client);
-                    while let Some(cmd) = client.recv().await? {
-                        let response = handler(cmd);
-                        client.send(response.await).await?;
+                    loop {
+                        match client.recv().await {
+                            Ok(Some(c)) => {
+                                let response = handler(c);
+                                client.send(response.await).await?;
+                            }
+                            Ok(None) => break,
+                            Err(RecvError::Io(e)) => return Err(e),
+                            Err(RecvError::Serde(s)) => {
+                                client
+                                    .send(Err(ErrorResponse::DeserializingCommand(s.to_string())))
+                                    .await?;
+                            }
+                        }
                     }
                     io::Result::Ok(())
                 }
@@ -110,7 +123,7 @@ impl ServerBuilder {
 
 pub async fn server<F, Fut>(handler: F) -> io::Result<()>
 where
-    F: Fn(Command) -> Fut + Clone + Send + 'static,
+    F: Fn(Command<'static>) -> Fut + Clone + Send + 'static,
     Fut: Future<Output = Result<Response, ErrorResponse>> + Send + 'static,
 {
     ServerBuilder::new().serve(handler).await

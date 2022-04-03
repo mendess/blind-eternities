@@ -7,14 +7,18 @@ use tokio::{
 
 use super::{socket_path, Command, ErrorResponse, Response};
 
+#[derive(Debug)]
 pub struct Client {
-    reader: BufReader<net::unix::OwnedReadHalf>,
-    writer: BufWriter<net::unix::OwnedWriteHalf>,
+    pub(crate) reader: BufReader<net::unix::OwnedReadHalf>,
+    pub(crate) writer: BufWriter<net::unix::OwnedWriteHalf>,
 }
 
 impl Client {
-    pub async fn send(&mut self, cmd: Command) -> io::Result<Result<Response, ErrorResponse>> {
-        let payload = serde_json::to_vec(&cmd).expect("serialization to never fail");
+    pub async fn send<'s, C>(&mut self, cmd: C) -> io::Result<Result<Response, ErrorResponse>>
+    where
+        C: Into<Command<'s>>,
+    {
+        let payload = serde_json::to_vec(&cmd.into()).expect("serialization to never fail");
         self.writer.write_all(&payload).await?;
         self.writer.write_all(b"\n").await?;
         self.writer.flush().await?;
@@ -63,7 +67,7 @@ impl From<UnixStream> for Client {
     }
 }
 
-pub async fn send(cmd: Command) -> io::Result<Result<Response, ErrorResponse>> {
+pub async fn send(cmd: Command<'_>) -> io::Result<Result<Response, ErrorResponse>> {
     let path = socket_path().await?;
     let socket = UnixStream::connect(path).await?;
     Client::from(socket).send(cmd).await
