@@ -1,21 +1,28 @@
 use actix_web::{http::StatusCode, web, HttpResponse, ResponseError};
 use anyhow::Context;
-use common::domain::Hostname;
-use serde::{Deserialize, Serialize};
+use common::domain::{music::Player, Hostname};
 use sqlx::PgPool;
 use tracing::instrument;
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/music").service(
-        web::scope("/players")
+        web::scope("/player")
             .service(
-                web::resource("")
-                    .route(web::get().to(index))
-                    .route(web::patch().to(reprioritize))
-                    .route(web::post().to(new_player))
-                    .route(web::delete().to(delete)),
+                web::scope("/{machine}/{index}")
+                    .service(
+                        web::resource("")
+                            .route(web::patch().to(reprioritize))
+                            .route(web::post().to(new_player))
+                            .route(web::delete().to(delete)),
+                    )
+                    .service(
+                        web::resource("/last")
+                            .route(web::get().to(get_last_queue))
+                            .route(web::delete().to(reset_last_queue))
+                            .route(web::post().to(set_last_queue)),
+                    ),
             )
-            .route("/current", web::get().to(current)),
+            .route("", web::get().to(index)),
     )
 }
 
@@ -52,12 +59,6 @@ impl From<sqlx::Error> for MusicPlayersError {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Player {
-    hostname: Hostname,
-    player: u8,
-}
-
 #[instrument(name = "list players", skip(conn))]
 pub async fn index(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayersError> {
     let mut players = sqlx::query!("SELECT * FROM music_player")
@@ -89,12 +90,12 @@ pub async fn index(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayers
 #[instrument(name = "reprioritize a players", skip(conn))]
 pub async fn reprioritize(
     conn: web::Data<PgPool>,
-    web::Json(Player { hostname, player }): web::Json<Player>,
+    path: web::Path<Player>,
 ) -> Result<HttpResponse, MusicPlayersError> {
     sqlx::query!(
         "UPDATE music_player SET priority=DEFAULT WHERE hostname = $1 AND player = $2",
-        hostname.as_ref(),
-        i32::from(player),
+        path.hostname.as_ref(),
+        i32::from(path.player),
     )
     .execute(&**conn)
     .await?;
@@ -105,12 +106,12 @@ pub async fn reprioritize(
 #[instrument(name = "create a new a player", skip(conn))]
 pub async fn new_player(
     conn: web::Data<PgPool>,
-    web::Json(Player { hostname, player }): web::Json<Player>,
+    path: web::Path<Player>,
 ) -> Result<HttpResponse, MusicPlayersError> {
     sqlx::query!(
         "INSERT INTO music_player (hostname, player) VALUES ($1, $2)",
-        hostname.as_ref(),
-        i32::from(player),
+        path.hostname.as_ref(),
+        i32::from(path.player),
     )
     .execute(&**conn)
     .await?;
@@ -138,12 +139,12 @@ pub async fn current(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlaye
 #[instrument(name = "delete player", skip(conn))]
 pub async fn delete(
     conn: web::Data<PgPool>,
-    web::Json(Player { hostname, player }): web::Json<Player>,
+    path: web::Path<Player>,
 ) -> Result<HttpResponse, MusicPlayersError> {
     let result = sqlx::query!(
         "DELETE FROM music_player WHERE hostname = $1 AND player = $2",
-        hostname.as_ref(),
-        i32::from(player),
+        path.hostname.as_ref(),
+        i32::from(path.player),
     )
     .execute(&**conn)
     .await?;
@@ -153,4 +154,29 @@ pub async fn delete(
     } else {
         Ok(HttpResponse::Ok().finish())
     }
+}
+
+#[instrument(name = "last queue get", skip(conn))]
+pub async fn get_last_queue(
+    conn: web::Data<PgPool>,
+    path: web::Path<Player>,
+) -> Result<HttpResponse, MusicPlayersError> {
+    todo!()
+}
+
+#[instrument(name = "last queue set", skip(conn))]
+pub async fn set_last_queue(
+    conn: web::Data<PgPool>,
+    path: web::Path<Player>,
+    new: web::Json<usize>,
+) -> Result<HttpResponse, MusicPlayersError> {
+    todo!()
+}
+
+#[instrument(name = "last queue reset", skip(conn))]
+pub async fn reset_last_queue(
+    conn: web::Data<PgPool>,
+    path: web::Path<Player>,
+) -> Result<HttpResponse, MusicPlayersError> {
+    todo!()
 }
