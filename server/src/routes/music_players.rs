@@ -8,7 +8,7 @@ pub fn routes() -> actix_web::Scope {
     web::scope("/music").service(
         web::scope("/player")
             .service(
-                web::scope("/{machine}/{index}")
+                web::scope("/{hostname}/{player}")
                     .service(
                         web::resource("")
                             .route(web::patch().to(reprioritize))
@@ -22,7 +22,8 @@ pub fn routes() -> actix_web::Scope {
                             .route(web::post().to(set_last_queue)),
                     ),
             )
-            .route("", web::get().to(index)),
+            .route("", web::get().to(index))
+            .route("/current", web::get().to(current)),
     )
 }
 

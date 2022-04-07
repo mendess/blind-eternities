@@ -29,8 +29,14 @@ pub enum MpvMeta<'s> {
     LastReset(PlayerRef<'s>),
     /// set the last queue position
     LastSet(usize, PlayerRef<'s>),
+    /// create a new player
     CreatePlayer(u8),
+    /// delete a player
     DeletePlayer(u8),
-    SetDefaultPlayer(u8),
+    /// get current player
+    GetCurrentPlayer,
+    /// set default player
+    SetCurrentPlayer(u8),
+    /// list all players
     ListPlayers,
 }

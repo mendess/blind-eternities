@@ -10,7 +10,9 @@ use std::{
 static HOSTNAME: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"^([a-zA-Z0-9]{1,63}\.)*([a-zA-Z0-9]{1,63})$"#).unwrap());
 
-#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 #[serde(try_from = "String")]
 pub struct Hostname(String);
 

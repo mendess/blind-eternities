@@ -66,10 +66,11 @@ pub async fn backend(
         MpvMeta::DeletePlayer(index) => {
             set(|| client.delete(&url_from_ref(&ref_for_localhost(index)))).await
         }
-        MpvMeta::SetDefaultPlayer(index) => {
+        MpvMeta::SetCurrentPlayer(index) => {
             set(|| client.patch(&url_from_ref(&ref_for_localhost(index)))).await
         }
         MpvMeta::ListPlayers => get(client, "music/player").await,
+        MpvMeta::GetCurrentPlayer => get(client, "music/player/current").await,
     };
 
     fn url_from_ref(PlayerRef { machine, index }: &PlayerRef<'_>) -> String {
@@ -143,5 +144,4 @@ pub async fn backend(
         )
         .await
     }
-
 }

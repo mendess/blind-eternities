@@ -26,6 +26,7 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 #[derive(Clone, Debug)]
 pub struct TestApp {
     pub address: String,
+    pub persistent_conn_port: u16,
     pub db_pool: PgPool,
     pub db_name: String,
     pub http: reqwest::Client,
@@ -72,7 +73,11 @@ impl TestAppBuilder {
 
         tracing::debug!("creating socket");
         let listener = TcpListener::bind(("localhost", 0)).expect("Failed to bind random port");
+        let persistent_conns_listener = tokio::net::TcpListener::bind(("localhost", 0))
+            .await
+            .expect("Failed to bind random port");
         let port = listener.local_addr().unwrap().port();
+        let persistent_conn_port = persistent_conns_listener.local_addr().unwrap().port();
         let _spawn_span = tracing::debug_span!("spawning test app", port);
 
         tracing::debug!("loading configuration");
@@ -86,11 +91,17 @@ impl TestAppBuilder {
         let connection = configure_database(&conf.db).await;
 
         tracing::debug!("starting server");
-        let server = startup::run(listener, connection.clone(), self.allow_any_localhost_token)
-            .expect("Failed to bind address");
+        let server = startup::run(
+            listener,
+            persistent_conns_listener,
+            connection.clone(),
+            self.allow_any_localhost_token,
+        )
+        .expect("Failed to bind address");
         let _ = tokio::spawn(server);
         let app = TestApp {
             address: format!("http://localhost:{}", port),
+            persistent_conn_port,
             db_pool: connection,
             db_name: conf.db.name,
             http: reqwest::Client::new(),
@@ -137,7 +148,6 @@ impl TestApp {
         self.http.post(&format!("{}/{}", self.address, path))
     }
 
-    #[allow(dead_code)]
     pub fn post_authed(&self, path: &str) -> reqwest::RequestBuilder {
         self.post(path).bearer_auth(self.token)
     }

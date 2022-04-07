@@ -6,23 +6,21 @@ use crate::helpers::{fake_hostname, TestApp};
 
 impl TestApp {
     async fn get_music_players(&self) -> reqwest::Response {
-        self.get_authed("music/players")
+        self.get_authed("music/player")
             .send()
             .await
             .expect("failed to execute request")
     }
 
     async fn get_current_player(&self) -> reqwest::Response {
-        self.get_authed("music/players/current")
+        self.get_authed("music/player/current")
             .send()
             .await
             .expect("failed to execute request")
     }
 
     async fn reprioritize(&self, host: &str, index: usize) -> reqwest::Response {
-        self.patch_authed("music/players")
-            .header("Content-Type", "application/json")
-            .body(json!({"hostname": host, "player": index}).to_string())
+        self.patch_authed(&format!("music/player/{host}/{index}"))
             .send()
             .await
             .expect("Failed to execute request")
@@ -127,11 +125,7 @@ async fn new_players_become_the_new_default() {
             .expect("json")
     );
     let response = app
-        .post_authed("music/players")
-        .json(&json!({
-            "hostname": hostname2,
-            "player": 1
-        }))
+        .post_authed(&format!("music/player/{hostname2}/1"))
         .send()
         .await
         .expect("failed to send request");
@@ -152,7 +146,7 @@ async fn new_players_become_the_new_default() {
 }
 
 #[actix_rt::test]
-async fn music_players_can_reprioritized() {
+async fn music_players_can_be_reprioritized() {
     let app = TestApp::spawn().await;
 
     let [hostname1, hostname2] = app.populate_statuses().await;
@@ -198,11 +192,7 @@ async fn deleting_a_non_existent_player_returns_404() {
     let app = TestApp::spawn().await;
 
     let response = app
-        .delete_authed("music/players")
-        .json(&json!({
-            "hostname": fake_hostname().fake::<String>(),
-            "player": 0
-        }))
+        .delete_authed(&format!("music/player/{}/0", fake_hostname().fake::<String>()))
         .send()
         .await
         .expect("request failed");
@@ -230,11 +220,7 @@ async fn can_delete_a_player() {
     .expect("to insert a player");
 
     let response = app
-        .delete_authed("music/players")
-        .json(&json!({
-            "hostname": hostname,
-            "player": 0
-        }))
+        .delete_authed(&format!("music/player/{hostname}/0"))
         .send()
         .await
         .expect("request failed");

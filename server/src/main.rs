@@ -1,5 +1,6 @@
-use std::net::TcpListener;
+use std::net as std_net;
 
+use tokio::net as tokio_net;
 use blind_eternities::{
     configuration::{get_configuration, Settings},
     startup::run,
@@ -27,7 +28,8 @@ async fn main() -> std::io::Result<()> {
     };
 
     run(
-        TcpListener::bind(("0.0.0.0", conf.port))?,
+        std_net::TcpListener::bind(("0.0.0.0", conf.port))?,
+        tokio_net::TcpListener::bind(("0.0.0.0", conf.persistent_conn_port)).await?,
         connection,
         conf.allow_any_localhost_token,
     )?
