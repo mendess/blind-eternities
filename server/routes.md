@@ -16,6 +16,7 @@
     - `/music`
         - `/player`
             - `GET` list all players
+            - `/current` get the current player
             - `/{machine}/{index}`
                 - `POST` create a new player
                 - `DELETE` delete the player

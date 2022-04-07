@@ -284,9 +284,9 @@ checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
 name = "async-trait"
-version = "0.1.52"
+version = "0.1.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "061a7acccaa286c011ddc30970520b98fa40e00c9d644633fb26b5fc63a265e3"
+checksum = "ed6aa3524a2dfcf9fe180c51eae2b58738348d819517ceadf95789c51fff7600"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -379,6 +379,7 @@ dependencies = [
  "chrono",
  "common",
  "config",
+ "dashmap",
  "fake",
  "futures",
  "itertools",
@@ -388,6 +389,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "spark-protocol",
  "sqlx",
  "thiserror",
  "tokio",
@@ -553,6 +555,7 @@ dependencies = [
 name = "common"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "fake",
  "itertools",
@@ -707,6 +710,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b2466559f260f48ad25fe6317b3c8dac77b5bdb5763ac7d9d6103530663bc90"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "dashmap"
+version = "5.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c8858831f7781322e539ea39e72449c46b059638250c14344fec8d0aa6e539c"
+dependencies = [
+ "cfg-if",
+ "num_cpus",
+ "parking_lot 0.12.0",
 ]
 
 [[package]]
