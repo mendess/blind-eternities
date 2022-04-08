@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use common::domain::music::PlayerIdx;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MusicCmd<'s> {
-    pub index: u8,
+    pub index: PlayerIdx,
     pub command: MusicCmdKind<'s>,
 }
 
@@ -13,30 +14,30 @@ pub enum MusicCmdKind<'s> {
     Compute(serde_json::Value),
     Execute(Cow<'s, [u8]>),
     Observe(Cow<'s, [u8]>),
+    Meta(LocalMetadata),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PlayerRef<'s> {
-    pub machine: Cow<'s, str>,
-    pub index: u8,
+pub enum LocalMetadata {
+    /// fetch the last queue position
+    LastFetch,
+    /// reset the last queue position
+    LastReset,
+    /// set the last queue position
+    LastSet(usize),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MpvMeta<'s> {
-    /// fetch the last queue position
-    LastFetch(PlayerRef<'s>),
-    /// reset the last queue position
-    LastReset(PlayerRef<'s>),
-    /// set the last queue position
-    LastSet(usize, PlayerRef<'s>),
     /// create a new player
-    CreatePlayer(u8),
+    CreatePlayer(PlayerIdx),
     /// delete a player
-    DeletePlayer(u8),
+    DeletePlayer(PlayerIdx),
     /// get current player
     GetCurrentPlayer,
     /// set default player
-    SetCurrentPlayer(u8),
+    SetCurrentPlayer(PlayerIdx),
     /// list all players
     ListPlayers,
+    _Unused([&'s str; 0]),
 }

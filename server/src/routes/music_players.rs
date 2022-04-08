@@ -1,8 +1,14 @@
 use actix_web::{http::StatusCode, web, HttpResponse, ResponseError};
 use anyhow::Context;
 use common::domain::{music::Player, Hostname};
+use spark_protocol::{
+    music::{LocalMetadata, MusicCmd, MusicCmdKind},
+    Local,
+};
 use sqlx::PgPool;
 use tracing::instrument;
+
+use crate::persistent_connections::{ConnectionError, Connections};
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/music").service(
@@ -28,13 +34,15 @@ pub fn routes() -> actix_web::Scope {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum MusicPlayersError {
+enum MusicPlayersError {
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
     #[error("duplicate player")]
     DuplicatePlayer,
     #[error("not found")]
     NotFound,
+    #[error(transparent)]
+    ConnectionError(#[from] ConnectionError),
 }
 
 impl ResponseError for MusicPlayersError {
@@ -44,6 +52,7 @@ impl ResponseError for MusicPlayersError {
             UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             DuplicatePlayer => StatusCode::BAD_REQUEST,
             NotFound => StatusCode::NOT_FOUND,
+            ConnectionError(e) => e.status_code(),
         }
     }
 }
@@ -61,7 +70,7 @@ impl From<sqlx::Error> for MusicPlayersError {
 }
 
 #[instrument(name = "list players", skip(conn))]
-pub async fn index(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayersError> {
+async fn index(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayersError> {
     let mut players = sqlx::query!("SELECT * FROM music_player")
         .fetch_all(&**conn)
         .await
@@ -89,7 +98,7 @@ pub async fn index(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayers
 }
 
 #[instrument(name = "reprioritize a players", skip(conn))]
-pub async fn reprioritize(
+async fn reprioritize(
     conn: web::Data<PgPool>,
     path: web::Path<Player>,
 ) -> Result<HttpResponse, MusicPlayersError> {
@@ -105,7 +114,7 @@ pub async fn reprioritize(
 }
 
 #[instrument(name = "create a new a player", skip(conn))]
-pub async fn new_player(
+async fn new_player(
     conn: web::Data<PgPool>,
     path: web::Path<Player>,
 ) -> Result<HttpResponse, MusicPlayersError> {
@@ -121,7 +130,7 @@ pub async fn new_player(
 }
 
 #[instrument(name = "default player", skip(conn))]
-pub async fn current(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayersError> {
+async fn current(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayersError> {
     let result = sqlx::query!(
         r#"SELECT hostname, player FROM music_player
         WHERE priority = (SELECT MAX(priority) FROM music_player)"#
@@ -138,7 +147,7 @@ pub async fn current(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlaye
 }
 
 #[instrument(name = "delete player", skip(conn))]
-pub async fn delete(
+async fn delete(
     conn: web::Data<PgPool>,
     path: web::Path<Player>,
 ) -> Result<HttpResponse, MusicPlayersError> {
@@ -157,27 +166,57 @@ pub async fn delete(
     }
 }
 
-#[instrument(name = "last queue get", skip(conn))]
-pub async fn get_last_queue(
-    conn: web::Data<PgPool>,
+#[instrument(name = "last queue get", skip(connections))]
+async fn get_last_queue(
     path: web::Path<Player>,
+    connections: web::Data<Connections>,
 ) -> Result<HttpResponse, MusicPlayersError> {
-    todo!()
+    let r = connections
+        .request(
+            &path.hostname,
+            Local::Music(MusicCmd {
+                index: path.player,
+                command: MusicCmdKind::Meta(LocalMetadata::LastFetch),
+            }),
+        )
+        .await?;
+
+    Ok(HttpResponse::Ok().json(r))
 }
 
-#[instrument(name = "last queue set", skip(conn))]
-pub async fn set_last_queue(
-    conn: web::Data<PgPool>,
+#[instrument(name = "last queue set", skip(connections))]
+async fn set_last_queue(
+    connections: web::Data<Connections>,
     path: web::Path<Player>,
     new: web::Json<usize>,
 ) -> Result<HttpResponse, MusicPlayersError> {
-    todo!()
+    let r = connections
+        .request(
+            &path.hostname,
+            Local::Music(MusicCmd {
+                index: path.player,
+                command: MusicCmdKind::Meta(LocalMetadata::LastSet(new.0)),
+            }),
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(r))
 }
 
-#[instrument(name = "last queue reset", skip(conn))]
-pub async fn reset_last_queue(
-    conn: web::Data<PgPool>,
+#[instrument(name = "last queue reset")]
+async fn reset_last_queue(
+    connections: web::Data<Connections>,
     path: web::Path<Player>,
 ) -> Result<HttpResponse, MusicPlayersError> {
-    todo!()
+    let r = dbg!(
+        connections
+            .request(
+                &path.hostname,
+                Local::Music(MusicCmd {
+                    index: path.player,
+                    command: MusicCmdKind::Meta(LocalMetadata::LastReset),
+                }),
+            )
+            .await
+    )?;
+    Ok(HttpResponse::Ok().json(r))
 }

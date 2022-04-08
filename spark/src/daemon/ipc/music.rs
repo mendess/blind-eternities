@@ -1,7 +1,9 @@
 use common::{domain::music::PlayerIdx, net::AuthenticatedClient};
+use mlib::socket::local::LocalMpvSocket;
 use reqwest::RequestBuilder;
+use serde::Serialize;
 use spark_protocol::{
-    music::{MpvMeta, MusicCmd, MusicCmdKind, PlayerRef},
+    music::{LocalMetadata, MpvMeta, MusicCmd, MusicCmdKind},
     ErrorResponse, Response,
 };
 use std::future::{self, Future};
@@ -14,30 +16,37 @@ pub async fn local(MusicCmd { index, command }: MusicCmd<'_>) -> Result<Response
         }
         _ => ErrorResponse::ForwardedError(e.to_string()),
     };
-    let mut socket = mlib::socket::local::LocalMpvSocket::by_index(index)
-        .await
-        .map_err(map_err)?;
+
+    let unit = |r: Result<(), mlib::Error>| r.map(|_| Response::Unit).map_err(map_err);
+
+    fn value<T: Serialize>(r: Result<T, ErrorResponse>) -> Result<Response, ErrorResponse> {
+        r.and_then(|c| {
+            serde_json::to_value(&c)
+                .map_err(|e| ErrorResponse::DeserializingResponse(e.to_string()))
+        })
+        .map(Response::ForwardValue)
+    }
+
+    let mut socket = LocalMpvSocket::by_index(index).await.map_err(map_err)?;
+
     match command {
-        MusicCmdKind::Fire(msg) => socket
-            .fire(msg)
-            .await
-            .map(|_| Response::Unit)
-            .map_err(|e| ErrorResponse::IoError(e.to_string())),
-        MusicCmdKind::Compute(cmd) => socket
-            .compute_raw::<serde_json::Value, _>(cmd)
-            .await
-            .map_err(map_err)
-            .and_then(|c| {
-                serde_json::to_value(&c)
-                    .map_err(|e| ErrorResponse::DeserializingCommand(e.to_string()))
-            })
-            .map(Response::ForwardValue),
-        MusicCmdKind::Execute(msg) => socket
-            .fire(msg)
-            .await
-            .map(|_| Response::Unit)
-            .map_err(|e| ErrorResponse::IoError(e.to_string())),
+        MusicCmdKind::Fire(msg) => unit(socket.fire(msg).await.map_err(Into::into)),
+        MusicCmdKind::Compute(cmd) => value(
+            socket
+                .compute_raw::<serde_json::Value, _>(cmd)
+                .await
+                .map_err(map_err),
+        ),
+        MusicCmdKind::Execute(msg) => unit(socket.fire(msg).await.map_err(Into::into)),
         MusicCmdKind::Observe(_) => todo!("observer not implemented yet"),
+        MusicCmdKind::Meta(command) => {
+            let last = socket.last();
+            match command {
+                LocalMetadata::LastFetch => value(last.fetch().await.map_err(map_err)),
+                LocalMetadata::LastReset => unit(last.reset().await),
+                LocalMetadata::LastSet(n) => unit(last.set(n).await),
+            }
+        }
     }
 }
 
@@ -48,43 +57,18 @@ pub async fn backend(
     use common::net::auth_client;
 
     return match mpv_meta {
-        MpvMeta::LastFetch(player) => get(client, &(url_from_ref(&player) + "/last")).await,
-        MpvMeta::LastReset(player) => {
-            set(|| client.delete(&(url_from_ref(&player) + "/last"))).await
-        }
-        MpvMeta::LastSet(n, player) => {
-            set(|| {
-                client
-                    .post(&(url_from_ref(&player) + "/last"))
-                    .map(|r| r.json(&n))
-            })
-            .await
-        }
-        MpvMeta::CreatePlayer(index) => {
-            set(|| client.post(&url_from_ref(&ref_for_localhost(index)))).await
-        }
-        MpvMeta::DeletePlayer(index) => {
-            set(|| client.delete(&url_from_ref(&ref_for_localhost(index)))).await
-        }
-        MpvMeta::SetCurrentPlayer(index) => {
-            set(|| client.patch(&url_from_ref(&ref_for_localhost(index)))).await
-        }
+        MpvMeta::CreatePlayer(index) => set(|| client.post(&url_from_ref(index))).await,
+        MpvMeta::DeletePlayer(index) => set(|| client.delete(&url_from_ref(index))).await,
+        MpvMeta::SetCurrentPlayer(index) => set(|| client.patch(&url_from_ref(index))).await,
         MpvMeta::ListPlayers => get(client, "music/player").await,
         MpvMeta::GetCurrentPlayer => get(client, "music/player/current").await,
+        MpvMeta::_Unused(_) => unreachable!("unused"),
     };
 
-    fn url_from_ref(PlayerRef { machine, index }: &PlayerRef<'_>) -> String {
-        format!("music/player/{machine}/{index}")
+    fn url_from_ref(index: PlayerIdx) -> String {
+        format!("music/player/{}/{index}", whoami::hostname())
     }
 
-    fn ref_for_localhost(index: PlayerIdx) -> PlayerRef<'static> {
-        PlayerRef {
-            machine: whoami::hostname().into(),
-            index,
-        }
-    }
-
-    // String::from("music/player/current")
     async fn handle_response<F, Fut>(
         response: reqwest::Response,
         f: F,

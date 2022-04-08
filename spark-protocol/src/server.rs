@@ -1,4 +1,5 @@
 use crate::{socket_path, Command};
+use common::net::{ReadJsonLinesExt, RecvError, WriteJsonLinesExt};
 use std::{
     fs::Permissions,
     future::Future,
@@ -8,7 +9,7 @@ use std::{
 };
 use tokio::{
     fs,
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
+    io::{BufReader, BufWriter},
     net::{self, UnixListener, UnixStream},
 };
 
@@ -19,32 +20,15 @@ struct Client {
     writer: BufWriter<net::unix::OwnedWriteHalf>,
 }
 
-#[derive(thiserror::Error, Debug)]
-enum RecvError {
-    #[error("IO({0})")]
-    Io(#[from] io::Error),
-    #[error("Serde({0})")]
-    Serde(#[from] serde_json::Error),
-}
-
 impl Client {
+    #[inline(always)]
     async fn recv(&mut self) -> Result<Option<Command<'static>>, RecvError> {
-        loop {
-            let buf = self.reader.fill_buf().await?;
-            if let Some(i) = buf.iter().position(|b| *b == b'\n') {
-                let r = serde_json::from_slice(&buf[..i])?;
-                self.reader.consume(i + 1);
-                break Ok(r);
-            }
-        }
+        self.reader.recv().await
     }
 
+    #[inline(always)]
     async fn send(&mut self, r: Result<Response, ErrorResponse>) -> io::Result<()> {
-        let payload = serde_json::to_vec(&r).expect("serialization should never fail");
-        self.writer.write_all(&payload).await?;
-        self.writer.write_all(b"\n").await?;
-        self.writer.flush().await?;
-        Ok(())
+        self.writer.send(&r).await
     }
 }
 

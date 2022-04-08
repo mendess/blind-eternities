@@ -1,4 +1,4 @@
-use std::net as std_net;
+use std::{net as std_net, sync::Arc, time::Duration};
 
 use actix_web::{dev::Server, web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
@@ -6,7 +6,7 @@ use sqlx::PgPool;
 use tokio::net as tokio_net;
 use tracing_actix_web::TracingLogger;
 
-use crate::routes::*;
+use crate::{persistent_connections::Connections, routes::*};
 
 pub fn run(
     server_listener: std_net::TcpListener,
@@ -18,9 +18,12 @@ pub fn run(
     let bearer_auth = HttpAuthentication::bearer(move |r, b| {
         crate::auth::verify_token(r, b, allow_any_localhost_token)
     });
+    let connections = Arc::new(Connections::new(Duration::from_secs(10)));
     tokio::spawn(crate::persistent_connections::start(
         persistent_conns_listener,
+        connections.clone(),
     ));
+    let connections = web::Data::from(connections);
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
@@ -30,6 +33,7 @@ pub fn run(
             .service(music_players::routes())
             .service(remote_spark::routes())
             .app_data(conn.clone())
+            .app_data(connections.clone())
     })
     .listen(server_listener)?
     .run();

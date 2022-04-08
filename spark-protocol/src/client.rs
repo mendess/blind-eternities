@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
+use common::net::{ReadJsonLinesExt, WriteJsonLinesExt};
 use tokio::{
-    io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
+    io::{self, BufReader, BufWriter},
     net::{self, UnixStream},
 };
 
@@ -14,22 +15,13 @@ pub struct Client {
 }
 
 impl Client {
+    #[inline(always)]
     pub async fn send<'s, C>(&mut self, cmd: C) -> io::Result<Result<Response, ErrorResponse>>
     where
         C: Into<Command<'s>>,
     {
-        let payload = serde_json::to_vec(&cmd.into()).expect("serialization to never fail");
-        self.writer.write_all(&payload).await?;
-        self.writer.write_all(b"\n").await?;
-        self.writer.flush().await?;
-        loop {
-            let buf = self.reader.fill_buf().await?;
-            if let Some(i) = buf.iter().position(|b| *b == b'\n') {
-                let r = serde_json::from_slice(&buf[..i])?;
-                self.reader.consume(i + 1);
-                break Ok(r);
-            }
-        }
+        self.writer.send(&cmd.into()).await?;
+        Ok(self.reader.recv().await?)
     }
 }
 

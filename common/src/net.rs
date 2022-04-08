@@ -6,6 +6,23 @@ pub use auth_client::AuthenticatedClient;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 
+#[derive(thiserror::Error, Debug)]
+pub enum RecvError {
+    #[error("IO({0})")]
+    Io(#[from] io::Error),
+    #[error("Serde({0})")]
+    Serde(#[from] serde_json::Error),
+}
+
+impl From<RecvError> for io::Error {
+    fn from(e: RecvError) -> Self {
+        match e {
+            RecvError::Serde(e) => e.into(),
+            RecvError::Io(e) => e,
+        }
+    }
+}
+
 #[async_trait::async_trait]
 pub trait WriteJsonLinesExt {
     async fn send<T: Serialize + Send>(&mut self, t: T) -> io::Result<()>;
@@ -13,7 +30,7 @@ pub trait WriteJsonLinesExt {
 
 #[async_trait::async_trait]
 pub trait ReadJsonLinesExt {
-    async fn recv<T: DeserializeOwned>(&mut self) -> io::Result<T>;
+    async fn recv<T: DeserializeOwned>(&mut self) -> Result<T, RecvError>;
 }
 
 #[async_trait::async_trait]
@@ -21,7 +38,7 @@ impl<R> ReadJsonLinesExt for R
 where
     R: AsyncBufReadExt + Unpin + Send,
 {
-    async fn recv<T: DeserializeOwned>(&mut self) -> io::Result<T> {
+    async fn recv<T: DeserializeOwned>(&mut self) -> Result<T, RecvError> {
         loop {
             let buf = self.fill_buf().await?;
             if let Some(i) = buf.iter().position(|b| *b == b'\n') {
