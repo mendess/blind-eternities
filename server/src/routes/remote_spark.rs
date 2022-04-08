@@ -1,29 +1,19 @@
-use std::time::Duration;
-
 use actix_web::{http::StatusCode, web, HttpResponse, ResponseError};
 use common::domain::Hostname;
 use spark_protocol::Local;
-use tokio::{sync::oneshot, time::timeout};
 
-use crate::persistent_connections::CONNECTIONS;
+use crate::persistent_connections::{ConnectionError, Connections};
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/remote-spark/{hostname}").route("", web::post().to(send_remote))
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-enum RemoteSparkError {
-    #[error("connection dropped")]
-    ConnectionDropped,
-    #[error("timed out")]
-    Timedout,
-}
-
-impl ResponseError for RemoteSparkError {
+impl ResponseError for ConnectionError {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::ConnectionDropped => StatusCode::NOT_FOUND,
             Self::Timedout => StatusCode::REQUEST_TIMEOUT,
+            Self::NotFound => StatusCode::NOT_FOUND,
         }
     }
 }
@@ -32,26 +22,8 @@ impl ResponseError for RemoteSparkError {
 async fn send_remote(
     machine: web::Path<Hostname>,
     cmd: web::Json<Local<'static>>,
-) -> Result<HttpResponse, RemoteSparkError> {
-    match CONNECTIONS.get(&machine) {
-        Some(conn) => {
-            let (tx, rx) = oneshot::channel();
-            tracing::info!("sending spark command");
-            conn.1
-                .send((cmd.0, tx))
-                .await
-                .map_err(|_| RemoteSparkError::ConnectionDropped)?;
-            tracing::info!("waiting for response");
-            let resp = timeout(Duration::from_secs(5), rx)
-                .await
-                .map_err(|_| RemoteSparkError::Timedout)?
-                .map_err(|_| RemoteSparkError::ConnectionDropped)?;
-            tracing::info!(?resp, "received response");
-            Ok(HttpResponse::Ok().json(resp))
-        }
-        None => {
-            tracing::info!("hostname not connected");
-            Ok(HttpResponse::NotFound().finish())
-        }
-    }
+    connections: web::Data<Connections>,
+) -> Result<HttpResponse, ConnectionError> {
+    let v = connections.request(&machine, cmd.0).await?;
+    Ok(HttpResponse::Ok().json(v))
 }

@@ -1,12 +1,17 @@
-use std::{net::TcpListener, ops::Range};
+mod persistent_conn;
+
+use std::net::TcpListener;
 
 use actix_rt::task::spawn_blocking;
 use blind_eternities::{
     configuration::{get_configuration, DbSettings},
     startup,
 };
-use common::telemetry::{get_subscriber, init_subscriber};
-use fake::StringFaker;
+use common::{
+    domain::Hostname,
+    telemetry::{get_subscriber, init_subscriber},
+};
+use fake::{Fake, StringFaker};
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
@@ -187,6 +192,9 @@ async fn configure_database(config: &DbSettings) -> PgPool {
     connection_pool
 }
 
-pub fn fake_hostname() -> StringFaker<Range<usize>> {
+pub fn fake_hostname() -> Hostname {
     StringFaker::with((b'a'..b'z').collect(), 4..20)
+        .fake::<String>()
+        .parse::<Hostname>()
+        .unwrap()
 }
