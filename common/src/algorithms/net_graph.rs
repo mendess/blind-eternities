@@ -39,12 +39,7 @@ enum Node<'hostname> {
 impl Display for Node<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Node::Machine(m) => write!(
-                f,
-                "M({}@{:?})",
-                m.hostname.as_ref(),
-                m.ip_connections[0].local_ip
-            ),
+            Node::Machine(m) => write!(f, "M({}@{:?})", m.hostname.as_ref(), ip_from_machine(m)),
             Node::Internet(_) => write!(f, "[I]"),
         }
     }
@@ -131,6 +126,15 @@ pub struct SimpleNode {
     pub port: Port,
 }
 
+fn ip_from_machine(status: &MachineStatusFull) -> Option<IpAddr> {
+    status
+        .ip_connections
+        .iter()
+        .find(|ip| ip.local_ip.is_ipv4())
+        .or_else(|| status.ip_connections.first())
+        .map(|c| c.local_ip)
+}
+
 impl<'hostname> NetGraph<'hostname> {
     pub fn find_path(&self, from: &Hostname, to: &Hostname) -> Option<Vec<NodeIndex<u32>>> {
         let graph = &self.graph;
@@ -152,12 +156,7 @@ impl<'hostname> NetGraph<'hostname> {
         while let Some(ni) = i.next() {
             match &self.graph[*ni] {
                 Node::Machine(n) => {
-                    let ip = n
-                        .ip_connections
-                        .iter()
-                        .find(|ip| ip.local_ip.is_ipv4())
-                        .or_else(|| n.ip_connections.first())?
-                        .local_ip;
+                    let ip = ip_from_machine(n)?;
                     v.push(SimpleNode {
                         default_username: n.default_user.clone(),
                         ip,
@@ -216,7 +215,7 @@ impl<'hostname> NetGraph<'hostname> {
         )
         .await?;
         for (ip, nodes) in by_subnet.into_iter() {
-            let subgraph_label = ip.to_string().replace(".", "_");
+            let subgraph_label = ip.to_string().replace('.', "_");
             out.write_all(format!("    subgraph cluster_{} {{\n", subgraph_label).as_bytes())
                 .await?;
             for (i, n) in nodes {
