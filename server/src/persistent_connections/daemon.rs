@@ -4,6 +4,7 @@ use common::{
     domain::Hostname,
     net::{ReadJsonLinesExt, WriteJsonLinesExt},
 };
+use sqlx::PgPool;
 use tokio::{
     io::{BufReader, BufWriter},
     net::{
@@ -14,7 +15,10 @@ use tokio::{
     time::timeout,
 };
 
-use crate::persistent_connections::connections::Request;
+use crate::{
+    auth::{self, AuthError},
+    persistent_connections::connections::Request,
+};
 
 use super::connections::Connections;
 
@@ -39,6 +43,7 @@ async fn handle(
 pub(crate) async fn start(
     listener: TcpListener,
     connections: Arc<Connections>,
+    conn: Arc<PgPool>,
 ) -> io::Result<Infallible> {
     tracing::info!(
         "starting persistent connection manager at port {:?}",
@@ -67,12 +72,37 @@ pub(crate) async fn start(
                 }
                 Ok(Ok(h)) => h,
             };
+            let token =
+                match timeout(Duration::from_secs(1), reader.recv_parse::<uuid::Uuid>()).await {
+                    Ok(Err(e)) => {
+                        tracing::error!(?e, %addr, "failed reading auth token");
+                        continue;
+                    }
+                    Err(_elapsed) => {
+                        tracing::info!(%addr, "reading of auth token timed out");
+                        continue;
+                    }
+                    Ok(Ok(h)) => h,
+                };
+
+            if let Err(e) = auth::check_token(&*conn, token).await {
+                match e {
+                    AuthError::InvalidToken => {
+                        tracing::info!(connected_hostname = %hostname, %token, "invalid token");
+                        continue;
+                    }
+                    e => {
+                        tracing::error!(?e, connected_hostname = %hostname, %token, "error");
+                        continue;
+                    }
+                }
+            };
 
             if let Err(e) = writer.send(()).await {
                 tracing::error!(?e, "failed to confirm handshake");
                 continue;
             }
-            tracing::info!(%hostname, "connection established");
+            tracing::info!(connected_hostname = %hostname, "connection established");
             let (gen, rx) = connections.insert(hostname.clone());
             (gen, hostname, rx)
         };

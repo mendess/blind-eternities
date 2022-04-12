@@ -14,7 +14,7 @@ pub fn run(
     connection: PgPool,
     allow_any_localhost_token: bool,
 ) -> std::io::Result<Server> {
-    let conn = web::Data::new(connection);
+    let conn = Arc::new(connection);
     let bearer_auth = HttpAuthentication::bearer(move |r, b| {
         crate::auth::verify_token(r, b, allow_any_localhost_token)
     });
@@ -22,7 +22,9 @@ pub fn run(
     tokio::spawn(crate::persistent_connections::start(
         persistent_conns_listener,
         connections.clone(),
+        conn.clone(),
     ));
+    let conn = web::Data::from(conn);
     let connections = web::Data::from(connections);
     let server = HttpServer::new(move || {
         App::new()

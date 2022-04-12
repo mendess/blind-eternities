@@ -1,10 +1,15 @@
 pub mod auth_client;
 
-use std::io;
+use std::{
+    fmt::{Debug, Display},
+    io,
+    ops::Deref,
+    str::FromStr,
+};
 
 pub use auth_client::AuthenticatedClient;
 use serde::{de::DeserializeOwned, Serialize};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
 #[derive(thiserror::Error, Debug)]
 pub enum RecvError {
@@ -12,6 +17,20 @@ pub enum RecvError {
     Io(#[from] io::Error),
     #[error("Serde({0})")]
     Serde(#[from] serde_json::Error),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum RecvParseError<T>
+where
+    T: FromStr,
+    T::Err: Debug + Display,
+{
+    #[error("IO({0})")]
+    Io(#[from] io::Error),
+    #[error("Utf8Error({0})")]
+    Utf8Error(#[from] std::str::Utf8Error),
+    #[error("ParseError({0})")]
+    ParseError(T::Err),
 }
 
 impl From<RecvError> for io::Error {
@@ -26,25 +45,72 @@ impl From<RecvError> for io::Error {
 #[async_trait::async_trait]
 pub trait WriteJsonLinesExt {
     async fn send<T: Serialize + Send>(&mut self, t: T) -> io::Result<()>;
+    async fn send_raw<S: AsRef<[u8]> + Send>(&mut self, s: S) -> io::Result<()>;
 }
 
 #[async_trait::async_trait]
 pub trait ReadJsonLinesExt {
     async fn recv<T: DeserializeOwned>(&mut self) -> Result<T, RecvError>;
+
+    async fn recv_parse<T: FromStr>(&mut self) -> Result<T, RecvParseError<T>>
+    where
+        T::Err: Debug + Display;
+
+    async fn recv_raw(&mut self) -> io::Result<LineGuard<'_, Self>>
+    where
+        Self: Sized + AsyncBufRead + Unpin;
+}
+
+pub struct LineGuard<'s, T: AsyncBufRead + Unpin> {
+    reader: &'s mut T,
+    len: usize,
+}
+
+impl<'s, R: Unpin + AsyncRead> Deref for LineGuard<'s, BufReader<R>> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.reader.buffer()[..self.len]
+    }
+}
+
+impl<'s, R: Unpin + AsyncRead> LineGuard<'s, BufReader<R>> {
+    pub fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.reader.buffer()[..self.len]).expect("should have been a str")
+    }
+
+    pub fn as_str_checked(&self) -> Result<&str, std::str::Utf8Error> {
+        std::str::from_utf8(&self.reader.buffer()[..self.len])
+    }
+}
+
+impl<T: AsyncBufRead + Unpin> Drop for LineGuard<'_, T> {
+    fn drop(&mut self) {
+        self.reader.consume(self.len + 1)
+    }
 }
 
 #[async_trait::async_trait]
-impl<R> ReadJsonLinesExt for R
-where
-    R: AsyncBufReadExt + Unpin + Send,
-{
+impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
     async fn recv<T: DeserializeOwned>(&mut self) -> Result<T, RecvError> {
+        let line = self.recv_raw().await?;
+        Ok(serde_json::from_slice(&*line)?)
+    }
+
+    async fn recv_parse<T: FromStr>(&mut self) -> Result<T, RecvParseError<T>>
+    where
+        T::Err: Debug + Display,
+    {
+        dbg!(self.recv_raw().await?.as_str_checked()?)
+            .parse()
+            .map_err(RecvParseError::ParseError)
+    }
+
+    async fn recv_raw(&mut self) -> io::Result<LineGuard<'_, Self>> {
         loop {
             let buf = self.fill_buf().await?;
-            if let Some(i) = buf.iter().position(|b| *b == b'\n') {
-                let r = serde_json::from_slice(&buf[..i])?;
-                self.consume(i + 1);
-                break Ok(r);
+            if let Some(len) = buf.iter().position(|b| *b == b'\n') {
+                break Ok(LineGuard { reader: self, len });
             }
         }
     }
@@ -53,12 +119,23 @@ where
 #[async_trait::async_trait]
 impl<W> WriteJsonLinesExt for W
 where
-    W: AsyncWriteExt + Unpin + Send,
+    W: AsyncWrite + Unpin + Send,
 {
     async fn send<T: Serialize + Send>(&mut self, t: T) -> io::Result<()> {
         // TODO: allow buffer reuse or don't use a buffer at all
         let serialized = serde_json::to_vec(&t)?;
-        self.write_all(&serialized).await?;
+        self.send_raw(&serialized).await
+    }
+
+    async fn send_raw<T: AsRef<[u8]> + Send>(&mut self, s: T) -> io::Result<()> {
+        let bytes = s.as_ref();
+        debug_assert_eq!(
+            bytes.iter().position(|b| *b == b'\n'),
+            None,
+            "{:?} should not have '\n'",
+            bytes
+        );
+        self.write_all(bytes).await?;
         self.write_all(b"\n").await?;
         self.flush().await?;
         Ok(())

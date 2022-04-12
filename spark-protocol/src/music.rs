@@ -1,6 +1,6 @@
+use common::domain::music::PlayerIdx;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use common::domain::music::PlayerIdx;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MusicCmd<'s> {
