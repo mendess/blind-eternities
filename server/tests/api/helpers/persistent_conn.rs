@@ -30,6 +30,7 @@ impl TestApp {
         let (r, mut w) = socket.into_split();
 
         w.send(&hostname).await.expect("writing hostname");
+        w.send_raw(&self.token.to_string()).await.expect("writing uuid");
 
         let mut read = BufReader::new(r);
         read.recv::<()>().await.expect("read confirmation");
@@ -52,7 +53,7 @@ impl Device {
     }
 
     pub async fn send(&mut self, r: Result<Response, ErrorResponse>) -> io::Result<()> {
-        Ok(self.write.send(r).await?)
+        self.write.send(r).await
     }
 }
 

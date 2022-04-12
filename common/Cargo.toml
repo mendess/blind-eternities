@@ -21,6 +21,7 @@ tracing-bunyan-formatter = "0.3.2"
 petgraph = "0.6.0"
 tokio = { version = "1.17.0", default-features = false }
 async-trait = "0.1.53"
+pin-project = "1.0.10"
 
 [dependencies.sqlx]
 version = "0.5.11"

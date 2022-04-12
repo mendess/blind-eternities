@@ -77,6 +77,6 @@ impl Connections {
     }
 
     pub(super) fn remove(&self, machine: &Hostname, gen: usize) {
-        self.map.remove_if(&machine, |_, (g, _)| *g == gen);
+        self.map.remove_if(machine, |_, (g, _)| *g == gen);
     }
 }

@@ -32,6 +32,7 @@ arrayvec = "0.7.2"
 namespaced-tmp = { git = "https://github.com/mendess/namespaced-tmp", features = ["async", "user"] }
 mlib = { path = "../../m/mlib" } #{ git = "https://github.com/mendess/m", branch = "oxidise" }
 spark-protocol = { path = "../spark-protocol" }
+dashmap = "5.2.0"
 
 
 [dependencies.tokio]
