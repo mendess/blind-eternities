@@ -7,6 +7,8 @@ use std::{borrow::Cow, path::PathBuf};
 use serde::{Deserialize, Serialize};
 use tokio::io;
 
+pub use common::net::RecvError;
+
 /// Hits the local spark instance
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum Local<'s> {
@@ -68,7 +70,7 @@ pub enum ProtocolError {
     RequestFailed(String),
     NetworkError(String),
     IoError(String),
-    HttpError { status: u16, message: Vec<u8> },
+    HttpError { status: u16, message: String },
 }
 
 async fn socket_path() -> io::Result<PathBuf> {

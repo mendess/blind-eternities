@@ -32,6 +32,6 @@ async fn backend_poll(client: Arc<AuthenticatedClient>) -> anyhow::Result<()> {
             Err(e) => tracing::error!(?e, "failed to fetch players"),
         }
 
-        tokio::time::sleep(Duration::from_secs(60)).await;
+        tokio::time::sleep(Duration::from_secs(60 * 60)).await;
     }
 }

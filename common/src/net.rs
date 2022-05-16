@@ -114,6 +114,7 @@ impl<T: AsyncBufRead + Unpin> Drop for LineGuard<'_, T> {
 impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
     async fn recv<T: DeserializeOwned>(&mut self) -> Result<T, RecvError> {
         let line = self.recv_raw().await?;
+        dbg!(line.as_str());
         Ok(serde_json::from_slice(&*line)?)
     }
 
@@ -121,9 +122,7 @@ impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
     where
         T::Err: Debug + Display,
     {
-        self.recv_raw()
-            .await?
-            .as_str_checked()?
+        dbg!(self.recv_raw().await?.as_str_checked()?)
             .parse()
             .map_err(RecvParseError::ParseError)
     }
@@ -165,9 +164,9 @@ where
 }
 
 #[async_trait::async_trait]
-impl<Reader, Writer> TalkJsonLinesExt for (Reader, Writer)
+impl<Reader, Writer> TalkJsonLinesExt for (&mut BufReader<Reader>, Writer)
 where
-    Reader: ReadJsonLinesExt + Send,
+    BufReader<Reader>: ReadJsonLinesExt + Send,
     Writer: WriteJsonLinesExt + Send,
 {
     async fn talk<T: Serialize + Send, R: DeserializeOwned>(

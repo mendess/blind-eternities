@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use common::net::{ReadJsonLinesExt, WriteJsonLinesExt};
+use common::net::{ReadJsonLinesExt, RecvError, WriteJsonLinesExt};
 use tokio::{
     io::{self, BufReader, BufWriter},
     net::{self, UnixStream},
@@ -18,12 +18,12 @@ pub struct Client {
 
 impl Client {
     #[inline(always)]
-    pub async fn send<'s, C>(&mut self, cmd: C) -> io::Result<Response>
+    pub async fn send<'s, C>(&mut self, cmd: C) -> Result<Response, RecvError>
     where
         C: Into<Command<'s>>,
     {
         self.writer.send(&cmd.into()).await?;
-        Ok(self.reader.recv().await?)
+        self.reader.recv().await
     }
 }
 
@@ -61,7 +61,7 @@ impl From<UnixStream> for Client {
     }
 }
 
-pub async fn send(cmd: Command<'_>) -> io::Result<Result<ProtocolMsg, ProtocolError>> {
+pub async fn send(cmd: Command<'_>) -> Result<Result<ProtocolMsg, ProtocolError>, RecvError> {
     let path = socket_path().await?;
     let socket = UnixStream::connect(path).await?;
     Client::from(socket).send(cmd).await

@@ -137,8 +137,8 @@ async fn current(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayersEr
     )
     .fetch_one(&**conn)
     .await;
-    tracing::debug!(?result, "got the current player");
-    let current = result.context("failed to find a player")?;
+    tracing::info!(?result, "got the current player");
+    let current = result?;
 
     Ok(HttpResponse::Ok().json(Player {
         hostname: Hostname::try_from(current.hostname).context("invalid hostname in database")?,

@@ -83,10 +83,9 @@ pub async fn backend(
             Err(ProtocolError::HttpError {
                 status: response.status().as_u16(),
                 message: response
-                    .bytes()
+                    .text()
                     .await
-                    .map_err(|e| ProtocolError::DeserializingResponse(e.to_string()))?
-                    .to_vec(),
+                    .map_err(|e| ProtocolError::DeserializingResponse(e.to_string()))?,
             })
         }
     }
