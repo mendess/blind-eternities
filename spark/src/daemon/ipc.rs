@@ -126,9 +126,9 @@ async fn handle_remote(
             .send()
             .await
             .map_err(|e| ProtocolError::NetworkError(e.to_string()))?
-            .json()
+            .json::<RemoteResponse>()
             .await
-            .map_err(|e| dbg!(ProtocolError::DeserializingResponse(e.to_string())))
+            .map_err(|e| dbg!(ProtocolError::DeserializingResponse(e.to_string())))?
     }
     // match CACHE.get(&request_key) {
     //     Some(response) => {
