@@ -22,7 +22,7 @@ pub async fn local(MusicCmd { index, command }: MusicCmd<'_>) -> Result<Protocol
     fn value<T: Serialize>(r: Result<T, ProtocolError>) -> Result<ProtocolMsg, ProtocolError> {
         r.and_then(|c| {
             serde_json::to_value(&c)
-                .map_err(|e| ProtocolError::DeserializingResponse(e.to_string()))
+                .map_err(|e| dbg!(ProtocolError::DeserializingResponse(e.to_string())))
         })
         .map(ProtocolMsg::ForwardValue)
     }
@@ -85,7 +85,7 @@ pub async fn backend(
                 message: response
                     .text()
                     .await
-                    .map_err(|e| ProtocolError::DeserializingResponse(e.to_string()))?,
+                    .map_err(|e| dbg!(ProtocolError::DeserializingResponse(e.to_string())))?,
             })
         }
     }
@@ -106,7 +106,7 @@ pub async fn backend(
                 response
                     .json()
                     .await
-                    .map_err(|e| ProtocolError::DeserializingResponse(e.to_string()))
+                    .map_err(|e| dbg!(ProtocolError::DeserializingResponse(e.to_string())))
                     .map(ProtocolMsg::ForwardValue)
             },
         )
