@@ -1,124 +1,243 @@
-use std::{convert::Infallible, io, sync::Arc, time::Duration};
+use std::{
+    any::type_name,
+    convert::Infallible,
+    future::{self, Future},
+    io,
+    net::SocketAddr,
+    sync::Arc,
+    time::Duration,
+};
 
 use common::{
     domain::Hostname,
-    net::{ReadJsonLinesExt, WriteJsonLinesExt},
+    net::{MetaProtocolAck, ReadJsonLinesExt, RecvError, WriteJsonLinesExt},
 };
+use serde::de::DeserializeOwned;
+use spark_protocol::Response;
 use sqlx::PgPool;
 use tokio::{
-    io::{BufReader, BufWriter},
+    io::{AsyncWriteExt, BufReader, BufWriter},
     net::{
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-        TcpListener,
+        tcp::{ReadHalf, WriteHalf},
+        TcpListener, TcpStream,
     },
     sync::mpsc,
     time::timeout,
 };
+use tracing::instrument;
 
-use crate::{
-    auth::{self, AuthError},
-    persistent_connections::connections::Request,
-};
+use crate::{auth::{self, is_localhost}, persistent_connections::connections::Request};
 
 use super::connections::Connections;
 
-async fn handle(
-    mut read: BufReader<OwnedReadHalf>,
-    mut write: BufWriter<OwnedWriteHalf>,
-    mut rx: mpsc::Receiver<Request>,
-) -> io::Result<()> {
-    while let Some((cmd, ch)) = rx.recv().await {
-        tracing::debug!(?cmd, "received cmd");
-        write.send(&cmd).await?;
-        let response = read.recv().await?;
-        tracing::debug!(?response, "received response");
-        if let Err(r) = ch.send(response) {
-            tracing::error!(?cmd, response = ?r, "one shot channel closed");
+const TIMEOUT: Duration = Duration::from_secs(10);
+
+macro_rules! send {
+    ($writer:ident <- $msg:expr; {
+        $e:pat => $on_error:expr,
+        elapsed => $on_elapsed:expr $(,)?
+    }) => {
+        send!($writer <- $msg; {
+            (),
+            $e => $on_error,
+            elapsed => $on_elapsed,
+        })
+    };
+    ($writer:ident <- $msg:expr; {
+        $on_success:expr,
+        $e:pat => $on_error:expr,
+        elapsed => $on_elapsed:expr $(,)?
+    }) => {{
+        #[allow(unused_imports)]
+        use ::common::net::WriteJsonLinesExt;
+        match ::tokio::time::timeout(TIMEOUT, $writer.send($msg)).await {
+            Ok(Ok(())) => $on_success,
+            Ok(Err($e)) => {
+                $on_error
+            }
+            Err(_elapsed) => {
+                $on_elapsed
+            }
         }
-        tracing::debug!("forwarded response");
+    }}
+}
+
+#[instrument("receiving from client", skip(reader, writer, verifier))]
+async fn receive<T, V, R, W, F, E, Fut>(
+    reader: &mut R,
+    writer: &mut W,
+    name: &str,
+    verifier: F,
+) -> Option<V>
+where
+    T: DeserializeOwned,
+    R: ReadJsonLinesExt,
+    W: WriteJsonLinesExt,
+    E: std::error::Error,
+    F: FnOnce(T) -> Fut,
+    Fut: Future<Output = Result<V, E>>,
+{
+    match timeout(TIMEOUT, reader.recv()).await {
+        Ok(Ok(h)) => match verifier(h).await {
+            Ok(v) => send!(writer <- MetaProtocolAck::Ok; {
+                Some(v),
+                e => {
+                    tracing::error!(?e);
+                    None
+                },
+                elapsed => {
+                    tracing::error!("timed out sending ok ack");
+                    None
+                },
+            }),
+            Err(e) => send!(writer <- MetaProtocolAck::InvalidValue(format!("{:?}", e)); {
+                None,
+                e => {
+                    tracing::error!(?e, "reporting invalid value error");
+                    None
+                },
+                elapsed => {
+                    tracing::error!("timed out sending invalid value error");
+                    None
+                }
+            }),
+        },
+        Err(_elapsed) => {
+            tracing::error!(
+                "timed out receiving message of type {}",
+                std::any::type_name::<T>()
+            );
+            None
+        }
+        Ok(Err(RecvError::Io(e))) => {
+            tracing::error!(
+                ?e,
+                "receiving message of type {}",
+                std::any::type_name::<T>()
+            );
+            None
+        }
+        Ok(Err(RecvError::Serde(e))) => {
+            tracing::error!(?e);
+            let e = MetaProtocolAck::DeserializationError {
+                expected_type: type_name::<T>().into(),
+                error: e.to_string(),
+            };
+            send!(writer <- e; {
+                e => tracing::error!(?e, "reporting error"),
+                elapsed => tracing::error!("timed out reporting error"),
+            });
+            None
+        }
     }
-    Ok(())
+}
+
+async fn handle_a_connection(
+    conn: &mut TcpStream,
+    addr: SocketAddr,
+    db: Arc<PgPool>,
+    connections: Arc<Connections>,
+    allow_any_localhost_token: bool,
+) -> Option<()> {
+    // accept a connection
+    let (mut reader, mut writer, addr) = {
+        let (r, w) = conn.split();
+        (BufReader::new(r), BufWriter::new(w), addr)
+    };
+    tracing::info!(%addr, "accepted a connection");
+
+    // start protocol
+    let (gen, hostname, rx) = {
+        let _span = tracing::info_span!("protocol", %addr);
+        let hostname = receive(
+            &mut reader,
+            &mut writer,
+            "start of protocol",
+            |x: Hostname| future::ready(Result::<_, Infallible>::Ok(x)),
+        )
+        .await?;
+        receive(&mut reader, &mut writer, "auth token", |t| async move {
+            if allow_any_localhost_token && is_localhost(addr) {
+                Ok(())
+            } else {
+                auth::check_token(&*db, t).await
+            }
+        })
+        .await?;
+
+        tracing::info!(connected_hostname = %hostname, "connection established");
+        let (gen, rx) = connections.insert(hostname.clone());
+        (gen, hostname, rx)
+    };
+
+    let _span = tracing::debug_span!(
+        "handling new persistent connection",
+        connected_hostname = %hostname,
+        %gen
+    );
+
+    async fn handle(
+        read: &mut BufReader<ReadHalf<'_>>,
+        write: &mut BufWriter<WriteHalf<'_>>,
+        mut rx: mpsc::Receiver<Request>,
+    ) -> io::Result<()> {
+        while let Some((cmd, ch)) = rx.recv().await {
+            tracing::debug!(?cmd, "received cmd");
+            send!(write <- &cmd; {
+                e => return Err(e),
+                elapsed => continue,
+            });
+            let response = match timeout(TIMEOUT, read.recv()).await {
+                Ok(Ok(r)) => r,
+                Ok(Err(e)) => {
+                    if let RecvError::Serde(e) = &e {
+                        let msg = MetaProtocolAck::DeserializationError {
+                            error: e.to_string(),
+                            expected_type: type_name::<Response>().into(),
+                        };
+                        send!(write <- msg; {
+                            e => return Err(e),
+                            elapsed => {}
+                        });
+                    }
+                    return Err(e.into());
+                }
+                Err(_elapsed) => continue,
+            };
+            tracing::debug!(?response, "received response");
+            if let Err(r) = ch.send(response) {
+                tracing::error!(?cmd, response = ?r, "one shot channel closed");
+            }
+            tracing::debug!("forwarded response");
+        }
+        Ok(())
+    }
+
+    if let Err(e) = handle(&mut reader, &mut writer, rx).await {
+        tracing::error!(?e, "persistent connection errored out");
+    }
+    connections.remove(&hostname, gen);
+    Some(())
 }
 
 pub(crate) async fn start(
     listener: TcpListener,
     connections: Arc<Connections>,
-    conn: Arc<PgPool>,
+    db: Arc<PgPool>,
+    allow_any_localhost_token: bool,
 ) -> io::Result<Infallible> {
     tracing::info!(
         "starting persistent connection manager at port {:?}",
         listener.local_addr().map(|a| a.port())
     );
     loop {
-        // accept a connection
-        let (mut reader, mut writer, addr) = {
-            let (conn, addr) = listener.accept().await?;
-            let (r, w) = conn.into_split();
-            (BufReader::new(r), BufWriter::new(w), addr)
-        };
-        tracing::info!(%addr, "accepted a connection");
-
-        // start protocol
-        let (gen, hostname, rx) = {
-            let _span = tracing::info_span!("protocol", %addr);
-            let hostname = match timeout(Duration::from_secs(1), reader.recv::<Hostname>()).await {
-                Ok(Err(e)) => {
-                    tracing::error!(?e, %addr, "failed reading start protocol line");
-                    continue;
-                }
-                Err(_elapsed) => {
-                    tracing::info!(%addr, "start of protocol timed out");
-                    continue;
-                }
-                Ok(Ok(h)) => h,
-            };
-            let token =
-                match timeout(Duration::from_secs(1), reader.recv_parse::<uuid::Uuid>()).await {
-                    Ok(Err(e)) => {
-                        tracing::error!(?e, %addr, "failed reading auth token");
-                        continue;
-                    }
-                    Err(_elapsed) => {
-                        tracing::info!(%addr, "reading of auth token timed out");
-                        continue;
-                    }
-                    Ok(Ok(h)) => h,
-                };
-
-            if let Err(e) = auth::check_token(&*conn, token).await {
-                match e {
-                    AuthError::InvalidToken => {
-                        tracing::info!(connected_hostname = %hostname, %token, "invalid token");
-                        continue;
-                    }
-                    e => {
-                        tracing::error!(?e, connected_hostname = %hostname, %token, "error");
-                        continue;
-                    }
-                }
-            };
-
-            if let Err(e) = writer.send(()).await {
-                tracing::error!(?e, "failed to confirm handshake");
-                continue;
-            }
-            tracing::info!(connected_hostname = %hostname, "connection established");
-            let (gen, rx) = connections.insert(hostname.clone());
-            (gen, hostname, rx)
-        };
-
-        tokio::spawn({
-            let connections = connections.clone();
-            async move {
-                let _span = tracing::debug_span!(
-                    "handling new persistent connection",
-                    connected_hostname = %hostname,
-                    %gen
-                );
-                if let Err(e) = handle(reader, writer, rx).await {
-                    tracing::error!(?e, "persistent connection errored out");
-                }
-                connections.remove(&hostname, gen);
+        let (mut conn, addr) = listener.accept().await?;
+        let connections = connections.clone();
+        let db = db.clone();
+        tokio::spawn(async move {
+            handle_a_connection(&mut conn, addr, db, connections, allow_any_localhost_token).await;
+            if let Err(e) = conn.shutdown().await {
+                tracing::error!(?e, "failed to shutdown conn");
             }
         });
     }

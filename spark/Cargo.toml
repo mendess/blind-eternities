@@ -33,6 +33,7 @@ namespaced-tmp = { git = "https://github.com/mendess/namespaced-tmp", features =
 mlib = { path = "../../m/mlib" } #{ git = "https://github.com/mendess/m", branch = "oxidise" }
 spark-protocol = { path = "../spark-protocol" }
 dashmap = "5.2.0"
+uuid = { version = "0.8.2", features = ["serde"] }
 
 
 [dependencies.tokio]

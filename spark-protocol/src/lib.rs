@@ -52,14 +52,16 @@ impl<'s> From<Backend<'s>> for Command<'s> {
     }
 }
 
+pub type Response = Result<ProtocolMsg, ProtocolError>;
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub enum Response {
+pub enum ProtocolMsg {
     Unit,
     ForwardValue(serde_json::Value),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ErrorResponse {
+pub enum ProtocolError {
     DeserializingCommand(String),
     DeserializingResponse(String),
     ForwardedError(String),
@@ -95,7 +97,7 @@ mod test {
             .send(Local::Reload)
             .await
             .unwrap();
-        assert_eq!(Ok(Response::Unit), response);
+        assert_eq!(Ok(ProtocolMsg::Unit), response);
     }
 
     #[tokio::test]
@@ -109,7 +111,7 @@ mod test {
                 .send(Local::Reload)
                 .await
                 .unwrap_or_else(|e| panic!("i: {i}: {:?}", e));
-            assert_eq!(Ok(Response::Unit), response, "i: {i}");
+            assert_eq!(Ok(ProtocolMsg::Unit), response, "i: {i}");
         }
     }
 
@@ -119,7 +121,7 @@ mod test {
         tokio::spawn(
             server::ServerBuilder::new()
                 .with_path(path.to_path_buf())
-                .serve(|_| async { Ok(Response::Unit) }),
+                .serve(|_| async { Ok(ProtocolMsg::Unit) }),
         );
         path
     }

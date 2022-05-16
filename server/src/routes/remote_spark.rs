@@ -11,8 +11,7 @@ pub fn routes() -> actix_web::Scope {
 impl ResponseError for ConnectionError {
     fn status_code(&self) -> StatusCode {
         match self {
-            Self::ConnectionDropped => StatusCode::NOT_FOUND,
-            Self::Timedout => StatusCode::REQUEST_TIMEOUT,
+            Self::ConnectionDropped => StatusCode::REQUEST_TIMEOUT,
             Self::NotFound => StatusCode::NOT_FOUND,
         }
     }

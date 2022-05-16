@@ -4,7 +4,7 @@ use crate::{
 };
 use common::domain::Hostname;
 use reqwest::StatusCode;
-use spark_protocol::{ErrorResponse, Local, Response};
+use spark_protocol::{ProtocolError, Local, ProtocolMsg};
 
 impl TestApp {
     async fn send(&self, hostname: Hostname, cmd: Local<'_>) -> reqwest::Response {
@@ -29,17 +29,17 @@ async fn sending_a_valid_cmd_to_an_existing_conn_forwards_the_request() {
         timeout!(20 => async {
             app.send(hostname, Local::Reload)
                 .await
-                .json::<Result<Response, ErrorResponse>>()
+                .json::<Result<ProtocolMsg, ProtocolError>>()
                 .await
         })
     });
 
     let req = timeout!(device.recv()).expect("failed to receive");
     assert_eq!(req, Local::Reload);
-    timeout!(device.send(Ok(Response::Unit))).expect("to send");
+    timeout!(device.send(Ok(ProtocolMsg::Unit))).expect("to send");
 
     let resp = timeout!(join).expect("failed to join").expect("deser");
-    assert_eq!(resp, Ok(Response::Unit));
+    assert_eq!(resp, Ok(ProtocolMsg::Unit));
 }
 
 #[actix_rt::test]

@@ -12,10 +12,12 @@ pub(crate) mod music;
 pub async fn run_all(config: Config) -> anyhow::Result<()> {
     let config = Arc::new(config);
     let client = Arc::new(AuthenticatedClient::new(
-        config.token.clone(),
-        &config.backend_url,
+        config.token,
+        &config.backend_domain,
+        config.backend_port,
     )?);
     let _ = tokio::try_join!(
+        tokio::spawn(ipc::remote_socket(config.clone(), client.clone())),
         tokio::spawn(ipc::start(config.clone(), client.clone())),
         tokio::spawn(machine_status::start(config.clone(), client.clone())),
         tokio::spawn(music::start(config.clone(), client.clone())),

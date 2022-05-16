@@ -2,9 +2,9 @@ use std::io;
 
 use common::{
     domain::Hostname,
-    net::{ReadJsonLinesExt, WriteJsonLinesExt},
+    net::{MetaProtocolAck, ReadJsonLinesExt, TalkJsonLinesExt, WriteJsonLinesExt},
 };
-use spark_protocol::{ErrorResponse, Local, Response};
+use spark_protocol::{Local, ProtocolError, ProtocolMsg};
 
 use super::TestApp;
 
@@ -29,14 +29,20 @@ impl TestApp {
 
         let (r, mut w) = socket.into_split();
 
-        w.send(&hostname).await.expect("writing hostname");
-        w.send_raw(&self.token.to_string()).await.expect("writing uuid");
+        let mut r = BufReader::new(r);
 
-        let mut read = BufReader::new(r);
-        read.recv::<()>().await.expect("read confirmation");
+        let mut talker = (&mut r, &mut w);
+        assert_eq!(
+            MetaProtocolAck::Ok,
+            talker.talk(&hostname).await.expect("writing hostname"),
+        );
+        assert_eq!(
+            MetaProtocolAck::Ok,
+            talker.talk(self.token).await.expect("writing token")
+        );
 
         Device {
-            read,
+            read: r,
             write: BufWriter::new(w),
         }
     }
@@ -52,7 +58,7 @@ impl Device {
         Ok(self.read.recv().await?)
     }
 
-    pub async fn send(&mut self, r: Result<Response, ErrorResponse>) -> io::Result<()> {
+    pub async fn send(&mut self, r: Result<ProtocolMsg, ProtocolError>) -> io::Result<()> {
         self.write.send(r).await
     }
 }
