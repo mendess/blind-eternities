@@ -31,6 +31,7 @@ pub async fn send(cmd: &SparkCommand) -> anyhow::Result<Result<ProtocolMsg, Prot
 }
 
 pub async fn start(_config: Arc<Config>, client: Arc<AuthenticatedClient>) -> anyhow::Result<()> {
+    tracing::info!("starting ipc server");
     spark_protocol::server::server(move |c| {
         let client = client.clone();
         async move {
@@ -41,7 +42,11 @@ pub async fn start(_config: Arc<Config>, client: Arc<AuthenticatedClient>) -> an
             }
         }
     })
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!("server failed {e:?}");
+        e
+    })?;
     Ok(())
 }
 

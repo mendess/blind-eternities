@@ -26,6 +26,6 @@ pub async fn start(config: Arc<Config>, client: Arc<AuthenticatedClient>) -> any
             Err(e) => error!("Failed to obtain a machine status: {:?}", e),
         };
 
-        sleep(Duration::from_secs(60)).await;
+        sleep(Duration::from_secs(60 * 60)).await;
     }
 }

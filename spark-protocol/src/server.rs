@@ -1,6 +1,7 @@
 use crate::{socket_path, Command};
 use common::net::{ReadJsonLinesExt, RecvError, WriteJsonLinesExt};
 use std::{
+    fmt::Debug,
     fs::Permissions,
     future::Future,
     io,
@@ -62,9 +63,10 @@ impl ServerBuilder {
         F: Fn(Command<'static>) -> Fut + Clone + Send + 'static,
         Fut: Future<Output = Result<ProtocolMsg, ProtocolError>> + Send + 'static,
     {
-        async fn create_socket<P: AsRef<Path>>(p: P) -> io::Result<UnixListener> {
-            if let Err(e) = fs::remove_file(&p).await {
+        async fn create_socket<P: AsRef<Path> + Debug>(p: P) -> io::Result<UnixListener> {
+            if let Err(e) = fs::remove_file(dbg!(&p)).await {
                 if e.kind() != io::ErrorKind::NotFound {
+                    tracing::error!(?e, "failed to remove old socket");
                     return Err(e);
                 }
             }
