@@ -4,27 +4,27 @@ use reqwest::RequestBuilder;
 use serde::Serialize;
 use spark_protocol::{
     music::{LocalMetadata, MpvMeta, MusicCmd, MusicCmdKind},
-    ErrorResponse, Response,
+    ProtocolError, ProtocolMsg,
 };
 use std::future::{self, Future};
 
-pub async fn local(MusicCmd { index, command }: MusicCmd<'_>) -> Result<Response, ErrorResponse> {
+pub async fn local(MusicCmd { index, command }: MusicCmd<'_>) -> Result<ProtocolMsg, ProtocolError> {
     let map_err = |e: mlib::Error| match e {
-        mlib::Error::Io(e) => ErrorResponse::IoError(e.to_string()),
+        mlib::Error::Io(e) => ProtocolError::IoError(e.to_string()),
         mlib::Error::NoMpvInstance => {
-            ErrorResponse::ForwardedError(format!("no mpv instance at {index}"))
+            ProtocolError::ForwardedError(format!("no mpv instance at {index}"))
         }
-        _ => ErrorResponse::ForwardedError(e.to_string()),
+        _ => ProtocolError::ForwardedError(e.to_string()),
     };
 
-    let unit = |r: Result<(), mlib::Error>| r.map(|_| Response::Unit).map_err(map_err);
+    let unit = |r: Result<(), mlib::Error>| r.map(|_| ProtocolMsg::Unit).map_err(map_err);
 
-    fn value<T: Serialize>(r: Result<T, ErrorResponse>) -> Result<Response, ErrorResponse> {
+    fn value<T: Serialize>(r: Result<T, ProtocolError>) -> Result<ProtocolMsg, ProtocolError> {
         r.and_then(|c| {
             serde_json::to_value(&c)
-                .map_err(|e| ErrorResponse::DeserializingResponse(e.to_string()))
+                .map_err(|e| ProtocolError::DeserializingResponse(e.to_string()))
         })
-        .map(Response::ForwardValue)
+        .map(ProtocolMsg::ForwardValue)
     }
 
     let mut socket = LocalMpvSocket::by_index(index).await.map_err(map_err)?;
@@ -53,7 +53,7 @@ pub async fn local(MusicCmd { index, command }: MusicCmd<'_>) -> Result<Response
 pub async fn backend(
     mpv_meta: MpvMeta<'_>,
     client: &AuthenticatedClient,
-) -> Result<Response, ErrorResponse> {
+) -> Result<ProtocolMsg, ProtocolError> {
     use common::net::auth_client;
 
     return match mpv_meta {
@@ -72,30 +72,30 @@ pub async fn backend(
     async fn handle_response<F, Fut>(
         response: reqwest::Response,
         f: F,
-    ) -> Result<Response, ErrorResponse>
+    ) -> Result<ProtocolMsg, ProtocolError>
     where
         F: FnOnce(reqwest::Response) -> Fut,
-        Fut: Future<Output = Result<Response, ErrorResponse>>,
+        Fut: Future<Output = Result<ProtocolMsg, ProtocolError>>,
     {
         if response.status().is_success() {
             f(response).await
         } else {
-            Err(ErrorResponse::HttpError {
+            Err(ProtocolError::HttpError {
                 status: response.status().as_u16(),
                 message: response
                     .bytes()
                     .await
-                    .map_err(|e| ErrorResponse::DeserializingResponse(e.to_string()))?
+                    .map_err(|e| ProtocolError::DeserializingResponse(e.to_string()))?
                     .to_vec(),
             })
         }
     }
 
-    fn map_err(e: reqwest::Error) -> ErrorResponse {
-        ErrorResponse::NetworkError(e.to_string())
+    fn map_err(e: reqwest::Error) -> ProtocolError {
+        ProtocolError::NetworkError(e.to_string())
     }
 
-    async fn get(client: &AuthenticatedClient, url: &str) -> Result<Response, ErrorResponse> {
+    async fn get(client: &AuthenticatedClient, url: &str) -> Result<ProtocolMsg, ProtocolError> {
         handle_response(
             client
                 .get(url)
@@ -107,14 +107,14 @@ pub async fn backend(
                 response
                     .json()
                     .await
-                    .map_err(|e| ErrorResponse::DeserializingResponse(e.to_string()))
-                    .map(Response::ForwardValue)
+                    .map_err(|e| ProtocolError::DeserializingResponse(e.to_string()))
+                    .map(ProtocolMsg::ForwardValue)
             },
         )
         .await
     }
 
-    async fn set<M>(method: M) -> Result<Response, ErrorResponse>
+    async fn set<M>(method: M) -> Result<ProtocolMsg, ProtocolError>
     where
         M: FnOnce() -> auth_client::Result<RequestBuilder>,
     {
@@ -124,7 +124,7 @@ pub async fn backend(
                 .send()
                 .await
                 .map_err(map_err)?,
-            |_| future::ready(Ok(Response::Unit)),
+            |_| future::ready(Ok(ProtocolMsg::Unit)),
         )
         .await
     }

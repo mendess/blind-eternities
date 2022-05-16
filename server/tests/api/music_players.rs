@@ -4,7 +4,7 @@ use reqwest::StatusCode;
 use serde_json::json;
 use spark_protocol::{
     music::{LocalMetadata, MusicCmd, MusicCmdKind},
-    ErrorResponse, Local, Response,
+    Local, ProtocolMsg, Response,
 };
 
 use crate::{
@@ -257,7 +257,7 @@ async fn get_last_queue_from_existing_device_works() {
                 .expect("success");
             assert_status!(StatusCode::OK, resp.status());
             resp
-                .json::<Result<Response, ErrorResponse>>()
+                .json::<Response>()
                 .await
         })
     });
@@ -270,11 +270,11 @@ async fn get_last_queue_from_existing_device_works() {
         }),
         req,
     );
-    timeout!(device.send(Ok(Response::ForwardValue(json!(0i64))))).expect("success send");
+    timeout!(device.send(Ok(ProtocolMsg::ForwardValue(json!(0i64))))).expect("success send");
 
     let last = join.await.expect("join success").expect("request success");
     let last = last.map(|e| match e {
-        Response::ForwardValue(v) => serde_json::from_value(v).expect("deserialization"),
+        ProtocolMsg::ForwardValue(v) => serde_json::from_value(v).expect("deserialization"),
         _ => panic!("unexpected response variant: {e:?}"),
     });
 
@@ -297,7 +297,7 @@ async fn get_null_last_queue_from_existing_device_works() {
                 .expect("success");
             assert_status!(StatusCode::OK, resp.status());
             resp
-                .json::<Result<Response, ErrorResponse>>()
+                .json::<Response>()
                 .await
         })
     });
@@ -310,11 +310,11 @@ async fn get_null_last_queue_from_existing_device_works() {
         }),
         req,
     );
-    timeout!(device.send(Ok(Response::ForwardValue(json!(null))))).expect("success send");
+    timeout!(device.send(Ok(ProtocolMsg::ForwardValue(json!(null))))).expect("success send");
 
     let last = join.await.expect("join success").expect("request success");
     let last = last.map(|e| match e {
-        Response::ForwardValue(v) => serde_json::from_value::<Option<usize>>(v).expect("deserialization"),
+        ProtocolMsg::ForwardValue(v) => serde_json::from_value::<Option<usize>>(v).expect("deserialization"),
         _ => panic!("unexpected response variant: {e:?}"),
     });
     assert_eq!(Ok(None), last);
@@ -379,7 +379,7 @@ async fn reset_last_queue_on_existing_device_works() {
         }),
         req
     );
-    timeout!(device.send(Ok(Response::Unit))).expect("successful send");
+    timeout!(device.send(Ok(ProtocolMsg::Unit))).expect("successful send");
 
     assert_status!(StatusCode::OK, resp.await.expect("join success").status());
 }
@@ -444,7 +444,7 @@ async fn set_last_queue_on_existing_device_works() {
         }),
         req
     );
-    timeout!(device.send(Ok(Response::Unit))).expect("successful send");
+    timeout!(device.send(Ok(ProtocolMsg::Unit))).expect("successful send");
 
     assert_status!(StatusCode::OK, resp.await.expect("join success").status());
 }

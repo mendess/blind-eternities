@@ -1,4 +1,4 @@
-use std::{net as std_net, sync::Arc, time::Duration};
+use std::{net as std_net, sync::Arc};
 
 use actix_web::{dev::Server, web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
@@ -18,11 +18,12 @@ pub fn run(
     let bearer_auth = HttpAuthentication::bearer(move |r, b| {
         crate::auth::verify_token(r, b, allow_any_localhost_token)
     });
-    let connections = Arc::new(Connections::new(Duration::from_secs(10)));
+    let connections = Arc::new(Connections::new());
     tokio::spawn(crate::persistent_connections::start(
         persistent_conns_listener,
         connections.clone(),
         conn.clone(),
+        allow_any_localhost_token,
     ));
     let conn = web::Data::from(conn);
     let connections = web::Data::from(connections);

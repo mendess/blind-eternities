@@ -1,13 +1,9 @@
 use config::{Config, Environment, File};
 
-const fn default_persistent_conn_port() -> u16 {
-    2773
-}
-
 #[derive(Debug, serde::Deserialize)]
 pub struct Settings {
     pub port: u16,
-    #[serde(default = "default_persistent_conn_port")]
+    #[serde(default = "::common::net::defaults::default_persistent_conn_port")]
     pub persistent_conn_port: u16,
     pub db: DbSettings,
     #[serde(default)]

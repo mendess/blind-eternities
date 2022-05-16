@@ -13,7 +13,7 @@ use tokio::{
     net::{self, UnixListener, UnixStream},
 };
 
-use super::{ErrorResponse, Response};
+use super::{ProtocolError, ProtocolMsg};
 
 struct Client {
     reader: BufReader<net::unix::OwnedReadHalf>,
@@ -27,7 +27,7 @@ impl Client {
     }
 
     #[inline(always)]
-    async fn send(&mut self, r: Result<Response, ErrorResponse>) -> io::Result<()> {
+    async fn send(&mut self, r: Result<ProtocolMsg, ProtocolError>) -> io::Result<()> {
         self.writer.send(&r).await
     }
 }
@@ -60,7 +60,7 @@ impl ServerBuilder {
     pub async fn serve<F, Fut>(self, handler: F) -> io::Result<()>
     where
         F: Fn(Command<'static>) -> Fut + Clone + Send + 'static,
-        Fut: Future<Output = Result<Response, ErrorResponse>> + Send + 'static,
+        Fut: Future<Output = Result<ProtocolMsg, ProtocolError>> + Send + 'static,
     {
         async fn create_socket<P: AsRef<Path>>(p: P) -> io::Result<UnixListener> {
             if let Err(e) = fs::remove_file(&p).await {
@@ -93,7 +93,7 @@ impl ServerBuilder {
                             Err(RecvError::Io(e)) => return Err(e),
                             Err(RecvError::Serde(s)) => {
                                 client
-                                    .send(Err(ErrorResponse::DeserializingCommand(s.to_string())))
+                                    .send(Err(ProtocolError::DeserializingCommand(s.to_string())))
                                     .await?;
                             }
                         }
@@ -108,7 +108,7 @@ impl ServerBuilder {
 pub async fn server<F, Fut>(handler: F) -> io::Result<()>
 where
     F: Fn(Command<'static>) -> Fut + Clone + Send + 'static,
-    Fut: Future<Output = Result<Response, ErrorResponse>> + Send + 'static,
+    Fut: Future<Output = Result<ProtocolMsg, ProtocolError>> + Send + 'static,
 {
     ServerBuilder::new().serve(handler).await
 }

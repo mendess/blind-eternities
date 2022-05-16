@@ -1,31 +1,24 @@
 use std::{
     fmt::Debug,
     sync::atomic::{AtomicUsize, Ordering},
-    time::Duration,
 };
 
 use common::domain::Hostname;
 use dashmap::DashMap;
-use spark_protocol::{ErrorResponse, Local};
-use tokio::{
-    sync::{mpsc, oneshot},
-    time::timeout,
-};
+use spark_protocol::{ProtocolError, Local};
+use tokio::sync::{mpsc, oneshot};
 
 pub(super) type Request = (Local<'static>, oneshot::Sender<Response>);
 
-pub type Response = Result<spark_protocol::Response, ErrorResponse>;
+pub type Response = Result<spark_protocol::ProtocolMsg, ProtocolError>;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Connections {
     map: DashMap<Hostname, (usize, mpsc::Sender<Request>)>,
-    timeout: Duration,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum ConnectionError {
-    #[error("timedout")]
-    Timedout,
     #[error("connection dropped")]
     ConnectionDropped,
     #[error("not found")]
@@ -33,10 +26,9 @@ pub(crate) enum ConnectionError {
 }
 
 impl Connections {
-    pub(crate) fn new(timeout: Duration) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             map: Default::default(),
-            timeout,
         }
     }
 
@@ -54,10 +46,7 @@ impl Connections {
                     .await
                     .map_err(|_| ConnectionError::ConnectionDropped)?;
                 tracing::info!("waiting for response");
-                let resp = timeout(self.timeout, rx)
-                    .await
-                    .map_err(|_| ConnectionError::Timedout)?
-                    .map_err(|_| ConnectionError::ConnectionDropped)?;
+                let resp = rx.await.map_err(|_| ConnectionError::ConnectionDropped)?;
                 tracing::info!(?resp, "received response");
                 Ok(resp)
             }

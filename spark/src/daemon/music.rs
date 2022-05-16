@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use common::{domain::music::Player, net::AuthenticatedClient};
-use futures::TryFutureExt;
+use futures::{future::ready, TryFutureExt};
 use tracing::info_span;
 
 use crate::{config::Config, state::STATE};
@@ -14,17 +14,21 @@ async fn backend_poll(client: Arc<AuthenticatedClient>) -> anyhow::Result<()> {
     loop {
         let _span = info_span!("get music player");
         let players = client
-            .get("music/players")
+            .get("music/player")
             .expect("correct url")
             .send()
+            .and_then(|r| ready(r.error_for_status()))
             .and_then(|r| r.json::<Vec<Player>>())
             .await;
         match players {
-            Ok(players) => STATE
-                .write()
-                .map_err(|_| anyhow::anyhow!("poisoned"))?
-                .backend_players
-                .clone_from(&players),
+            Ok(players) => {
+                tracing::info!(?players);
+                STATE
+                    .write()
+                    .map_err(|_| anyhow::anyhow!("poisoned"))?
+                    .backend_players
+                    .clone_from(&players);
+            }
             Err(e) => tracing::error!(?e, "failed to fetch players"),
         }
 

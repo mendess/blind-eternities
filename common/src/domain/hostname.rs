@@ -92,6 +92,12 @@ impl Display for Hostname {
     }
 }
 
+impl Hostname {
+    pub fn from_this_host() -> Self {
+        Self(whoami::hostname())
+    }
+}
+
 //TODO: delete?
 impl<'r, DB: Database> Decode<'r, DB> for Hostname
 where

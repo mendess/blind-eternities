@@ -8,8 +8,19 @@ use std::{
 };
 
 pub use auth_client::AuthenticatedClient;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MetaProtocolAck {
+    Ok,
+    DeserializationError {
+        expected_type: String,
+        error: String,
+    },
+    BadToken(String),
+    InvalidValue(String),
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum RecvError {
@@ -43,6 +54,14 @@ impl From<RecvError> for io::Error {
 }
 
 #[async_trait::async_trait]
+pub trait TalkJsonLinesExt {
+    async fn talk<T: Serialize + Send, R: DeserializeOwned>(
+        &mut self,
+        t: T,
+    ) -> Result<R, RecvError>;
+}
+
+#[async_trait::async_trait]
 pub trait WriteJsonLinesExt {
     async fn send<T: Serialize + Send>(&mut self, t: T) -> io::Result<()>;
     async fn send_raw<S: AsRef<[u8]> + Send>(&mut self, s: S) -> io::Result<()>;
@@ -61,6 +80,7 @@ pub trait ReadJsonLinesExt {
         Self: Sized + AsyncBufRead + Unpin;
 }
 
+#[derive(Debug)]
 pub struct LineGuard<'s, T: AsyncBufRead + Unpin> {
     reader: &'s mut T,
     len: usize,
@@ -101,7 +121,9 @@ impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
     where
         T::Err: Debug + Display,
     {
-        dbg!(self.recv_raw().await?.as_str_checked()?)
+        self.recv_raw()
+            .await?
+            .as_str_checked()?
             .parse()
             .map_err(RecvParseError::ParseError)
     }
@@ -139,5 +161,26 @@ where
         self.write_all(b"\n").await?;
         self.flush().await?;
         Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl<Reader, Writer> TalkJsonLinesExt for (Reader, Writer)
+where
+    Reader: ReadJsonLinesExt + Send,
+    Writer: WriteJsonLinesExt + Send,
+{
+    async fn talk<T: Serialize + Send, R: DeserializeOwned>(
+        &mut self,
+        t: T,
+    ) -> Result<R, RecvError> {
+        self.1.send(t).await?;
+        self.0.recv().await
+    }
+}
+
+pub mod defaults {
+    pub const fn default_persistent_conn_port() -> u16 {
+        2773
     }
 }
