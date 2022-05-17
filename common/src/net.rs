@@ -122,7 +122,9 @@ impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
     where
         T::Err: Debug + Display,
     {
-        self.recv_raw().await?.as_str_checked()?
+        self.recv_raw()
+            .await?
+            .as_str_checked()?
             .parse()
             .map_err(RecvParseError::ParseError)
     }
