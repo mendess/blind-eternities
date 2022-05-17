@@ -74,9 +74,10 @@ pub async fn remote_socket(
     writer.send(&client.token()).await?;
     handle_ack(reader.recv().await?, "token").await?;
 
+    tracing::info!("listening to commands");
     loop {
-        tracing::info!("listening to commands");
         let local = reader.recv::<Local<'static>>().await;
+        tracing::info!(?local, "got request");
         let response = match local {
             Err(e) => {
                 tracing::error!(?e);
@@ -87,6 +88,7 @@ pub async fn remote_socket(
                 handle_local(local).await
             }
         };
+        tracing::info!(?response, "sending response");
         if let Err(e) = writer.send(response).await {
             tracing::error!(?e, "responding to request");
         }
