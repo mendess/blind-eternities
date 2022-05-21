@@ -58,7 +58,7 @@ pub trait TalkJsonLinesExt {
     async fn talk<T: Serialize + Send, R: DeserializeOwned>(
         &mut self,
         t: T,
-    ) -> Result<R, RecvError>;
+    ) -> Result<Option<R>, RecvError>;
 }
 
 #[async_trait::async_trait]
@@ -69,13 +69,13 @@ pub trait WriteJsonLinesExt {
 
 #[async_trait::async_trait]
 pub trait ReadJsonLinesExt {
-    async fn recv<T: DeserializeOwned>(&mut self) -> Result<T, RecvError>;
+    async fn recv<T: DeserializeOwned>(&mut self) -> Result<Option<T>, RecvError>;
 
-    async fn recv_parse<T: FromStr>(&mut self) -> Result<T, RecvParseError<T>>
+    async fn recv_parse<T: FromStr>(&mut self) -> Result<Option<T>, RecvParseError<T>>
     where
         T::Err: Debug + Display;
 
-    async fn recv_raw(&mut self) -> io::Result<LineGuard<'_, Self>>
+    async fn recv_raw(&mut self) -> io::Result<Option<LineGuard<'_, Self>>>
     where
         Self: Sized + AsyncBufRead + Unpin;
 }
@@ -112,28 +112,38 @@ impl<T: AsyncBufRead + Unpin> Drop for LineGuard<'_, T> {
 
 #[async_trait::async_trait]
 impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
-    async fn recv<T: DeserializeOwned>(&mut self) -> Result<T, RecvError> {
-        let line = self.recv_raw().await?;
-        // dbg!(line.as_str());
+    async fn recv<T: DeserializeOwned>(&mut self) -> Result<Option<T>, RecvError> {
+        let line = match self.recv_raw().await? {
+            Some(line) => line,
+            None => return Ok(None),
+        };
         Ok(serde_json::from_slice(&*line)?)
     }
 
-    async fn recv_parse<T: FromStr>(&mut self) -> Result<T, RecvParseError<T>>
+    async fn recv_parse<T: FromStr>(&mut self) -> Result<Option<T>, RecvParseError<T>>
     where
         T::Err: Debug + Display,
     {
-        self.recv_raw()
-            .await?
-            .as_str_checked()?
-            .parse()
-            .map_err(RecvParseError::ParseError)
+        match self.recv_raw().await? {
+            Some(line) => line
+                .as_str_checked()?
+                .parse()
+                .map_err(RecvParseError::ParseError)
+                .map(Some),
+            None => return Ok(None),
+        }
     }
 
-    async fn recv_raw(&mut self) -> io::Result<LineGuard<'_, Self>> {
+    async fn recv_raw(&mut self) -> io::Result<Option<LineGuard<'_, Self>>> {
         loop {
             let buf = self.fill_buf().await?;
-            if let Some(len) = buf.iter().position(|b| *b == b'\n') {
-                break Ok(LineGuard { reader: self, len });
+            match buf {
+                [] => break Ok(None),
+                _ => {
+                    if let Some(len) = buf.iter().position(|b| *b == b'\n') {
+                        break Ok(Some(LineGuard { reader: self, len }));
+                    }
+                }
             }
         }
     }
@@ -174,7 +184,7 @@ where
     async fn talk<T: Serialize + Send, R: DeserializeOwned>(
         &mut self,
         t: T,
-    ) -> Result<R, RecvError> {
+    ) -> Result<Option<R>, RecvError> {
         self.1.send(t).await?;
         self.0.recv().await
     }

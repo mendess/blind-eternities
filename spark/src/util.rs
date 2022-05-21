@@ -104,6 +104,12 @@ async fn gateway_ip_and_mac() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
             )
         })?;
         let ip_str = ip_str.trim();
+        if ip_str.is_empty() {
+            return Err(anyhow::anyhow!(
+                "failed to get ip: {}",
+                String::from_utf8_lossy(&out.stderr)
+            ));
+        }
         let ip =
             IpAddr::from_str(ip_str).with_context(|| format!("tried to parse: {:?}", ip_str))?;
         let mut out = Command::new("sh")

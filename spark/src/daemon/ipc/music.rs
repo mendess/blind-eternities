@@ -4,11 +4,13 @@ use reqwest::RequestBuilder;
 use serde::Serialize;
 use spark_protocol::{
     music::{LocalMetadata, MpvMeta, MusicCmd, MusicCmdKind},
-    ProtocolError, ProtocolMsg,
+    ProtocolError, ProtocolMsg, Response,
 };
 use std::future::{self, Future};
 
-pub async fn local(MusicCmd { index, command }: MusicCmd<'_>) -> Result<ProtocolMsg, ProtocolError> {
+pub async fn local(
+    MusicCmd { index, command }: MusicCmd<'_>,
+) -> Result<ProtocolMsg, ProtocolError> {
     let map_err = |e: mlib::Error| match e {
         mlib::Error::Io(e) => ProtocolError::IoError(e.to_string()),
         mlib::Error::NoMpvInstance => {
@@ -69,13 +71,10 @@ pub async fn backend(
         format!("music/player/{}/{index}", whoami::hostname())
     }
 
-    async fn handle_response<F, Fut>(
-        response: reqwest::Response,
-        f: F,
-    ) -> Result<ProtocolMsg, ProtocolError>
+    async fn handle_response<F, Fut>(response: reqwest::Response, f: F) -> Response
     where
         F: FnOnce(reqwest::Response) -> Fut,
-        Fut: Future<Output = Result<ProtocolMsg, ProtocolError>>,
+        Fut: Future<Output = Response>,
     {
         if response.status().is_success() {
             f(response).await
@@ -94,7 +93,7 @@ pub async fn backend(
         ProtocolError::NetworkError(e.to_string())
     }
 
-    async fn get(client: &AuthenticatedClient, url: &str) -> Result<ProtocolMsg, ProtocolError> {
+    async fn get(client: &AuthenticatedClient, url: &str) -> Response {
         handle_response(
             client
                 .get(url)
@@ -113,7 +112,7 @@ pub async fn backend(
         .await
     }
 
-    async fn set<M>(method: M) -> Result<ProtocolMsg, ProtocolError>
+    async fn set<M>(method: M) -> Response
     where
         M: FnOnce() -> auth_client::Result<RequestBuilder>,
     {

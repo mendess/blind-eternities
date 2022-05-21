@@ -13,7 +13,7 @@ use common::{
     net::{MetaProtocolAck, ReadJsonLinesExt, RecvError, WriteJsonLinesExt},
 };
 use serde::de::DeserializeOwned;
-use spark_protocol::Response;
+use spark_protocol::{ProtocolError, Response};
 use sqlx::PgPool;
 use tokio::{
     io::{AsyncWriteExt, BufReader, BufWriter},
@@ -26,7 +26,10 @@ use tokio::{
 };
 use tracing::instrument;
 
-use crate::{auth::{self, is_localhost}, persistent_connections::connections::Request};
+use crate::{
+    auth::{self, is_localhost},
+    persistent_connections::connections::Request,
+};
 
 use super::connections::Connections;
 
@@ -78,7 +81,7 @@ where
     Fut: Future<Output = Result<V, E>>,
 {
     match timeout(TIMEOUT, reader.recv()).await {
-        Ok(Ok(h)) => match verifier(h).await {
+        Ok(Ok(Some(h))) => match verifier(h).await {
             Ok(v) => send!(writer <- MetaProtocolAck::Ok; {
                 Some(v),
                 e => {
@@ -102,6 +105,7 @@ where
                 }
             }),
         },
+        Ok(Ok(None)) => None,
         Err(_elapsed) => {
             tracing::error!(
                 "timed out receiving message of type {}",
@@ -188,7 +192,10 @@ async fn handle_a_connection(
                 elapsed => continue,
             });
             let response = match timeout(TIMEOUT, read.recv()).await {
-                Ok(Ok(r)) => r,
+                Ok(Ok(Some(r))) => r,
+                Ok(Ok(None)) => Err(ProtocolError::NetworkError(
+                    "daemon closed the channel socket before responding".into(),
+                )),
                 Ok(Err(e)) => {
                     if let RecvError::Serde(e) = &e {
                         let msg = MetaProtocolAck::DeserializationError {
