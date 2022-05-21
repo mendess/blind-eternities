@@ -8,7 +8,7 @@ use common::{
 };
 // use dashmap::DashMap;
 // use once_cell::sync::Lazy;
-use spark_protocol::{Backend, Command, Local, ProtocolError, ProtocolMsg, Remote};
+use spark_protocol::{Backend, Command, Local, ProtocolError, ProtocolMsg, Remote, Response};
 use structopt::StructOpt;
 use tokio::{
     io::{BufReader, BufWriter},
@@ -23,11 +23,11 @@ pub enum SparkCommand {
 }
 
 /// From the cli, send a command to the local running daemon
-pub async fn send(cmd: &SparkCommand) -> anyhow::Result<Result<ProtocolMsg, ProtocolError>> {
+pub async fn send(cmd: &SparkCommand) -> anyhow::Result<Response> {
     let r = match cmd {
         SparkCommand::Reload => spark_protocol::client::send(Command::Local(Local::Reload)).await,
     };
-    Ok(r?)
+    r?.ok_or_else(|| anyhow::anyhow!("expected response, got EOF"))
 }
 
 pub async fn start(_config: Arc<Config>, client: Arc<AuthenticatedClient>) -> anyhow::Result<()> {
@@ -70,13 +70,34 @@ pub async fn remote_socket(
         }
     }
     writer.send(Hostname::from_this_host()).await?;
-    handle_ack(reader.recv().await?, "hostname").await?;
+    handle_ack(
+        reader
+            .recv()
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("expected response, got EOF"))?,
+        "hostname",
+    )
+    .await?;
     writer.send(&client.token()).await?;
-    handle_ack(reader.recv().await?, "token").await?;
+    handle_ack(
+        reader
+            .recv()
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("expected response, got EOF"))?,
+        "token",
+    )
+    .await?;
 
     tracing::info!("listening to commands");
     loop {
-        let local = reader.recv::<Local<'static>>().await;
+        let local = match reader.recv::<Local<'static>>().await {
+            Ok(Some(local)) => Ok(local),
+            Err(e) => Err(e),
+            Ok(None) => {
+                tracing::info!("backend went away");
+                break Ok(());
+            }
+        };
         tracing::info!(?local, "got request");
         let response = match local {
             Err(e) => {
@@ -110,17 +131,13 @@ async fn handle_local(c: Local<'_>) -> Result<ProtocolMsg, ProtocolError> {
     }
 }
 
-type RemoteResponse = Result<ProtocolMsg, ProtocolError>;
 // type Request = String;
 
 // static CACHE: Lazy<DashMap<Request, RemoteResponse>> = Lazy::new(Default::default);
 
-async fn handle_remote(
-    r: Remote<'static>,
-    client: &Arc<AuthenticatedClient>,
-) -> Result<ProtocolMsg, ProtocolError> {
+async fn handle_remote(r: Remote<'static>, client: &Arc<AuthenticatedClient>) -> Response {
     // let request_key = format!("{:?}", r);
-    async fn request(client: &AuthenticatedClient, r: &Remote<'_>) -> RemoteResponse {
+    async fn request(client: &AuthenticatedClient, r: &Remote<'_>) -> Response {
         client
             .post(&format!("remote-spark/{}", r.machine))
             .expect("correct url")
@@ -128,7 +145,7 @@ async fn handle_remote(
             .send()
             .await
             .map_err(|e| ProtocolError::NetworkError(e.to_string()))?
-            .json::<RemoteResponse>()
+            .json::<Response>()
             .await
             .map_err(|e| ProtocolError::DeserializingResponse(e.to_string()))?
     }
@@ -152,10 +169,7 @@ async fn handle_remote(
     request(&*client, &r).await
 }
 
-async fn handle_backend(
-    b: Backend<'_>,
-    client: &AuthenticatedClient,
-) -> Result<ProtocolMsg, ProtocolError> {
+async fn handle_backend(b: Backend<'_>, client: &AuthenticatedClient) -> Response {
     match b {
         Backend::Music(meta) => music::backend(meta, client).await,
     }

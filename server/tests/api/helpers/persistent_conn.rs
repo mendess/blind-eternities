@@ -4,7 +4,7 @@ use common::{
     domain::Hostname,
     net::{MetaProtocolAck, ReadJsonLinesExt, TalkJsonLinesExt, WriteJsonLinesExt},
 };
-use spark_protocol::{Local, ProtocolError, ProtocolMsg};
+use spark_protocol::{Local, Response};
 
 use super::TestApp;
 
@@ -34,11 +34,19 @@ impl TestApp {
         let mut talker = (&mut r, &mut w);
         assert_eq!(
             MetaProtocolAck::Ok,
-            talker.talk(&hostname).await.expect("writing hostname"),
+            talker
+                .talk(&hostname)
+                .await
+                .expect("writing hostname")
+                .expect("eof"),
         );
         assert_eq!(
             MetaProtocolAck::Ok,
-            talker.talk(self.token).await.expect("writing token")
+            talker
+                .talk(self.token)
+                .await
+                .expect("writing token")
+                .expect("eof")
         );
 
         Device {
@@ -54,11 +62,11 @@ pub struct Device {
 }
 
 impl Device {
-    pub async fn recv(&mut self) -> io::Result<Local<'static>> {
+    pub async fn recv(&mut self) -> io::Result<Option<Local<'static>>> {
         Ok(self.read.recv().await?)
     }
 
-    pub async fn send(&mut self, r: Result<ProtocolMsg, ProtocolError>) -> io::Result<()> {
+    pub async fn send(&mut self, r: Response) -> io::Result<()> {
         self.write.send(r).await
     }
 }

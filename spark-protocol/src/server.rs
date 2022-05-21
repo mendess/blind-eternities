@@ -64,13 +64,12 @@ impl ServerBuilder {
         Fut: Future<Output = Result<ProtocolMsg, ProtocolError>> + Send + 'static,
     {
         async fn create_socket<P: AsRef<Path> + Debug>(p: P) -> io::Result<UnixListener> {
-            if let Err(e) = fs::remove_file(dbg!(&p)).await {
+            if let Err(e) = fs::remove_file(&p).await {
                 if e.kind() != io::ErrorKind::NotFound {
                     tracing::error!(?e, "failed to remove old socket");
                     return Err(e);
                 }
             }
-            println!("server listening on: {:?}", p.as_ref());
             let socket = UnixListener::bind(&p)?;
             fs::set_permissions(p, Permissions::from_mode(0o777)).await?;
             Ok(socket)
@@ -79,14 +78,19 @@ impl ServerBuilder {
             Some(p) => create_socket(p).await?,
             None => create_socket(socket_path().await?).await?,
         };
+        let mut id = 0;
         loop {
             let (client, _) = socket.accept().await?;
+            let local_id = id;
+            id += 1;
             tokio::spawn({
                 let handler = handler.clone();
                 async move {
                     let mut client = Client::from(client);
                     loop {
-                        match client.recv().await {
+                        let rcv = client.recv().await;
+                        tracing::info!(%local_id, req = ?rcv, "received local request");
+                        match rcv {
                             Ok(Some(c)) => {
                                 let response = handler(c);
                                 client.send(response.await).await?;

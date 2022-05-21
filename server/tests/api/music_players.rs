@@ -262,7 +262,7 @@ async fn get_last_queue_from_existing_device_works() {
         })
     });
 
-    let req = timeout!(device.recv()).expect("success recv");
+    let req = timeout!(device.recv()).expect("success recv").expect("eof");
     assert_eq!(
         Local::Music(MusicCmd {
             index: 0,
@@ -302,7 +302,7 @@ async fn get_null_last_queue_from_existing_device_works() {
         })
     });
 
-    let req = timeout!(device.recv()).expect("success recv");
+    let req = timeout!(device.recv()).expect("success recv").expect("eof");
     assert_eq!(
         Local::Music(MusicCmd {
             index: 0,
@@ -314,7 +314,9 @@ async fn get_null_last_queue_from_existing_device_works() {
 
     let last = join.await.expect("join success").expect("request success");
     let last = last.map(|e| match e {
-        ProtocolMsg::ForwardValue(v) => serde_json::from_value::<Option<usize>>(v).expect("deserialization"),
+        ProtocolMsg::ForwardValue(v) => {
+            serde_json::from_value::<Option<usize>>(v).expect("deserialization")
+        }
         _ => panic!("unexpected response variant: {e:?}"),
     });
     assert_eq!(Ok(None), last);
@@ -371,7 +373,9 @@ async fn reset_last_queue_on_existing_device_works() {
         })
     });
 
-    let req = timeout!(device.recv()).expect("success receive");
+    let req = timeout!(device.recv())
+        .expect("success receive")
+        .expect("eof");
     assert_eq!(
         Local::Music(MusicCmd {
             index: 0,
@@ -436,7 +440,9 @@ async fn set_last_queue_on_existing_device_works() {
         })
     });
 
-    let req = timeout!(device.recv()).expect("success receive");
+    let req = timeout!(device.recv())
+        .expect("success receive")
+        .expect("eof");
     assert_eq!(
         Local::Music(MusicCmd {
             index: 0,

@@ -98,7 +98,8 @@ mod test {
         let response = client::Client::from(UnixStream::connect(&p).await.unwrap())
             .send(Local::Reload)
             .await
-            .unwrap();
+            .unwrap()
+            .expect("end of file");
         assert_eq!(Ok(ProtocolMsg::Unit), response);
     }
 
@@ -112,7 +113,8 @@ mod test {
             let response = c
                 .send(Local::Reload)
                 .await
-                .unwrap_or_else(|e| panic!("i: {i}: {:?}", e));
+                .unwrap_or_else(|e| panic!("i: {i}: {:?}", e))
+                .unwrap_or_else(|| panic!("i: {i}: end of file"));
             assert_eq!(Ok(ProtocolMsg::Unit), response, "i: {i}");
         }
     }

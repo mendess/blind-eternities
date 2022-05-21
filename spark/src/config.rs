@@ -52,7 +52,11 @@ mod test {
 
     #[test]
     fn network_is_optional() {
-        let conf = r#"{ "token": "e751e207-59a8-4797-ab04-e8884b67e68e", "backend_url": "url" }"#;
+        let conf = r#"{
+            "token": "e751e207-59a8-4797-ab04-e8884b67e68e",
+            "backend_domain": "url",
+            "backend_port": 8000
+        }"#;
         let conf = serde_json::from_str::<Config>(conf).expect("network should be fully optional");
         assert_eq!(conf.network.ssh, None);
         assert_eq!(conf.network.aliases, HashMap::default());

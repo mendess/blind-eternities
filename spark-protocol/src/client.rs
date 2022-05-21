@@ -8,7 +8,7 @@ use tokio::{
 
 use crate::Response;
 
-use super::{socket_path, Command, ProtocolError, ProtocolMsg};
+use super::{socket_path, Command};
 
 #[derive(Debug)]
 pub struct Client {
@@ -18,7 +18,7 @@ pub struct Client {
 
 impl Client {
     #[inline(always)]
-    pub async fn send<'s, C>(&mut self, cmd: C) -> Result<Response, RecvError>
+    pub async fn send<'s, C>(&mut self, cmd: C) -> Result<Option<Response>, RecvError>
     where
         C: Into<Command<'s>>,
     {
@@ -61,7 +61,7 @@ impl From<UnixStream> for Client {
     }
 }
 
-pub async fn send(cmd: Command<'_>) -> Result<Result<ProtocolMsg, ProtocolError>, RecvError> {
+pub async fn send(cmd: Command<'_>) -> Result<Option<Response>, RecvError> {
     let path = socket_path().await?;
     let socket = UnixStream::connect(path).await?;
     Client::from(socket).send(cmd).await

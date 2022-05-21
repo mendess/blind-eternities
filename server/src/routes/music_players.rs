@@ -64,6 +64,7 @@ impl From<sqlx::Error> for MusicPlayersError {
             sqlx::Error::Database(e) if e.code().as_deref() == Some("23505") => {
                 MusicPlayersError::DuplicatePlayer
             }
+            sqlx::Error::RowNotFound => MusicPlayersError::NotFound,
             e => MusicPlayersError::UnexpectedError(e.into()),
         }
     }
@@ -131,12 +132,14 @@ async fn new_player(
 
 #[instrument(name = "default player", skip(conn))]
 async fn current(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayersError> {
-    let result = sqlx::query!(
-        r#"SELECT hostname, player FROM music_player
-        WHERE priority = (SELECT MAX(priority) FROM music_player)"#
-    )
-    .fetch_one(&**conn)
-    .await;
+    let result = dbg!(
+        sqlx::query!(
+            r#"SELECT hostname, player FROM music_player
+          WHERE priority = (SELECT MAX(priority) FROM music_player)"#
+        )
+        .fetch_one(&**conn)
+        .await
+    );
     tracing::info!(?result, "got the current player");
     let current = result?;
 
