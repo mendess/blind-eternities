@@ -39,7 +39,10 @@ enum Node<'hostname> {
 impl Display for Node<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Node::Machine(m) => write!(f, "M({}@{:?})", m.hostname.as_ref(), ip_from_machine(m)),
+            Node::Machine(m) => match ip_from_machine(m) {
+                Some(ip) => write!(f, "M({}@{ip})", m.hostname.as_ref()),
+                None => write!(f, "M({})", m.hostname.as_ref()),
+            },
             Node::Internet(_) => write!(f, "[I]"),
         }
     }
@@ -188,11 +191,6 @@ impl<'hostname> NetGraph<'hostname> {
         const COLOR_NAME: &str = r#" color="cornflowerblue""#;
         tokio::pin!(out);
 
-        let today = Utc::now().naive_utc();
-        let yesterday = today - Duration::hours(2);
-
-        let today = today.timestamp_millis();
-        let yesterday = yesterday.timestamp_millis();
         out.write_all(b"digraph {\n    node [colorscheme=rdylgn9]\n")
             .await?;
         let mut by_subnet = HashMap::<_, Vec<_>>::new();
@@ -214,6 +212,13 @@ impl<'hostname> NetGraph<'hostname> {
             .as_bytes(),
         )
         .await?;
+
+        let (today, yesterday) = {
+            let today = Utc::now().naive_utc();
+            let yesterday = today - Duration::hours(1);
+
+            (today.timestamp_millis(), yesterday.timestamp_millis())
+        };
         for (ip, nodes) in by_subnet.into_iter() {
             let subgraph_label = ip.to_string().replace('.', "_");
             out.write_all(format!("    subgraph cluster_{} {{\n", subgraph_label).as_bytes())
@@ -232,10 +237,14 @@ impl<'hostname> NetGraph<'hostname> {
                 };
                 out.write_all(
                     format!(
-                        "        {} [ label = \"{}\" {} ]\n",
+                        "        {} [ label = \"{}{}\" {color} ]\n",
                         i.index(),
                         Node::Machine(n),
-                        color
+                        if hb < yesterday {
+                            format!("\n{}", n.last_heartbeat)
+                        } else {
+                            String::new()
+                        },
                     )
                     .as_bytes(),
                 )
