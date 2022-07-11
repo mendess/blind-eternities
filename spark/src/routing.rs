@@ -79,7 +79,7 @@ pub(super) struct SshCommandOpts {
 }
 
 pub(super) async fn ssh(opts: &SshCommandOpts, config: &Config) -> anyhow::Result<ExitStatus> {
-    let args = route_to_ssh_hops(&opts.core, config, PseudoTty::Allocate)
+    let args = route_to_ssh_hops(&opts.core.destination, config, PseudoTty::Allocate)
         .await
         .context("getting ssh hops")?;
     let (ssh, args) = args
@@ -107,14 +107,25 @@ pub(super) async fn ssh(opts: &SshCommandOpts, config: &Config) -> anyhow::Resul
 #[derive(StructOpt, Debug)]
 pub(super) struct RsyncOpts {
     rsync_options: String,
-    #[structopt(flatten)]
-    ssh_opts: SshOpts,
-    paths: Vec<PathBuf>,
+    #[structopt(long = "dry-run")]
+    dry_run: bool,
+    paths: Vec<String>,
+}
+
+fn get_host<S: AsRef<str>>(
+    paths: &[S],
+) -> Option<Result<Destination, <Destination as FromStr>::Err>> {
+    paths
+        .iter()
+        .find_map(|p| p.as_ref().split_once(':').map(|(host, _)| host))
+        .map(Destination::from_str)
 }
 
 pub(super) async fn rsync(opts: &RsyncOpts, config: &Config) -> anyhow::Result<ExitStatus> {
+    let host =
+        get_host(&opts.paths).ok_or_else(|| anyhow::anyhow!("not remote host specified"))??;
     #[allow(unstable_name_collisions)]
-    let bridge = route_to_ssh_hops(&opts.ssh_opts, config, PseudoTty::None)
+    let bridge = route_to_ssh_hops(&host, config, PseudoTty::None)
         .await?
         .iter()
         .map(|s| s.as_str())
@@ -124,15 +135,14 @@ pub(super) async fn rsync(opts: &RsyncOpts, config: &Config) -> anyhow::Result<E
     cmd.arg(format!(
         "-{}{}",
         opts.rsync_options,
-        if opts.ssh_opts.dry_run { "n" } else { "" }
+        if opts.dry_run { "n" } else { "" }
     ));
     cmd.args(["-e", &bridge]);
-    let (files, dest) = opts.paths.split_at(opts.paths.len().saturating_sub(1));
-    for f in files {
-        cmd.arg(f.to_str().unwrap());
-    }
-    if let [dest] = dest {
-        cmd.arg(format!(":{}", dest.to_str().unwrap()));
+    for f in &opts.paths {
+        match f.split_once(':') {
+            Some((_, path)) => cmd.arg(format!(":{path}")),
+            None => cmd.arg(f),
+        };
     }
     debug!(
         "running rsync with args: [{:?}]",
@@ -216,7 +226,7 @@ pub(super) async fn show_route(opts: &ShowRouteOpts, config: &Config) -> anyhow:
 pub(crate) async fn copy_id(opts: &SshOpts, config: &Config) -> anyhow::Result<ExitStatus> {
     let (username, hostname) = resolve_alias(&config.network.aliases, &opts.destination);
 
-    let path = find_path(opts, config, hostname).await?;
+    let path = find_path(&opts.destination, config, hostname).await?;
 
     let username = username.map(String::from).unwrap_or_else(whoami::username);
 
@@ -258,7 +268,7 @@ pub(crate) async fn copy_id(opts: &SshOpts, config: &Config) -> anyhow::Result<E
 }
 
 async fn find_path(
-    opts: &SshOpts,
+    destination: &Destination,
     config: &Config,
     dest_hostname: &Hostname,
 ) -> anyhow::Result<Vec<SimpleNode>> {
@@ -283,8 +293,7 @@ async fn find_path(
         }
         None => {
             return Err(anyhow::anyhow!(
-                "Path could not be found to '{}'",
-                opts.destination
+                "Path could not be found to '{destination}'",
             ));
         }
     };
@@ -295,13 +304,13 @@ async fn find_path(
 }
 
 async fn route_to_ssh_hops(
-    opts: &SshOpts,
+    destination: &Destination,
     config: &Config,
     pseudo_tty: PseudoTty,
 ) -> anyhow::Result<Vec<String>> {
-    let (username, hostname) = resolve_alias(&config.network.aliases, &opts.destination);
+    let (username, hostname) = resolve_alias(&config.network.aliases, destination);
 
-    let path = find_path(opts, config, hostname).await?;
+    let path = find_path(destination, config, hostname).await?;
 
     Ok(match username {
         Some(u) => path_to_args(&path, u, pseudo_tty).flatten().collect(),
