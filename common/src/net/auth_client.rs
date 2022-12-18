@@ -6,13 +6,13 @@ pub type Result<T> = std::result::Result<T, UrlParseError>;
 
 pub struct AuthenticatedClient {
     client: Client,
-    token: String,
+    token: uuid::Uuid,
     base: Url,
 }
 
 impl AuthenticatedClient {
-    pub fn new(token: String, base: &str) -> Result<Self> {
-        let base = Url::parse(base)?;
+    pub fn new(token: uuid::Uuid, domain: &str, port: u16) -> Result<Self> {
+        let base = Url::parse(&format!("http://{domain}:{port}"))?;
         if base.cannot_be_a_base() {
             return Err(UrlParseError::SetHostOnCannotBeABaseUrl);
         }
@@ -60,5 +60,9 @@ impl AuthenticatedClient {
 
     pub fn client(&self) -> &Client {
         &self.client
+    }
+
+    pub fn token(&self) -> uuid::Uuid {
+        self.token
     }
 }

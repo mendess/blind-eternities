@@ -397,7 +397,7 @@ dependencies = [
  "tracing-futures",
  "tracing-log",
  "tracing-subscriber",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -553,6 +553,7 @@ dependencies = [
 name = "common"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "fake",
  "itertools",
@@ -572,6 +573,8 @@ dependencies = [
  "tracing-log",
  "tracing-subscriber",
  "url",
+ "uuid 1.2.2",
+ "whoami",
 ]
 
 [[package]]
@@ -2386,7 +2389,7 @@ dependencies = [
  "thiserror",
  "tokio-stream",
  "url",
- "uuid",
+ "uuid 0.8.2",
  "webpki 0.21.4",
  "webpki-roots 0.21.1",
  "whoami",
@@ -2709,7 +2712,7 @@ dependencies = [
  "pin-project",
  "tracing",
  "tracing-futures",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -2874,6 +2877,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "uuid"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "422ee0de9031b5b948b97a8fc04e3aa35230001a722ddd27943e0be31564ce4c"
+
+[[package]]
 name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3032,10 +3041,11 @@ dependencies = [
 
 [[package]]
 name = "whoami"
-version = "1.2.1"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524b58fa5a20a2fb3014dd6358b70e6579692a56ef6fce928834e488f42f65e8"
+checksum = "d6631b6a2fd59b1841b622e8f1a7ad241ef0a46f2d580464ce8140ac94cbd571"
 dependencies = [
+ "bumpalo",
  "wasm-bindgen",
  "web-sys",
 ]
