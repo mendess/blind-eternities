@@ -27,35 +27,35 @@ impl AuthenticatedClient {
         Ok(self
             .client
             .get(self.base.join(path)?)
-            .bearer_auth(&self.token))
+            .bearer_auth(self.token))
     }
 
     pub fn post(&self, path: &str) -> Result<RequestBuilder> {
         Ok(self
             .client
             .post(self.base.join(path)?)
-            .bearer_auth(&self.token))
+            .bearer_auth(self.token))
     }
 
     pub fn delete(&self, path: &str) -> Result<RequestBuilder> {
         Ok(self
             .client
             .delete(self.base.join(path)?)
-            .bearer_auth(&self.token))
+            .bearer_auth(self.token))
     }
 
     pub fn put(&self, path: &str) -> Result<RequestBuilder> {
         Ok(self
             .client
             .put(self.base.join(path)?)
-            .bearer_auth(&self.token))
+            .bearer_auth(self.token))
     }
 
     pub fn patch(&self, path: &str) -> Result<RequestBuilder> {
         Ok(self
             .client
             .patch(self.base.join(path)?)
-            .bearer_auth(&self.token))
+            .bearer_auth(self.token))
     }
 
     pub fn client(&self) -> &Client {

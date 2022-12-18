@@ -4,9 +4,10 @@ use actix_web::{dev::ServiceRequest, http::StatusCode, web, ResponseError};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use anyhow::Context;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 #[derive(thiserror::Error, Debug)]
-enum AuthError {
+pub enum AuthError {
     #[error("Invalid token")]
     InvalidToken,
     #[error("Unauthorized token")]
@@ -25,6 +26,23 @@ impl ResponseError for AuthError {
     }
 }
 
+pub async fn check_token(conn: &PgPool, token: Uuid) -> Result<(), AuthError> {
+    sqlx::query!("SELECT token FROM api_tokens WHERE token = $1", token)
+        .fetch_optional(conn)
+        .await
+        .context("failed to fetch token from db")
+        .map_err(AuthError::UnexpectedError)?
+        .map(|_| ())
+        .ok_or(AuthError::UnauthorizedToken)
+}
+
+pub fn is_localhost(addr: SocketAddr) -> bool {
+    match addr.ip() {
+        IpAddr::V4(ip) => ip == Ipv4Addr::LOCALHOST,
+        IpAddr::V6(ip) => ip == Ipv6Addr::LOCALHOST,
+    }
+}
+
 pub async fn verify_token(
     req: ServiceRequest,
     bearer: BearerAuth,
@@ -34,27 +52,14 @@ pub async fn verify_token(
         .app_data::<web::Data<PgPool>>()
         .expect("pg pool not configured");
 
-    fn is_localhost(addr: SocketAddr) -> bool {
-        match addr.ip() {
-            IpAddr::V4(ip) => ip == Ipv4Addr::LOCALHOST,
-            IpAddr::V6(ip) => ip == Ipv6Addr::LOCALHOST,
-        }
-    }
-
     if allow_any_localhost_token && matches!(req.peer_addr(), Some(ip) if is_localhost(ip)) {
         return Ok(req);
     }
 
-    match sqlx::query!(
-        "SELECT token FROM api_tokens WHERE token = $1",
-        uuid::Uuid::parse_str(bearer.token()).map_err(|_| AuthError::InvalidToken)?
+    check_token(
+        conn,
+        Uuid::parse_str(bearer.token()).map_err(|_| AuthError::InvalidToken)?,
     )
-    .fetch_optional(conn.get_ref())
-    .await
-    .context("failed to fetch token from db")
-    .map_err(AuthError::UnexpectedError)?
-    {
-        Some(_) => Ok(req),
-        None => Err(AuthError::UnauthorizedToken.into()),
-    }
+    .await?;
+    Ok(req)
 }

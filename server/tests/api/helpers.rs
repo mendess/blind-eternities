@@ -36,21 +36,33 @@ impl Drop for TestApp {
     fn drop(&mut self) {
         let db_name = std::mem::take(&mut self.db_name);
         std::thread::spawn(move || {
-            tokio::runtime::Runtime::new()
-                .expect("spawn a short runtime")
-                .block_on(async move {
-                    let mut conn =
-                        PgConnection::connect("postgres://postgres:postgres@localhost:5432")
-                            .await
-                            .expect("Failed to connect to postgres");
-                    if let Err(e) =
-                        sqlx::query(&format!(r#"DROP DATABASE "{}" WITH (FORCE)"#, db_name))
-                            .execute(&mut conn)
-                            .await
-                    {
-                        eprintln!("Failed to drop database {}: {:?}", db_name, e)
-                    }
-                });
+            std::iter::from_fn(|| {
+                Some(
+                    tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build(),
+                )
+            })
+            .take(5)
+            .enumerate()
+            .inspect(|(i, _)| {
+                if *i > 0 {
+                    std::thread::sleep(std::time::Duration::from_secs_f64(0.5))
+                }
+            })
+            .find_map(|(_, r)| r.ok())
+            .expect("failed to spawn drop runtime")
+            .block_on(async move {
+                let mut conn = PgConnection::connect("postgres://postgres:postgres@localhost:5432")
+                    .await
+                    .expect("Failed to connect to postgres");
+                if let Err(e) = sqlx::query(&format!(r#"DROP DATABASE "{}" WITH (FORCE)"#, db_name))
+                    .execute(&mut conn)
+                    .await
+                {
+                    eprintln!("Failed to drop database {}: {:?}", db_name, e)
+                }
+            });
         })
         .join()
         .expect("failed to join drop db thread");
@@ -178,5 +190,5 @@ async fn configure_database(config: &DbSettings) -> PgPool {
 }
 
 pub fn fake_hostname() -> StringFaker<Range<usize>> {
-    StringFaker::with((b'a'..b'z').collect(), 4..20)
+    StringFaker::with((b'a'..=b'z').collect(), 4..20)
 }
