@@ -1,9 +1,6 @@
 use std::net::TcpListener;
 
-use blind_eternities::{
-    configuration::{get_configuration, Settings},
-    startup::run,
-};
+use blind_eternities::configuration::{get_configuration, Settings};
 use common::telemetry::{get_subscriber, init_subscriber};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 
@@ -26,7 +23,7 @@ async fn main() -> std::io::Result<()> {
             .expect("Failed to connect to Postgres")
     };
 
-    run(
+    blind_eternities::startup::run(
         TcpListener::bind(("0.0.0.0", conf.port))?,
         connection,
         conf.allow_any_localhost_token,
