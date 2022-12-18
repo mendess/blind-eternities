@@ -6,11 +6,12 @@ use tokio::time::sleep;
 use tracing::{debug, error, info_span};
 
 pub fn start(config: Arc<Config>) -> Result<impl Future<Output = ()>, UrlParseError> {
-    let client = AuthenticatedClient::new(config.token.clone(), &config.backend_url)?;
+    let client =
+        AuthenticatedClient::new(config.token, &config.backend_domain, config.backend_port)?;
     Ok(async move {
         loop {
             let _span = info_span!("post machine status");
-            match get_current_status(&*config).await {
+            match get_current_status(&config).await {
                 Ok(status) => {
                     debug!("posting machine status: {:#?}", status);
                     let result = client

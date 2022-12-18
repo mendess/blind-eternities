@@ -32,7 +32,7 @@ async fn _main() -> i32 {
         let uuid = Uuid::new_v4();
 
         sqlx::query("INSERT INTO api_tokens (token, created_at, hostname) VALUES ($1, NOW(), $2)")
-            .bind(&uuid)
+            .bind(uuid)
             .bind(&hostname)
             .execute(&connection)
             .await

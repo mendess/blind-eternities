@@ -7,8 +7,11 @@ use crate::routing::Destination;
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 pub struct Config {
-    pub token: String,
-    pub backend_url: String,
+    pub token: uuid::Uuid,
+    pub backend_domain: String,
+    pub backend_port: u16,
+    #[serde(default = "::common::net::defaults::default_persistent_conn_port")]
+    pub persistent_conn_port: u16,
     #[serde(default)]
     pub network: Networking,
     #[serde(default)]
@@ -23,6 +26,8 @@ pub struct Networking {
     pub aliases: HashMap<String, Destination>,
 }
 
+const PREFIX: &str = "SPARK";
+
 pub fn load_configuration() -> anyhow::Result<Config> {
     let config_path = config_dir()
         .map(|mut d| {
@@ -34,8 +39,8 @@ pub fn load_configuration() -> anyhow::Result<Config> {
     tracing::debug!(?config_path);
 
     config::Config::builder()
-        .add_source(config::Environment::with_prefix("SPARK").separator("_"))
         .add_source(config::File::with_name(&config_path.display().to_string()).required(false))
+        .add_source(config::Environment::with_prefix(PREFIX).separator("__"))
         .build()
         .and_then(config::Config::try_deserialize)
         .context("deserializing and creating settings")
@@ -47,8 +52,11 @@ mod test {
 
     #[test]
     fn network_is_optional() {
-        let conf = r#"{ "token": "token", "backend_url": "url" }"#;
-
+        let conf = r#"{
+            "token": "e751e207-59a8-4797-ab04-e8884b67e68e",
+            "backend_domain": "url",
+            "backend_port": 8000
+        }"#;
         let conf = serde_json::from_str::<Config>(conf).expect("network should be fully optional");
         assert_eq!(conf.network.ssh, None);
         assert_eq!(conf.network.aliases, HashMap::default());

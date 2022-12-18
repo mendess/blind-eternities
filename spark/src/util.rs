@@ -148,7 +148,7 @@ pub(crate) async fn get_current_status(config: &Config) -> anyhow::Result<Machin
         external_ip,
         default_user: config.default_user.clone().or_else(|| {
             let username = whoami::username();
-            (username != "root").then(|| username)
+            (username != "root").then_some(username)
         }),
     })
 }

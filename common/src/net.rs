@@ -117,7 +117,7 @@ impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
             Some(line) => line,
             None => return Ok(None),
         };
-        Ok(serde_json::from_slice(&*line)?)
+        Ok(serde_json::from_slice(&line)?)
     }
 
     async fn recv_parse<T: FromStr>(&mut self) -> Result<Option<T>, RecvParseError<T>>
