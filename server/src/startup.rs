@@ -22,7 +22,6 @@ pub fn run(
             .wrap(bearer_auth.clone())
             .route("/health_check", web::get().to(health_check))
             .service(machine_status::routes())
-            .service(music_players::routes())
             .app_data(conn.clone())
     })
     .listen(listener)?
