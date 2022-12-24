@@ -1,156 +1,160 @@
 use actix_web::{http::StatusCode, web, HttpResponse, ResponseError};
-use anyhow::Context;
 use common::domain::Hostname;
-use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use spark_protocol::{
+    music::{MusicCmd, MusicCmdKind},
+    Local,
+};
 use tracing::instrument;
+
+use crate::persistent_connections::{ConnectionError, Connections};
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/music").service(
-        web::scope("/players")
-            .service(
-                web::resource("")
-                    .route(web::get().to(index))
-                    .route(web::patch().to(reprioritize))
-                    .route(web::post().to(new_player))
-                    .route(web::delete().to(delete)),
-            )
+        web::scope("/players/{hostname}")
+            .route("/frwd", web::get().to(skip_forward))
+            .route("/back", web::get().to(skip_backward))
+            .route("/change-volume", web::get().to(change_volume))
+            .route("/cycle-pause", web::get().to(cycle_pause))
+            .route("/queue", web::post().to(queue))
             .route("/current", web::get().to(current)),
     )
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum MusicPlayersError {
+pub(crate) enum MusicPlayersError {
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
-    #[error("duplicate player")]
-    DuplicatePlayer,
-    #[error("not found")]
-    NotFound,
+    #[error("connection error")]
+    ConnectionError(#[from] ConnectionError),
 }
 
 impl ResponseError for MusicPlayersError {
     fn status_code(&self) -> StatusCode {
-        use MusicPlayersError::*;
         match self {
-            UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            DuplicatePlayer => StatusCode::BAD_REQUEST,
-            NotFound => StatusCode::NOT_FOUND,
-        }
-    }
-}
-
-impl From<sqlx::Error> for MusicPlayersError {
-    fn from(e: sqlx::Error) -> Self {
-        tracing::debug!(?e, "converting error");
-        match e {
-            sqlx::Error::Database(e) if e.code().as_deref() == Some("23505") => {
-                MusicPlayersError::DuplicatePlayer
+            Self::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::ConnectionError(ConnectionError::NotFound) => StatusCode::NOT_FOUND,
+            Self::ConnectionError(ConnectionError::ConnectionDropped) => {
+                StatusCode::INTERNAL_SERVER_ERROR
             }
-            e => MusicPlayersError::UnexpectedError(e.into()),
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Player {
-    hostname: Hostname,
-    player: u8,
-}
-
-#[instrument(name = "list players", skip(conn))]
-pub async fn index(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayersError> {
-    let mut players = sqlx::query!("SELECT * FROM music_player")
-        .fetch_all(&**conn)
-        .await
-        .context("fetching music players")?;
-
-    players.sort_by_key(|r| r.priority);
-
-    let players = players
-        .into_iter()
-        .map(|r| {
-            u8::try_from(r.player)
-                .context("invalid player number in database")
-                .and_then(|player| {
-                    Ok(Player {
-                        hostname: Hostname::try_from(r.hostname)
-                            .context("invalid hostname in database")?,
-                        player,
-                    })
-                })
-        })
-        .collect::<Result<Vec<_>, _>>()
-        .context("negative priorities found")?;
-
-    Ok(HttpResponse::Ok().json(players))
-}
-
-#[instrument(name = "reprioritize a players", skip(conn))]
-pub async fn reprioritize(
-    conn: web::Data<PgPool>,
-    web::Json(Player { hostname, player }): web::Json<Player>,
+#[instrument(name = "default player")]
+async fn current(
+    conn: web::Data<Connections>,
+    hostname: web::Path<Hostname>,
 ) -> Result<HttpResponse, MusicPlayersError> {
-    sqlx::query!(
-        "UPDATE music_player SET priority=DEFAULT WHERE hostname = $1 AND player = $2",
-        hostname.as_ref(),
-        i32::from(player),
-    )
-    .execute(&**conn)
-    .await?;
-
-    Ok(HttpResponse::Ok().finish())
+    let response = conn
+        .request(
+            &hostname,
+            Local::Music(MusicCmd {
+                index: None,
+                command: MusicCmdKind::Current,
+            }),
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(response))
 }
 
-#[instrument(name = "create a new a player", skip(conn))]
-pub async fn new_player(
-    conn: web::Data<PgPool>,
-    web::Json(Player { hostname, player }): web::Json<Player>,
+#[instrument(name = "skip forward")]
+async fn skip_forward(
+    conn: web::Data<Connections>,
+    hostname: web::Path<Hostname>,
 ) -> Result<HttpResponse, MusicPlayersError> {
-    sqlx::query!(
-        "INSERT INTO music_player (hostname, player) VALUES ($1, $2)",
-        hostname.as_ref(),
-        i32::from(player),
-    )
-    .execute(&**conn)
-    .await?;
-
-    Ok(HttpResponse::Created().finish())
+    let response = conn
+        .request(
+            &hostname,
+            Local::Music(MusicCmd {
+                index: None,
+                command: MusicCmdKind::Frwd,
+            }),
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(response))
 }
 
-#[instrument(name = "default player", skip(conn))]
-pub async fn current(conn: web::Data<PgPool>) -> Result<HttpResponse, MusicPlayersError> {
-    let result = sqlx::query!(
-        r#"SELECT hostname, player FROM music_player
-        WHERE priority = (SELECT MAX(priority) FROM music_player)"#
-    )
-    .fetch_one(&**conn)
-    .await;
-    tracing::debug!(?result, "got the current player");
-    let current = result.context("failed to find a player")?;
-
-    Ok(HttpResponse::Ok().json(Player {
-        hostname: Hostname::try_from(current.hostname).context("invalid hostname in database")?,
-        player: current.player.try_into().context("monkas")?,
-    }))
-}
-
-#[instrument(name = "delete player", skip(conn))]
-pub async fn delete(
-    conn: web::Data<PgPool>,
-    web::Json(Player { hostname, player }): web::Json<Player>,
+#[instrument(name = "skip backward")]
+async fn skip_backward(
+    conn: web::Data<Connections>,
+    hostname: web::Path<Hostname>,
 ) -> Result<HttpResponse, MusicPlayersError> {
-    let result = sqlx::query!(
-        "DELETE FROM music_player WHERE hostname = $1 AND player = $2",
-        hostname.as_ref(),
-        i32::from(player),
-    )
-    .execute(&**conn)
-    .await?;
+    let response = conn
+        .request(
+            &hostname,
+            Local::Music(MusicCmd {
+                index: None,
+                command: MusicCmdKind::Back,
+            }),
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(response))
+}
 
-    if result.rows_affected() == 0 {
-        Err(MusicPlayersError::NotFound)
-    } else {
-        Ok(HttpResponse::Ok().finish())
-    }
+#[derive(Debug, serde::Deserialize)]
+struct Amount {
+    a: i32,
+}
+
+#[instrument(name = "change volume")]
+async fn change_volume(
+    conn: web::Data<Connections>,
+    hostname: web::Path<Hostname>,
+    amount: web::Query<Amount>,
+) -> Result<HttpResponse, MusicPlayersError> {
+    let response = conn
+        .request(
+            &hostname,
+            Local::Music(MusicCmd {
+                index: None,
+                command: MusicCmdKind::ChangeVolume { amount: amount.a },
+            }),
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(response))
+}
+
+#[instrument(name = "cycle pause")]
+async fn cycle_pause(
+    conn: web::Data<Connections>,
+    hostname: web::Path<Hostname>,
+) -> Result<HttpResponse, MusicPlayersError> {
+    let response = conn
+        .request(
+            &hostname,
+            Local::Music(MusicCmd {
+                index: None,
+                command: MusicCmdKind::CyclePause,
+            }),
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(response))
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct QueueRequest {
+    query: String,
+    search: bool,
+}
+
+#[instrument(name = "queue")]
+async fn queue(
+    conn: web::Data<Connections>,
+    hostname: web::Path<Hostname>,
+    body: web::Json<QueueRequest>,
+) -> Result<HttpResponse, MusicPlayersError> {
+    let body = body.into_inner();
+    let response = conn
+        .request(
+            &hostname,
+            Local::Music(MusicCmd {
+                index: None,
+                command: MusicCmdKind::Queue {
+                    query: body.query.into(),
+                    search: body.search,
+                },
+            }),
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(response))
 }

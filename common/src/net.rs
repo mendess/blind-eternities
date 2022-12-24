@@ -154,22 +154,30 @@ impl<W> WriteJsonLinesExt for W
 where
     W: AsyncWrite + Unpin + Send,
 {
-    async fn send<T: Serialize + Send>(&mut self, t: T) -> io::Result<()> {
+    async fn send<T>(&mut self, t: T) -> io::Result<()>
+    where
+        T: Serialize + Send,
+    {
         // TODO: allow buffer reuse or don't use a buffer at all
         let serialized = serde_json::to_vec(&t)?;
         self.send_raw(&serialized).await
     }
 
-    async fn send_raw<T: AsRef<[u8]> + Send>(&mut self, s: T) -> io::Result<()> {
-        let bytes = s.as_ref();
+    async fn send_raw<T>(&mut self, bytes: T) -> io::Result<()>
+    where
+        T: AsRef<[u8]> + Send,
+    {
+        let bytes = bytes.as_ref();
         debug_assert_eq!(
             bytes.iter().position(|b| *b == b'\n'),
             None,
             "{:?} should not have '\n'",
             bytes
         );
-        self.write_all(bytes).await?;
-        self.write_all(b"\n").await?;
+        let mut buf = Vec::with_capacity(bytes.len() + 1);
+        buf.extend_from_slice(bytes);
+        buf.push(b'\n');
+        self.write_all(&buf).await?;
         self.flush().await?;
         Ok(())
     }

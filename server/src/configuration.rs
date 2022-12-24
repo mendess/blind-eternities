@@ -4,6 +4,8 @@ use config::{Config, Environment, File};
 pub struct Settings {
     pub port: u16,
     pub db: DbSettings,
+    #[serde(default = "::common::net::defaults::default_persistent_conn_port")]
+    pub persistent_conn_port: u16,
     #[serde(default)]
     pub allow_any_localhost_token: bool,
 }

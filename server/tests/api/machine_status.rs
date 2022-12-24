@@ -10,7 +10,7 @@ use serde_json::json;
 fn well_formed_json() -> serde_json::Value {
     let fake_hostname = fake_hostname();
     json!({
-        "hostname": fake_hostname.fake::<String>(),
+        "hostname": fake_hostname,
         "ip_connections": [{
             "local_ip": IP().fake::<std::net::IpAddr>(),
             "gateway_ip": IP().fake::<std::net::IpAddr>(),

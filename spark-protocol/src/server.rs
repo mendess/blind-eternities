@@ -1,5 +1,7 @@
-use crate::socket_path;
+use crate::{socket_path, Command};
+use common::net::{ReadJsonLinesExt, RecvError, WriteJsonLinesExt};
 use std::{
+    fmt::Debug,
     fs::Permissions,
     future::Future,
     io,
@@ -8,11 +10,11 @@ use std::{
 };
 use tokio::{
     fs,
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
+    io::{BufReader, BufWriter},
     net::{self, UnixListener, UnixStream},
 };
 
-use super::{Command, ErrorResponse, Response};
+use super::{ErrorResponse, SuccessfulResponse};
 
 struct Client {
     reader: BufReader<net::unix::OwnedReadHalf>,
@@ -20,30 +22,14 @@ struct Client {
 }
 
 impl Client {
-    async fn recv(&mut self) -> io::Result<Option<Command>> {
-        let mut s = String::new();
-        let cmd = loop {
-            s.clear();
-            match self.reader.read_line(&mut s).await? {
-                0 => return Ok(None),
-                _ => match serde_json::from_str(&s) {
-                    Ok(cmd) => break cmd,
-                    Err(e) => {
-                        self.send(Err(ErrorResponse::DeserializingCommand(e.to_string())))
-                            .await?;
-                    }
-                },
-            }
-        };
-        Ok(Some(cmd))
+    #[inline(always)]
+    async fn recv(&mut self) -> Result<Option<Command<'static>>, RecvError> {
+        self.reader.recv().await
     }
 
-    async fn send(&mut self, r: Result<Response, ErrorResponse>) -> io::Result<()> {
-        let payload = serde_json::to_vec(&r).expect("serialization should never fail");
-        self.writer.write_all(&payload).await?;
-        self.writer.write_all(b"\n").await?;
-        self.writer.flush().await?;
-        Ok(())
+    #[inline(always)]
+    async fn send(&mut self, r: Result<SuccessfulResponse, ErrorResponse>) -> io::Result<()> {
+        self.writer.send(&r).await
     }
 }
 
@@ -71,18 +57,19 @@ impl ServerBuilder {
         ServerBuilder { path: Some(path) }
     }
 
+    // TODO: move to spark and finish implementing
     pub async fn serve<F, Fut>(self, handler: F) -> io::Result<()>
     where
-        F: Fn(Command) -> Fut + Clone + Send + 'static,
-        Fut: Future<Output = Result<Response, ErrorResponse>> + Send + 'static,
+        F: Fn(Command<'static>) -> Fut + Clone + Send + 'static,
+        Fut: Future<Output = Result<SuccessfulResponse, ErrorResponse>> + Send + 'static,
     {
-        async fn create_socket<P: AsRef<Path>>(p: P) -> io::Result<UnixListener> {
+        async fn create_socket<P: AsRef<Path> + Debug>(p: P) -> io::Result<UnixListener> {
             if let Err(e) = fs::remove_file(&p).await {
                 if e.kind() != io::ErrorKind::NotFound {
+                    tracing::error!(?e, "failed to remove old socket");
                     return Err(e);
                 }
             }
-            println!("server listening on: {:?}", p.as_ref());
             let socket = UnixListener::bind(&p)?;
             fs::set_permissions(p, Permissions::from_mode(0o777)).await?;
             Ok(socket)
@@ -91,15 +78,31 @@ impl ServerBuilder {
             Some(p) => create_socket(p).await?,
             None => create_socket(socket_path().await?).await?,
         };
+        let mut id = 0;
         loop {
             let (client, _) = socket.accept().await?;
+            let local_id = id;
+            id += 1;
             tokio::spawn({
                 let handler = handler.clone();
                 async move {
                     let mut client = Client::from(client);
-                    while let Some(cmd) = client.recv().await? {
-                        let response = handler(cmd);
-                        client.send(response.await).await?;
+                    loop {
+                        let rcv = client.recv().await;
+                        tracing::info!(%local_id, req = ?rcv, "received local request");
+                        match rcv {
+                            Ok(Some(c)) => {
+                                let response = handler(c);
+                                client.send(response.await).await?;
+                            }
+                            Ok(None) => break,
+                            Err(RecvError::Io(e)) => return Err(e),
+                            Err(RecvError::Serde(s)) => {
+                                client
+                                    .send(Err(ErrorResponse::DeserializingCommand(s.to_string())))
+                                    .await?;
+                            }
+                        }
                     }
                     io::Result::Ok(())
                 }
@@ -110,8 +113,8 @@ impl ServerBuilder {
 
 pub async fn server<F, Fut>(handler: F) -> io::Result<()>
 where
-    F: Fn(Command) -> Fut + Clone + Send + 'static,
-    Fut: Future<Output = Result<Response, ErrorResponse>> + Send + 'static,
+    F: Fn(Command<'static>) -> Fut + Clone + Send + 'static,
+    Fut: Future<Output = Result<SuccessfulResponse, ErrorResponse>> + Send + 'static,
 {
     ServerBuilder::new().serve(handler).await
 }

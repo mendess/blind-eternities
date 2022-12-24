@@ -1,31 +1,29 @@
 use std::path::PathBuf;
 
+use common::net::{ReadJsonLinesExt, RecvError, WriteJsonLinesExt};
 use tokio::{
-    io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
+    io::{self, BufReader, BufWriter},
     net::{self, UnixStream},
 };
 
-use super::{socket_path, Command, ErrorResponse, Response};
+use crate::Response;
 
+use super::{socket_path, Command};
+
+#[derive(Debug)]
 pub struct Client {
-    reader: BufReader<net::unix::OwnedReadHalf>,
-    writer: BufWriter<net::unix::OwnedWriteHalf>,
+    pub(crate) reader: BufReader<net::unix::OwnedReadHalf>,
+    pub(crate) writer: BufWriter<net::unix::OwnedWriteHalf>,
 }
 
 impl Client {
-    pub async fn send(&mut self, cmd: Command) -> io::Result<Result<Response, ErrorResponse>> {
-        let payload = serde_json::to_vec(&cmd).expect("serialization to never fail");
-        self.writer.write_all(&payload).await?;
-        self.writer.write_all(b"\n").await?;
-        self.writer.flush().await?;
-        loop {
-            let buf = self.reader.fill_buf().await?;
-            if let Some(i) = buf.iter().position(|b| *b == b'\n') {
-                let r = serde_json::from_slice(&buf[..i])?;
-                self.reader.consume(i + 1);
-                break Ok(r);
-            }
-        }
+    #[inline(always)]
+    pub async fn send<'s, C>(&mut self, cmd: C) -> Result<Option<Response>, RecvError>
+    where
+        C: Into<Command<'s>>,
+    {
+        self.writer.send(&cmd.into()).await?;
+        self.reader.recv().await
     }
 }
 
@@ -63,7 +61,7 @@ impl From<UnixStream> for Client {
     }
 }
 
-pub async fn send(cmd: Command) -> io::Result<Result<Response, ErrorResponse>> {
+pub async fn send(cmd: Command<'_>) -> Result<Option<Response>, RecvError> {
     let path = socket_path().await?;
     let socket = UnixStream::connect(path).await?;
     Client::from(socket).send(cmd).await

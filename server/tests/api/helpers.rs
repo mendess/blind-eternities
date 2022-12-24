@@ -1,12 +1,17 @@
-use std::{net::TcpListener, ops::Range};
+pub mod persistent_conn;
+
+use std::net::TcpListener;
 
 use actix_rt::task::spawn_blocking;
 use blind_eternities::{
     configuration::{get_configuration, DbSettings},
     startup,
 };
-use common::telemetry::{get_subscriber, init_subscriber};
-use fake::StringFaker;
+use common::{
+    domain::Hostname,
+    telemetry::{get_subscriber, init_subscriber},
+};
+use fake::{Fake, StringFaker};
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
@@ -24,18 +29,22 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 });
 
 #[derive(Clone, Debug)]
-pub struct TestApp {
+pub struct TestApp<const CREATE_DB: bool = true> {
     pub address: String,
+    pub persistent_conn_port: u16,
     pub db_pool: PgPool,
     pub db_name: String,
     pub http: reqwest::Client,
     pub token: uuid::Uuid,
 }
 
-impl Drop for TestApp {
+impl<const CREATE_DB: bool> Drop for TestApp<CREATE_DB> {
     fn drop(&mut self) {
+        if !CREATE_DB {
+            return;
+        }
         let db_name = std::mem::take(&mut self.db_name);
-        std::thread::spawn(move || {
+        if let Err(e) = std::thread::spawn(move || {
             std::iter::from_fn(|| {
                 Some(
                     tokio::runtime::Builder::new_current_thread()
@@ -65,26 +74,32 @@ impl Drop for TestApp {
             });
         })
         .join()
-        .expect("failed to join drop db thread");
+        {
+            eprintln!("drop thread panicked {e:?}");
+        }
     }
 }
 
-pub struct TestAppBuilder {
+pub struct TestAppBuilder<const CREATE_DB: bool> {
     allow_any_localhost_token: bool,
 }
 
-impl TestAppBuilder {
+impl<const CREATE_DB: bool> TestAppBuilder<CREATE_DB> {
     pub fn allow_any_localhost_token(&mut self, b: bool) -> &mut Self {
         self.allow_any_localhost_token = b;
         self
     }
 
-    pub async fn spawn(&mut self) -> TestApp {
+    pub async fn spawn(&mut self) -> TestApp<CREATE_DB> {
         Lazy::force(&TRACING);
 
         tracing::debug!("creating socket");
         let listener = TcpListener::bind(("localhost", 0)).expect("Failed to bind random port");
+        let persistent_conns_listener = tokio::net::TcpListener::bind(("localhost", 0))
+            .await
+            .expect("Failed to bind random port");
         let port = listener.local_addr().unwrap().port();
+        let persistent_conn_port = persistent_conns_listener.local_addr().unwrap().port();
         let _spawn_span = tracing::debug_span!("spawning test app", port);
 
         tracing::debug!("loading configuration");
@@ -94,51 +109,71 @@ impl TestAppBuilder {
                 .unwrap();
         conf.db.name = Uuid::new_v4().to_string();
 
-        tracing::debug!("configuring database");
-        let connection = configure_database(&conf.db).await;
+        let connection = if CREATE_DB {
+            tracing::debug!("configuring database");
+            configure_database(&conf.db).await
+        } else {
+            PgPool::connect_lazy(&conf.db.connection_string())
+                .expect("failed to connect to postgres")
+        };
 
         tracing::debug!("starting server");
-        let server = startup::run(listener, connection.clone(), self.allow_any_localhost_token)
-            .expect("Failed to bind address");
+        let server = startup::run(
+            listener,
+            persistent_conns_listener,
+            connection.clone(),
+            self.allow_any_localhost_token,
+        )
+        .expect("Failed to bind address");
         let _ = tokio::spawn(server);
-        let app = TestApp {
+        let app = TestApp::<CREATE_DB> {
             address: format!("http://localhost:{}", port),
+            persistent_conn_port,
             db_pool: connection,
             db_name: conf.db.name,
             http: reqwest::Client::new(),
             token: uuid::Uuid::new_v4(),
         };
-        tracing::debug!("inserting auth token");
-        app.insert_test_token().await;
+        if CREATE_DB {
+            tracing::debug!("inserting auth token");
+            insert_test_token(&app.db_pool, app.token).await;
+        }
         tracing::debug!(?app, "app created");
         app
     }
 }
 
-impl TestApp {
+impl TestAppBuilder<true> {
+    pub fn without_db(self) -> TestAppBuilder<false> {
+        TestAppBuilder {
+            allow_any_localhost_token: self.allow_any_localhost_token,
+        }
+    }
+}
+
+impl TestApp<true> {
     pub async fn spawn() -> Self {
         Self::builder().spawn().await
     }
+}
 
-    pub fn builder() -> TestAppBuilder {
+impl TestApp<false> {
+    pub async fn spawn_without_db() -> Self {
+        TestApp::<true>::builder().without_db().spawn().await
+    }
+}
+
+impl TestApp<true> {
+    pub fn builder() -> TestAppBuilder<true> {
         TestAppBuilder {
             allow_any_localhost_token: true,
         }
     }
+}
 
-    async fn insert_test_token(&self) {
-        sqlx::query!(
-            "INSERT INTO api_tokens (token, created_at, hostname) VALUES ($1, NOW(), $2)",
-            self.token,
-            "hostname"
-        )
-        .execute(&self.db_pool)
-        .await
-        .expect("Failed to insert token");
-    }
-
+impl<const CREATE_DB: bool> TestApp<CREATE_DB> {
     pub fn get(&self, path: &str) -> reqwest::RequestBuilder {
-        self.http.get(&format!("{}/{}", self.address, path))
+        self.http.get(format!("{}/{}", self.address, path))
     }
 
     pub fn get_authed(&self, path: &str) -> reqwest::RequestBuilder {
@@ -146,7 +181,7 @@ impl TestApp {
     }
 
     pub fn post(&self, path: &str) -> reqwest::RequestBuilder {
-        self.http.post(&format!("{}/{}", self.address, path))
+        self.http.post(format!("{}/{}", self.address, path))
     }
 
     #[allow(dead_code)]
@@ -154,17 +189,30 @@ impl TestApp {
         self.post(path).bearer_auth(self.token)
     }
 
+    #[allow(dead_code)]
     pub fn patch_authed(&self, path: &str) -> reqwest::RequestBuilder {
         self.http
-            .patch(&format!("{}/{}", self.address, path))
+            .patch(format!("{}/{}", self.address, path))
             .bearer_auth(self.token)
     }
 
+    #[allow(dead_code)]
     pub fn delete_authed(&self, path: &str) -> reqwest::RequestBuilder {
         self.http
-            .delete(&format!("{}/{}", self.address, path))
+            .delete(format!("{}/{}", self.address, path))
             .bearer_auth(self.token)
     }
+}
+
+async fn insert_test_token(pool: &PgPool, token: Uuid) {
+    sqlx::query!(
+        "INSERT INTO api_tokens (token, created_at, hostname) VALUES ($1, NOW(), $2)",
+        token,
+        "hostname"
+    )
+    .execute(pool)
+    .await
+    .expect("Failed to insert token");
 }
 
 async fn configure_database(config: &DbSettings) -> PgPool {
@@ -178,8 +226,7 @@ async fn configure_database(config: &DbSettings) -> PgPool {
         .expect("Failed to create database.");
 
     // Migrate database
-    let connection_pool = PgPool::connect(&config.connection_string())
-        .await
+    let connection_pool = PgPool::connect_lazy(&config.connection_string())
         .expect("Failed to connect to Postgres.");
     sqlx::migrate!("./migrations")
         .run(&connection_pool)
@@ -189,6 +236,9 @@ async fn configure_database(config: &DbSettings) -> PgPool {
     connection_pool
 }
 
-pub fn fake_hostname() -> StringFaker<Range<usize>> {
+pub fn fake_hostname() -> Hostname {
     StringFaker::with((b'a'..=b'z').collect(), 4..20)
+        .fake::<String>()
+        .parse::<Hostname>()
+        .unwrap()
 }
