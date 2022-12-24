@@ -9,7 +9,8 @@ edition = "2021"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1.31"
-structopt = { version = "0.3", optional = true }
+thiserror = "1.0.30"
+common = { path = "../common" }
 
 [dependencies.namespaced-tmp]
 git = "https://github.com/mendess/namespaced-tmp"
@@ -25,5 +26,3 @@ tempfile = "3.3.0"
 [dev-dependencies.tokio]
 version = "1.17.0"
 features = ["rt", "macros", "time"]
-
-[features]

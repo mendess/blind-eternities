@@ -31,5 +31,6 @@ features = [
     "macros",
     "uuid",
     "chrono",
-    "migrate"
+    "migrate",
+    "offline",
 ]

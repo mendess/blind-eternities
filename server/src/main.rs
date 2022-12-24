@@ -1,8 +1,9 @@
-use std::net::TcpListener;
+use std::net as std_net;
 
 use blind_eternities::configuration::{get_configuration, Settings};
 use common::telemetry::{get_subscriber, init_subscriber};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
+use tokio::net as tokio_net;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -13,6 +14,7 @@ async fn main() -> std::io::Result<()> {
     ));
 
     let conf = get_configuration().expect("Failed to read configuration");
+    tracing::info!(initial_configuration = ?conf);
     let conn_string = conf.db.connection_string();
 
     let connection = if conf.db.migrate {
@@ -24,7 +26,8 @@ async fn main() -> std::io::Result<()> {
     };
 
     blind_eternities::startup::run(
-        TcpListener::bind(("0.0.0.0", conf.port))?,
+        std_net::TcpListener::bind(("0.0.0.0", conf.port))?,
+        tokio_net::TcpListener::bind(("0.0.0.0", conf.persistent_conn_port)).await?,
         connection,
         conf.allow_any_localhost_token,
     )?

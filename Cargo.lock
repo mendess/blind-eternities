@@ -391,6 +391,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "spark-protocol",
  "sqlx",
  "thiserror",
  "tokio",
@@ -2287,11 +2288,12 @@ dependencies = [
 name = "spark-protocol"
 version = "0.1.0"
 dependencies = [
+ "common",
  "namespaced-tmp",
  "serde",
  "serde_json",
- "structopt",
  "tempfile",
+ "thiserror",
  "tokio",
  "tracing",
 ]

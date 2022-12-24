@@ -135,6 +135,8 @@ impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
     }
 
     async fn recv_raw(&mut self) -> io::Result<Option<LineGuard<'_, Self>>> {
+        let mut last_len = 0;
+        let mut unchanged_len_count = 0;
         loop {
             let buf = self.fill_buf().await?;
             match buf {
@@ -145,6 +147,16 @@ impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
                     }
                 }
             }
+            if last_len == buf.len() {
+                unchanged_len_count += 1;
+            }
+            if unchanged_len_count == 30 {
+                panic!(
+                    "len was {last_len} too many times. {buf:?} => {:?}",
+                    String::from_utf8_lossy(buf)
+                );
+            }
+            last_len = buf.len();
         }
     }
 }
@@ -154,14 +166,20 @@ impl<W> WriteJsonLinesExt for W
 where
     W: AsyncWrite + Unpin + Send,
 {
-    async fn send<T: Serialize + Send>(&mut self, t: T) -> io::Result<()> {
+    async fn send<T>(&mut self, t: T) -> io::Result<()>
+    where
+        T: Serialize + Send,
+    {
         // TODO: allow buffer reuse or don't use a buffer at all
         let serialized = serde_json::to_vec(&t)?;
         self.send_raw(&serialized).await
     }
 
-    async fn send_raw<T: AsRef<[u8]> + Send>(&mut self, s: T) -> io::Result<()> {
-        let bytes = s.as_ref();
+    async fn send_raw<T>(&mut self, bytes: T) -> io::Result<()>
+    where
+        T: AsRef<[u8]> + Send,
+    {
+        let bytes = bytes.as_ref();
         debug_assert_eq!(
             bytes.iter().position(|b| *b == b'\n'),
             None,
