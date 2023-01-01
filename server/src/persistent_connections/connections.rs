@@ -8,17 +8,17 @@ use common::domain::Hostname;
 use spark_protocol::{ErrorResponse, Local};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-pub(super) type Request = (Local<'static>, oneshot::Sender<Response>);
+pub(super) type Request = (Local, oneshot::Sender<Response>);
 
 pub type Response = Result<spark_protocol::SuccessfulResponse, ErrorResponse>;
 
 #[derive(Debug)]
-pub(crate) struct Connections {
+pub struct Connections {
     connected_hosts: Mutex<HashMap<Hostname, (usize, mpsc::Sender<Request>)>>,
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum ConnectionError {
+pub enum ConnectionError {
     #[error("connection dropped")]
     ConnectionDropped,
     #[error("not found")]
@@ -35,7 +35,7 @@ impl Connections {
     pub(crate) async fn request(
         &self,
         machine: &Hostname,
-        command: Local<'static>,
+        command: Local,
     ) -> Result<Response, ConnectionError> {
         match self.connected_hosts.lock().await.get(machine) {
             Some(conn) => {

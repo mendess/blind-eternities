@@ -1,12 +1,16 @@
 mod config;
 mod daemon;
+mod music;
 mod routing;
 mod util;
 
 use std::{os::unix::prelude::ExitStatusExt, process::ExitStatus};
 
 use anyhow::Context;
-use common::telemetry::{get_subscriber_no_bunny, init_subscriber};
+use common::{
+    domain::Hostname,
+    telemetry::{get_subscriber_no_bunny, init_subscriber},
+};
 use daemon::ipc::Command;
 use structopt::StructOpt;
 
@@ -28,6 +32,12 @@ enum Cmd {
     SshInline(SshToolInline),
     /// ssh tooling
     Route(SshTool),
+    /// remote music control
+    Music {
+        hostname: Hostname,
+        #[structopt(flatten)]
+        cmd: spark_protocol::music::MusicCmd,
+    },
 }
 
 #[derive(StructOpt, Debug)]
@@ -50,21 +60,24 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
 
     tracing::debug!(?args.cmd);
 
-    match &args.cmd {
+    match args.cmd {
         Cmd::Daemon => daemon::run_all(config)
             .await
             .map(|_| ExitStatus::from_raw(1)),
         Cmd::Route(SshTool::Ssh(opts)) | Cmd::SshInline(SshToolInline::Ssh(opts)) => {
-            routing::ssh(opts, &config).await
+            routing::ssh(&opts, &config).await
         }
         Cmd::Route(SshTool::Rsync(opts)) | Cmd::SshInline(SshToolInline::Rsync(opts)) => {
-            routing::rsync(opts, &config).await
+            routing::rsync(&opts, &config).await
         }
-        Cmd::Route(SshTool::Show(opts)) => routing::show_route(opts, &config)
+        Cmd::Route(SshTool::Show(opts)) => routing::show_route(&opts, &config)
             .await
             .map(|_| ExitStatus::from_raw(0)),
-        Cmd::Route(SshTool::CopyId(opts)) => routing::copy_id(opts, &config).await,
-        Cmd::Msg(msg) => daemon::ipc::send(msg)
+        Cmd::Route(SshTool::CopyId(opts)) => routing::copy_id(&opts, &config).await,
+        Cmd::Msg(msg) => daemon::ipc::send(&msg)
+            .await
+            .map(|_| ExitStatus::from_raw(0)),
+        Cmd::Music { hostname, cmd } => music::handle(&hostname, cmd, config)
             .await
             .map(|_| ExitStatus::from_raw(0)),
     }

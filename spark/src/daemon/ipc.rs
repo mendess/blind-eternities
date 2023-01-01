@@ -1,12 +1,11 @@
+pub mod music;
+pub mod reload;
+
 use crate::config::Config;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::Permissions,
-    future::Future,
-    io,
-    os::unix::prelude::{CommandExt, PermissionsExt},
-    path::PathBuf,
+    fs::Permissions, future::Future, io, os::unix::prelude::PermissionsExt, path::PathBuf,
     sync::Arc,
 };
 use structopt::StructOpt;
@@ -92,22 +91,18 @@ async fn handle_client(client: tokio::net::UnixStream) -> io::Result<()> {
             }
         };
 
-        match cmd {
-            Command::Reload => {
-                let exe = match std::env::current_exe() {
-                    Ok(exe) => exe,
-                    Err(e) => {
-                        w.write_all(e.to_string().as_bytes()).await?;
-                        w.write_all(b"\n").await?;
-                        continue;
-                    }
-                };
-                tracing::info!("realoading spark daemon");
-                w.write_all(b"about to exec, should be fine :)\n").await?;
-                let e = std::process::Command::new(exe).arg("daemon").exec();
-                w.write_all(e.to_string().as_bytes()).await?;
+        let w = &mut w;
+        let send_response = |response: spark_protocol::Response| {
+            let serialized = serde_json::to_vec(&response).unwrap();
+            async move {
+                w.write_all(&serialized).await?;
                 w.write_all(b"\n").await?;
+                io::Result::Ok(())
             }
-        }
+        };
+
+        match cmd {
+            Command::Reload => reload::reload(send_response).await?,
+        };
     }
 }

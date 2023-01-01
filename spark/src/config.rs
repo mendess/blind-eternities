@@ -13,6 +13,8 @@ pub struct Config {
     #[serde(default = "::common::net::defaults::default_persistent_conn_port")]
     pub persistent_conn_port: u16,
     #[serde(default)]
+    pub enable_persistent_conn: bool,
+    #[serde(default)]
     pub network: Networking,
     #[serde(default)]
     pub default_user: Option<String>,

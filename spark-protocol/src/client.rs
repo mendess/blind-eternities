@@ -20,7 +20,7 @@ impl Client {
     #[inline(always)]
     pub async fn send<'s, C>(&mut self, cmd: C) -> Result<Option<Response>, RecvError>
     where
-        C: Into<Command<'s>>,
+        C: Into<Command>,
     {
         self.writer.send(&cmd.into()).await?;
         self.reader.recv().await
@@ -61,7 +61,7 @@ impl From<UnixStream> for Client {
     }
 }
 
-pub async fn send(cmd: Command<'_>) -> Result<Option<Response>, RecvError> {
+pub async fn send(cmd: Command) -> Result<Option<Response>, RecvError> {
     let path = socket_path().await?;
     let socket = UnixStream::connect(path).await?;
     Client::from(socket).send(cmd).await

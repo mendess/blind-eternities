@@ -1,16 +1,10 @@
 use std::{
-    any::type_name,
-    convert::Infallible,
-    future::{self, Future},
-    io,
-    net::SocketAddr,
-    sync::Arc,
+    any::type_name, convert::Infallible, future::Future, io, net::SocketAddr, sync::Arc,
     time::Duration,
 };
 
-use common::{
-    domain::Hostname,
-    net::{MetaProtocolAck, ReadJsonLinesExt, RecvError, WriteJsonLinesExt},
+use common::net::{
+    MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, RecvError, WriteJsonLinesExt,
 };
 use serde::de::DeserializeOwned;
 use spark_protocol::{ErrorResponse, Response};
@@ -160,17 +154,15 @@ async fn handle_a_connection(
         let hostname = receive(
             &mut reader,
             &mut writer,
-            "start of protocol",
-            |x: Hostname| future::ready(Result::<_, Infallible>::Ok(x)),
+            "receiving syn",
+            |MetaProtocolSyn { hostname, token }| async move {
+                if allow_any_localhost_token && is_localhost(addr) {
+                    Ok(hostname)
+                } else {
+                    auth::check_token(&db, token).await.map(|_| hostname)
+                }
+            },
         )
-        .await?;
-        receive(&mut reader, &mut writer, "auth token", |t| async move {
-            if allow_any_localhost_token && is_localhost(addr) {
-                Ok(())
-            } else {
-                auth::check_token(&db, t).await
-            }
-        })
         .await?;
 
         tracing::info!(connected_hostname = %hostname, "connection established");
@@ -190,7 +182,7 @@ async fn handle_a_connection(
         mut rx: mpsc::Receiver<Request>,
     ) -> io::Result<()> {
         while let Some((cmd, ch)) = rx.recv().await {
-            tracing::debug!(?cmd, "received cmd");
+            tracing::info!(?cmd, "received cmd");
             send!(write <- &cmd; {
                 e => return Err(e),
                 elapsed => continue,
@@ -231,7 +223,7 @@ async fn handle_a_connection(
     Some(())
 }
 
-pub(crate) async fn start(
+pub(super) async fn start(
     listener: TcpListener,
     connections: Arc<Connections>,
     db: Arc<PgPool>,

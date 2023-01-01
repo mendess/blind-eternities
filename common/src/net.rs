@@ -11,6 +11,14 @@ pub use auth_client::AuthenticatedClient;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
+use crate::domain::Hostname;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetaProtocolSyn {
+    pub hostname: Hostname,
+    pub token: uuid::Uuid,
+}
+
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MetaProtocolAck {
     Ok,
@@ -117,6 +125,7 @@ impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
             Some(line) => line,
             None => return Ok(None),
         };
+        tracing::debug!(line = ?line.deref(), "deserializing");
         Ok(serde_json::from_slice(&line)?)
     }
 

@@ -11,6 +11,7 @@ serde_json = "1"
 tracing = "0.1.31"
 thiserror = "1.0.30"
 common = { path = "../common" }
+structopt = { workspace = true, optional = true }
 
 [dependencies.namespaced-tmp]
 git = "https://github.com/mendess/namespaced-tmp"

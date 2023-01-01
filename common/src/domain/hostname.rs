@@ -1,5 +1,6 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use sqlx::{Database, Decode};
 use std::{
     convert::TryFrom,
@@ -10,9 +11,7 @@ use std::{
 static HOSTNAME: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"^([a-zA-Z0-9]{1,63}\.)*([a-zA-Z0-9]{1,63})$"#).unwrap());
 
-#[derive(
-    serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
-)]
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(try_from = "String")]
 pub struct Hostname(String);
 
@@ -113,7 +112,7 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use std::ops::Range;
+    use std::ops::RangeInclusive;
 
     use super::*;
     use fake::Dummy;
@@ -124,7 +123,7 @@ pub mod tests {
 
     impl Dummy<FakeHostname> for Hostname {
         fn dummy_with_rng<R: Rng + ?Sized>(_: &FakeHostname, rng: &mut R) -> Self {
-            const RANGES: [Range<char>; 3] = [('a'..'z'), ('A'..'Z'), ('0'..'9')];
+            const RANGES: [RangeInclusive<char>; 3] = ['a'..='z', 'A'..='Z', '0'..='9'];
             Hostname::try_from(
                 std::iter::repeat_with(|| {
                     Uniform::from(RANGES.choose(rng).unwrap().clone()).sample(rng)

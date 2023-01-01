@@ -13,7 +13,7 @@ use common::{
 };
 use fake::{Fake, StringFaker};
 use once_cell::sync::Lazy;
-use sqlx::{Connection, Executor, PgConnection, PgPool};
+use sqlx::{pool::PoolOptions, Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -85,7 +85,7 @@ pub struct TestAppBuilder<const CREATE_DB: bool> {
 }
 
 impl<const CREATE_DB: bool> TestAppBuilder<CREATE_DB> {
-    pub fn allow_any_localhost_token(&mut self, b: bool) -> &mut Self {
+    pub fn allow_any_localhost_token(mut self, b: bool) -> Self {
         self.allow_any_localhost_token = b;
         self
     }
@@ -122,7 +122,10 @@ impl<const CREATE_DB: bool> TestAppBuilder<CREATE_DB> {
             listener,
             persistent_conns_listener,
             connection.clone(),
-            self.allow_any_localhost_token,
+            startup::RunConfig {
+                allow_any_localhost_token: self.allow_any_localhost_token,
+                override_num_workers: Some(1),
+            },
         )
         .expect("Failed to bind address");
         let _ = tokio::spawn(server);
@@ -226,7 +229,9 @@ async fn configure_database(config: &DbSettings) -> PgPool {
         .expect("Failed to create database.");
 
     // Migrate database
-    let connection_pool = PgPool::connect_lazy(&config.connection_string())
+    let connection_pool = PoolOptions::new()
+        .max_connections(1)
+        .connect_lazy(&config.connection_string())
         .expect("Failed to connect to Postgres.");
     sqlx::migrate!("./migrations")
         .run(&connection_pool)
