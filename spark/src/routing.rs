@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    fmt, iter,
+    iter,
     mem::replace,
     net::{IpAddr, Ipv4Addr},
     os::unix::prelude::ExitStatusExt,
@@ -22,44 +22,15 @@ use structopt::StructOpt;
 use tokio::{fs::File, process::Command};
 use tracing::{debug, info};
 
-use crate::{config::Config, util::get_current_status};
+use crate::{
+    config::Config,
+    util::{destination::Destination, get_current_status},
+};
 
 #[derive(Debug, Clone, Copy)]
 enum PseudoTty {
     None,
     Allocate,
-}
-
-#[derive(Debug, Clone, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Destination {
-    #[serde(default)]
-    username: Option<String>,
-    hostname: Hostname,
-}
-
-impl FromStr for Destination {
-    type Err = <Hostname as FromStr>::Err;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.split_once('@') {
-            Some((username, hostname)) => Ok(Destination {
-                hostname: hostname.parse()?,
-                username: Some(username.parse::<Hostname>()?.into_string()),
-            }),
-            None => Ok(Destination {
-                hostname: s.parse()?,
-                username: None,
-            }),
-        }
-    }
-}
-
-impl fmt::Display for Destination {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.username {
-            Some(u) => write!(f, "{}@{}", u, self.hostname),
-            None => write!(f, "{}", self.hostname),
-        }
-    }
 }
 
 #[derive(StructOpt, Debug)]
@@ -224,11 +195,9 @@ pub(super) async fn show_route(opts: &ShowRouteOpts, config: &Config) -> anyhow:
 }
 
 pub(crate) async fn copy_id(opts: &SshOpts, config: &Config) -> anyhow::Result<ExitStatus> {
-    let (username, hostname) = resolve_alias(&config.network.aliases, &opts.destination);
+    let (username, hostname) = opts.destination.resolve_alias(&config.network.aliases);
 
     let path = find_path(&opts.destination, config, hostname).await?;
-
-    let username = username.map(String::from).unwrap_or_else(whoami::username);
 
     let args = path_to_args(&path, &username, PseudoTty::None);
 
@@ -308,16 +277,13 @@ async fn route_to_ssh_hops(
     config: &Config,
     pseudo_tty: PseudoTty,
 ) -> anyhow::Result<Vec<String>> {
-    let (username, hostname) = resolve_alias(&config.network.aliases, destination);
+    let (username, hostname) = destination.resolve_alias(&config.network.aliases);
 
     let path = find_path(destination, config, hostname).await?;
 
-    Ok(match username {
-        Some(u) => path_to_args(&path, u, pseudo_tty).flatten().collect(),
-        None => path_to_args(&path, &whoami::username(), pseudo_tty)
-            .flatten()
-            .collect(),
-    })
+    Ok(path_to_args(&path, &username, pseudo_tty)
+        .flatten()
+        .collect())
 }
 
 async fn fetch_statuses(
@@ -438,22 +404,6 @@ fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph<'_
             .inspect(|(n, _)| debug!("found machine: '{}'", n))
             .map(|(_, m)| m),
     )
-}
-
-fn resolve_alias<'a>(
-    aliases: &'a HashMap<String, Destination>,
-    dest: &'a Destination,
-) -> (Option<&'a str>, &'a Hostname) {
-    match aliases.get(dest.hostname.as_ref()) {
-        Some(d) => {
-            tracing::debug!("resolving alias {} as {}", dest.hostname, d);
-            (
-                dest.username.as_deref().or(d.username.as_deref()),
-                &d.hostname,
-            )
-        }
-        None => (dest.username.as_deref(), &dest.hostname),
-    }
 }
 
 #[cfg(test)]

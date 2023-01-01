@@ -15,12 +15,27 @@ pub async fn handle<R, Fut>(
 where
     Fut: Future<Output = R>,
 {
+    // memory hard
+    let player: players::PlayerLink;
     let player = match cmd.index {
-        Some(i) => players::PlayerIndex::of(i),
-        None => players::PlayerIndex::CURRENT,
+        Some(i) => {
+            player = players::PlayerLink::of(i);
+            &player
+        }
+        None => players::PlayerLink::current(),
     };
-    fn forward<E: ToString>(e: E) -> ErrorResponse {
-        ErrorResponse::ForwardedError(e.to_string())
+    let player_slot: players::PlayerLink;
+    let player = match cmd.username {
+        Some(u) => {
+            player_slot = player.linked_to(u);
+            &player_slot
+        }
+        None => player,
+    };
+    // ----
+
+    fn forward<E: std::fmt::Debug>(e: E) -> ErrorResponse {
+        ErrorResponse::ForwardedError(format!("{e:?}"))
     }
 
     let response: Result<MusicResponse, ErrorResponse> = match cmd.command {

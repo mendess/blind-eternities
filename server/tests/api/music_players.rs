@@ -35,6 +35,7 @@ impl TestApp<false> {
             assert_eq!(
                 Local::Music(MusicCmd {
                     index: None,
+                    username: None,
                     command: expect_receive,
                 }),
                 req
@@ -272,4 +273,52 @@ async fn requesting_to_queue_a_song_is_delivered() {
     device.await.expect("device task failed");
 
     assert_eq!(Ok(SuccessfulResponse::Unit), response);
+}
+
+#[actix_web::test]
+async fn username_can_be_overridden() {
+    let app = TestApp::spawn_without_db().await;
+
+    let hostname = fake_hostname();
+
+    let username = fake_hostname().into_string();
+
+    let mut device = timeout!(app.connect_device(&hostname));
+
+    let device_task = tokio::spawn({
+        let username = username.clone();
+        async move {
+            let req = timeout!(device.recv()).expect("success recv").expect("eof");
+            assert_eq!(
+                Local::Music(MusicCmd {
+                    index: None,
+                    username: Some(username),
+                    command: MusicCmdKind::Frwd,
+                }),
+                req
+            );
+            timeout!(device.send(Ok(SuccessfulResponse::Unit))).expect("success send");
+        }
+    });
+
+    let response = timeout!(async {
+        let resp = app
+            .get_authed(&format!(
+                "music/players/{hostname}/{}",
+                MusicCmdKind::Frwd.to_route()
+            ))
+            .query(&[("u", &username)])
+            .send()
+            .await
+            .expect("success");
+        assert_status!(StatusCode::OK, resp.status());
+        resp.json::<Response>().await.expect("deserialized successfully")
+    });
+
+    match response {
+        Ok(SuccessfulResponse::Unit) => {}
+        r => panic!("unexpected response variant: {r:?}"),
+    }
+
+    device_task.await.expect("device task failed");
 }

@@ -6,6 +6,7 @@ type PlayerIdx = usize;
 #[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
 pub struct MusicCmd {
     pub index: Option<PlayerIdx>,
+    pub username: Option<String>,
     #[cfg_attr(feature = "structopt", structopt(subcommand))]
     pub command: MusicCmdKind,
 }
@@ -36,6 +37,20 @@ impl MusicCmdKind {
             MusicCmdKind::ChangeVolume { .. } => "change-volume",
             MusicCmdKind::Current => "current",
             MusicCmdKind::Queue { .. } => "queue",
+        }
+    }
+
+    pub fn to_query_string<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&[(&str, &str)]) -> R,
+    {
+        match self {
+            MusicCmdKind::ChangeVolume { amount } => f(&[("a", &amount.to_string())]),
+            MusicCmdKind::Queue { query, search } => f(&[("q", query), ("s", &search.to_string())]),
+            MusicCmdKind::Frwd
+            | MusicCmdKind::Back
+            | MusicCmdKind::Current
+            | MusicCmdKind::CyclePause => f(&[]),
         }
     }
 }

@@ -524,7 +524,7 @@ dependencies = [
 [[package]]
 name = "cli-daemon"
 version = "0.1.1"
-source = "git+https://github.com/mendess/m?branch=oxidise#8e7e2798e7babd7eda2a834072d55a26f9d6561f"
+source = "git+https://github.com/mendess/m?branch=oxidise#12b1e050494841c80662eb0ad39ef3ab200a588f"
 dependencies = [
  "futures-util",
  "namespaced-tmp",
@@ -1464,8 +1464,8 @@ dependencies = [
 
 [[package]]
 name = "mlib"
-version = "0.3.8"
-source = "git+https://github.com/mendess/m?branch=oxidise#8e7e2798e7babd7eda2a834072d55a26f9d6561f"
+version = "0.3.9"
+source = "git+https://github.com/mendess/m?branch=oxidise#12b1e050494841c80662eb0ad39ef3ab200a588f"
 dependencies = [
  "arc-swap",
  "cli-daemon",
@@ -1497,9 +1497,9 @@ dependencies = [
 
 [[package]]
 name = "nom"
-version = "7.1.1"
+version = "7.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8903e5a29a317527874d0402f867152a3d21c908bb0b933e416c65e301d4c36"
+checksum = "e5507769c4919c998e69e49c839d9dc6e693ede4cc4290d6ad8b41d4f09c548c"
 dependencies = [
  "memchr",
  "minimal-lexical",

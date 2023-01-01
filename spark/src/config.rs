@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::Context;
 use dirs::config_dir;
 
-use crate::routing::Destination;
+use crate::util::destination::Destination;
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 pub struct Config {

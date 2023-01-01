@@ -7,12 +7,10 @@ mod util;
 use std::{os::unix::prelude::ExitStatusExt, process::ExitStatus};
 
 use anyhow::Context;
-use common::{
-    domain::Hostname,
-    telemetry::{get_subscriber_no_bunny, init_subscriber},
-};
+use common::telemetry::{get_subscriber_no_bunny, init_subscriber};
 use daemon::ipc::Command;
 use structopt::StructOpt;
+use util::destination::Destination;
 
 #[derive(StructOpt, Debug)]
 struct Args {
@@ -34,7 +32,7 @@ enum Cmd {
     Route(SshTool),
     /// remote music control
     Music {
-        hostname: Hostname,
+        destination: Destination,
         #[structopt(flatten)]
         cmd: spark_protocol::music::MusicCmd,
     },
@@ -77,7 +75,7 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
         Cmd::Msg(msg) => daemon::ipc::send(&msg)
             .await
             .map(|_| ExitStatus::from_raw(0)),
-        Cmd::Music { hostname, cmd } => music::handle(&hostname, cmd, config)
+        Cmd::Music { destination, cmd } => music::handle(destination, cmd, config)
             .await
             .map(|_| ExitStatus::from_raw(0)),
     }

@@ -1,3 +1,5 @@
+pub mod destination;
+
 use std::{error::Error, mem::take, net::IpAddr, str::FromStr};
 
 use anyhow::Context;

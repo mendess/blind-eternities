@@ -23,13 +23,15 @@ async fn run(config: &Config, hostname: &Hostname) -> io::Result<()> {
         hostname: hostname.clone(),
         token: config.token,
     };
+    tracing::info!(?syn, "starting protocol");
     talker.talk::<_, MetaProtocolAck>(syn).await?;
     loop {
+        tracing::info!("receiving command");
         let cmd = match read.recv::<spark_protocol::Local>().await? {
             Some(cmd) => cmd,
             None => return Ok(()),
         };
-
+        tracing::info!(?cmd, "running command");
         let write = &mut write;
         let send_response =
             |response: spark_protocol::Response| async move { write.send(response).await };
@@ -45,9 +47,9 @@ async fn run(config: &Config, hostname: &Hostname) -> io::Result<()> {
 
 pub(super) async fn start(config: Arc<Config>) {
     if config.enable_persistent_conn {
-        tracing::info!("starting persistent connection");
         let hostname = Hostname::from_this_host();
         loop {
+            tracing::info!("starting persistent connection");
             if let Err(e) = run(&config, &hostname).await {
                 tracing::error!(?e, "persistent connection dropped");
             }

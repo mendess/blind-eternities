@@ -1,5 +1,6 @@
 use actix_web::{http::StatusCode, web, HttpResponse, ResponseError};
 use common::domain::Hostname;
+use serde::{Deserialize, Serialize};
 use spark_protocol::{
     music::{MusicCmd, MusicCmdKind},
     Local,
@@ -40,16 +41,24 @@ impl ResponseError for MusicPlayersError {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct UsernameParam {
+    #[serde(default)]
+    u: Option<String>,
+}
+
 #[instrument(name = "default player")]
 async fn current(
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
+    username: web::Query<UsernameParam>,
 ) -> Result<HttpResponse, MusicPlayersError> {
     let response = conn
         .request(
             &hostname,
             Local::Music(MusicCmd {
                 index: None,
+                username: username.into_inner().u,
                 command: MusicCmdKind::Current,
             }),
         )
@@ -61,12 +70,14 @@ async fn current(
 async fn skip_forward(
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
+    username: web::Query<UsernameParam>,
 ) -> Result<HttpResponse, MusicPlayersError> {
     let response = conn
         .request(
             &hostname,
             Local::Music(MusicCmd {
                 index: None,
+                username: username.into_inner().u,
                 command: MusicCmdKind::Frwd,
             }),
         )
@@ -78,12 +89,14 @@ async fn skip_forward(
 async fn skip_backward(
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
+    username: web::Query<UsernameParam>,
 ) -> Result<HttpResponse, MusicPlayersError> {
     let response = conn
         .request(
             &hostname,
             Local::Music(MusicCmd {
                 index: None,
+                username: username.into_inner().u,
                 command: MusicCmdKind::Back,
             }),
         )
@@ -94,6 +107,8 @@ async fn skip_backward(
 #[derive(Debug, serde::Deserialize)]
 struct Amount {
     a: i32,
+    #[serde(flatten)]
+    username: UsernameParam,
 }
 
 #[instrument(name = "change volume")]
@@ -108,6 +123,7 @@ async fn change_volume(
             Local::Music(MusicCmd {
                 index: None,
                 command: MusicCmdKind::ChangeVolume { amount: amount.a },
+                username: amount.into_inner().username.u,
             }),
         )
         .await?;
@@ -118,12 +134,14 @@ async fn change_volume(
 async fn cycle_pause(
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
+    username: web::Query<UsernameParam>,
 ) -> Result<HttpResponse, MusicPlayersError> {
     let response = conn
         .request(
             &hostname,
             Local::Music(MusicCmd {
                 index: None,
+                username: username.into_inner().u,
                 command: MusicCmdKind::CyclePause,
             }),
         )
@@ -135,6 +153,8 @@ async fn cycle_pause(
 struct QueueRequest {
     query: String,
     search: bool,
+    #[serde(flatten)]
+    username: UsernameParam,
 }
 
 #[instrument(name = "queue")]
@@ -149,8 +169,9 @@ async fn queue(
             &hostname,
             Local::Music(MusicCmd {
                 index: None,
+                username: body.username.u,
                 command: MusicCmdKind::Queue {
-                    query: body.query.into(),
+                    query: body.query,
                     search: body.search,
                 },
             }),
