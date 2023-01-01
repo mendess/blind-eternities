@@ -1,8 +1,8 @@
 pub mod client;
-pub mod server;
 pub mod music;
+pub mod server;
 
-use std::{borrow::Cow, path::PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use tokio::io;
@@ -11,45 +11,48 @@ pub use common::net::RecvError;
 
 /// Hits the local spark instance
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub enum Local<'s> {
+#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+pub enum Local {
     Reload,
-    Music(music::MusicCmd<'s>),
+    Music(music::MusicCmd),
 }
 
 /// Hits the spark instance in a remote machine
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct Remote<'s> {
-    pub machine: Cow<'s, str>,
-    pub command: Local<'s>,
+#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+pub struct Remote {
+    pub machine: String,
+    #[cfg_attr(feature = "structopt", structopt(subcommand))]
+    pub command: Local,
 }
 
 /// Hits a route in the backend and returns the response
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Backend<'s> {
-    Music(Cow<'s, str>),
-}
+#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+pub enum Backend {}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub enum Command<'s> {
-    Local(Local<'s>),
-    Remote(Remote<'s>),
-    Backend(Backend<'s>),
+#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+pub enum Command {
+    Local(Local),
+    Remote(Remote),
+    Backend(Backend),
 }
 
-impl<'s> From<Local<'s>> for Command<'s> {
-    fn from(l: Local<'s>) -> Self {
+impl From<Local> for Command {
+    fn from(l: Local) -> Self {
         Self::Local(l)
     }
 }
 
-impl<'s> From<Remote<'s>> for Command<'s> {
-    fn from(l: Remote<'s>) -> Self {
+impl From<Remote> for Command {
+    fn from(l: Remote) -> Self {
         Self::Remote(l)
     }
 }
 
-impl<'s> From<Backend<'s>> for Command<'s> {
-    fn from(l: Backend<'s>) -> Self {
+impl From<Backend> for Command {
+    fn from(l: Backend) -> Self {
         Self::Backend(l)
     }
 }

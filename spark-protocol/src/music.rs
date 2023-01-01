@@ -1,22 +1,43 @@
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 
 type PlayerIdx = usize;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub struct MusicCmd<'s> {
+#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+pub struct MusicCmd {
     pub index: Option<PlayerIdx>,
-    pub command: MusicCmdKind<'s>,
+    #[cfg_attr(feature = "structopt", structopt(subcommand))]
+    pub command: MusicCmdKind,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub enum MusicCmdKind<'s> {
+#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+pub enum MusicCmdKind {
     Frwd,
     Back,
     CyclePause,
-    ChangeVolume { amount: i32 },
+    ChangeVolume {
+        amount: i32,
+    },
     Current,
-    Queue { query: Cow<'s, str>, search: bool },
+    Queue {
+        query: String,
+        #[cfg_attr(feature = "structopt", structopt(short, long))]
+        search: bool,
+    },
+}
+
+impl MusicCmdKind {
+    pub fn to_route(&self) -> &str {
+        match self {
+            MusicCmdKind::Frwd => "frwd",
+            MusicCmdKind::Back => "back",
+            MusicCmdKind::CyclePause => "cycle-pause",
+            MusicCmdKind::ChangeVolume { .. } => "change-volume",
+            MusicCmdKind::Current => "current",
+            MusicCmdKind::Queue { .. } => "queue",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -28,13 +49,18 @@ pub enum Response {
         paused: bool,
     },
     Volume {
-        volume: u32,
+        volume: f64,
     },
     Current {
         title: String,
         chapter: Option<Chapter>,
-        volume: f32,
-        progress: f32,
+        volume: f64,
+        progress: f64,
+    },
+    QueueSummary {
+        from: usize,
+        moved_to: usize,
+        current: usize,
     },
 }
 

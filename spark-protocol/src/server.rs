@@ -23,7 +23,7 @@ struct Client {
 
 impl Client {
     #[inline(always)]
-    async fn recv(&mut self) -> Result<Option<Command<'static>>, RecvError> {
+    async fn recv(&mut self) -> Result<Option<Command>, RecvError> {
         self.reader.recv().await
     }
 
@@ -60,7 +60,7 @@ impl ServerBuilder {
     // TODO: move to spark and finish implementing
     pub async fn serve<F, Fut>(self, handler: F) -> io::Result<()>
     where
-        F: Fn(Command<'static>) -> Fut + Clone + Send + 'static,
+        F: Fn(Command) -> Fut + Clone + Send + 'static,
         Fut: Future<Output = Result<SuccessfulResponse, ErrorResponse>> + Send + 'static,
     {
         async fn create_socket<P: AsRef<Path> + Debug>(p: P) -> io::Result<UnixListener> {
@@ -113,7 +113,7 @@ impl ServerBuilder {
 
 pub async fn server<F, Fut>(handler: F) -> io::Result<()>
 where
-    F: Fn(Command<'static>) -> Fut + Clone + Send + 'static,
+    F: Fn(Command) -> Fut + Clone + Send + 'static,
     Fut: Future<Output = Result<SuccessfulResponse, ErrorResponse>> + Send + 'static,
 {
     ServerBuilder::new().serve(handler).await

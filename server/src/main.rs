@@ -29,7 +29,10 @@ async fn main() -> std::io::Result<()> {
         std_net::TcpListener::bind(("0.0.0.0", conf.port))?,
         tokio_net::TcpListener::bind(("0.0.0.0", conf.persistent_conn_port)).await?,
         connection,
-        conf.allow_any_localhost_token,
+        blind_eternities::startup::RunConfig {
+            allow_any_localhost_token: conf.allow_any_localhost_token,
+            override_num_workers: None,
+        },
     )?
     .await
 }

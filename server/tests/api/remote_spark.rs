@@ -4,10 +4,10 @@ use crate::{
 };
 use common::domain::Hostname;
 use reqwest::StatusCode;
-use spark_protocol::{Local, ErrorResponse, SuccessfulResponse};
+use spark_protocol::{ErrorResponse, Local, SuccessfulResponse};
 
 impl TestApp<false> {
-    async fn send(&self, hostname: Hostname, cmd: Local<'_>) -> reqwest::Response {
+    async fn send(&self, hostname: Hostname, cmd: Local) -> reqwest::Response {
         tracing::debug!("sending command {cmd:?} to {hostname}");
         self.post_authed(&format!("remote-spark/{hostname}"))
             .json(&cmd)

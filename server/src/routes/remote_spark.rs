@@ -20,7 +20,7 @@ impl ResponseError for ConnectionError {
 #[tracing::instrument("sending remote command")]
 async fn send_remote(
     machine: web::Path<Hostname>,
-    cmd: web::Json<Local<'static>>,
+    cmd: web::Json<Local>,
     connections: web::Data<Connections>,
 ) -> Result<HttpResponse, ConnectionError> {
     let v = connections.request(&machine, cmd.0).await?;

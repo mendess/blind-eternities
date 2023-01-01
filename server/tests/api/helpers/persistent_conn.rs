@@ -2,7 +2,9 @@ use std::io;
 
 use common::{
     domain::Hostname,
-    net::{MetaProtocolAck, ReadJsonLinesExt, TalkJsonLinesExt, WriteJsonLinesExt},
+    net::{
+        MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, TalkJsonLinesExt, WriteJsonLinesExt,
+    },
 };
 use spark_protocol::{Local, Response};
 
@@ -32,23 +34,19 @@ impl<const CREATE_DB: bool> TestApp<CREATE_DB> {
         let mut r = BufReader::new(r);
 
         let mut talker = (&mut r, &mut w);
-        tracing::debug!("sending hostname {hostname}",);
+
+        let syn = MetaProtocolSyn {
+            hostname: hostname.clone(),
+            token: self.token,
+        };
+        tracing::debug!(?syn, "sending syn");
         assert_eq!(
             MetaProtocolAck::Ok,
             talker
-                .talk(hostname)
+                .talk(syn)
                 .await
                 .expect("writing hostname")
                 .expect("eof"),
-        );
-        tracing::debug!("sending token {}", self.token);
-        assert_eq!(
-            MetaProtocolAck::Ok,
-            talker
-                .talk(self.token)
-                .await
-                .expect("writing token")
-                .expect("eof")
         );
 
         Device {
@@ -64,7 +62,7 @@ pub struct Device {
 }
 
 impl Device {
-    pub async fn recv(&mut self) -> io::Result<Option<Local<'static>>> {
+    pub async fn recv(&mut self) -> io::Result<Option<Local>> {
         Ok(self.read.recv().await?)
     }
 

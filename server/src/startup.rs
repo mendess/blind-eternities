@@ -6,27 +6,32 @@ use sqlx::PgPool;
 use tokio::net as tokio_net;
 use tracing_actix_web::TracingLogger;
 
-use crate::{persistent_connections::Connections, routes::*};
+use crate::routes::*;
+
+pub struct RunConfig {
+    pub allow_any_localhost_token: bool,
+    pub override_num_workers: Option<usize>,
+}
 
 pub fn run(
     server_listener: std_net::TcpListener,
     persistent_conns_listener: tokio_net::TcpListener,
-    connection: PgPool,
-    allow_any_localhost_token: bool,
+    db: PgPool,
+    run_config: RunConfig,
 ) -> std::io::Result<Server> {
-    let conn = Arc::new(connection);
+    let db = Arc::new(db);
+    let allow_any_localhost_token = run_config.allow_any_localhost_token;
     let bearer_auth = HttpAuthentication::bearer(move |r, b| {
         crate::auth::verify_token(r, b, allow_any_localhost_token)
     });
-    let connections = Arc::new(Connections::new());
-    tokio::spawn(crate::persistent_connections::start(
-        persistent_conns_listener,
-        connections.clone(),
-        conn.clone(),
-        allow_any_localhost_token,
-    ));
-    let conn = web::Data::from(conn);
-    let connections = web::Data::from(connections);
+    let connections = web::Data::from(
+        crate::persistent_connections::start_persistent_connections_daemon(
+            persistent_conns_listener,
+            db.clone(),
+            allow_any_localhost_token,
+        ),
+    );
+    let conn = web::Data::from(db);
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
@@ -38,7 +43,11 @@ pub fn run(
             .app_data(conn.clone())
             .app_data(connections.clone())
     })
-    .listen(server_listener)?
-    .run();
-    Ok(server)
+    .listen(server_listener)?;
+    let server = if let Some(workers) = run_config.override_num_workers {
+        server.workers(workers)
+    } else {
+        server
+    };
+    Ok(server.run())
 }

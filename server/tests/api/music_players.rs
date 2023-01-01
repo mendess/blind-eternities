@@ -21,7 +21,7 @@ impl TestApp<false> {
     async fn simulate_device<R>(
         &self,
         hostname: &Hostname,
-        expect_receive: MusicCmdKind<'static>,
+        expect_receive: MusicCmdKind,
         respond_with: R,
     ) -> tokio::task::JoinHandle<()>
     where
@@ -95,7 +95,7 @@ async fn requesting_to_skip_a_song_is_delivered() {
         )
         .await;
 
-    let response = timeout!(app.request_cmd(&hostname, "frwd"));
+    let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::Frwd.to_route()));
 
     let last = response.map(|e| match e {
         SuccessfulResponse::MusicResponse(music::Response::Title { title }) => title,
@@ -124,7 +124,7 @@ async fn requesting_to_skip_back_a_song_is_delivered() {
         )
         .await;
 
-    let response = timeout!(app.request_cmd(&hostname, "back"));
+    let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::Back.to_route()));
 
     let last = response.map(|e| match e {
         SuccessfulResponse::MusicResponse(music::Response::Title { title }) => title,
@@ -150,7 +150,7 @@ async fn requesting_to_cycle_pause_is_delivered() {
         )
         .await;
 
-    let response = timeout!(app.request_cmd(&hostname, "cycle-pause"));
+    let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::CyclePause.to_route()));
 
     let last = response.map(|e| match e {
         SuccessfulResponse::MusicResponse(music::Response::PlayState { paused }) => paused,
@@ -172,11 +172,17 @@ async fn requesting_to_change_volume_is_delivered() {
         .simulate_device(
             &hostname,
             MusicCmdKind::ChangeVolume { amount: 2 },
-            music::Response::Volume { volume: 2 },
+            music::Response::Volume { volume: 2.0 },
         )
         .await;
 
-    let response = timeout!(app.request_cmd(&hostname, "change-volume?a=2"));
+    let response = timeout!(app.request_cmd(
+        &hostname,
+        &format!(
+            "{}?a=2",
+            MusicCmdKind::ChangeVolume { amount: 0 }.to_route()
+        )
+    ));
 
     let last = response.map(|e| match e {
         SuccessfulResponse::MusicResponse(music::Response::Volume { volume }) => volume,
@@ -185,7 +191,7 @@ async fn requesting_to_change_volume_is_delivered() {
 
     device.await.expect("device task failed");
 
-    assert_eq!(Ok(2), last);
+    assert_eq!(Ok(2.0), last);
 }
 
 #[actix_web::test]
@@ -207,7 +213,7 @@ async fn requesting_current_is_delivered() {
         )
         .await;
 
-    let response = timeout!(app.request_cmd(&hostname, "current"));
+    let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::Current.to_route()));
 
     let last = response.map(|e| match e {
         SuccessfulResponse::MusicResponse(music::Response::Current { title, .. }) => title,
@@ -243,17 +249,24 @@ async fn requesting_to_queue_a_song_is_delivered() {
     }
 
     let response = timeout!(async {
-        app.post_authed(&format!("music/players/{hostname}/queue"))
-            .json(&QueueRequest {
-                query: "nice song :)".into(),
-                search: false,
-            })
-            .send()
-            .await
-            .expect("failed to send request")
-            .json::<Response>()
-            .await
-            .expect("failed to deserialize")
+        app.post_authed(&format!(
+            "music/players/{hostname}/{}",
+            MusicCmdKind::Queue {
+                query: "".into(),
+                search: false
+            }
+            .to_route()
+        ))
+        .json(&QueueRequest {
+            query: "nice song :)".into(),
+            search: false,
+        })
+        .send()
+        .await
+        .expect("failed to send request")
+        .json::<Response>()
+        .await
+        .expect("failed to deserialize")
     });
 
     device.await.expect("device task failed");
