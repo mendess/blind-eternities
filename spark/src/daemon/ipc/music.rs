@@ -1,12 +1,48 @@
-use std::future::Future;
+use std::{future::Future, io, time::Duration};
 
-use futures::FutureExt;
+use futures::{FutureExt, Stream, StreamExt};
 use mlib::{
-    players::{self, SmartQueueOpts},
+    players::{
+        self,
+        event::{OwnedLibMpvEvent, PlayerEvent},
+        SmartQueueOpts,
+    },
     playlist::PartialSearchResult,
     Item, Link, Search,
 };
 use spark_protocol::{music::Response as MusicResponse, ErrorResponse};
+use tokio::time::timeout;
+
+fn forward<E: std::fmt::Debug>(e: E) -> ErrorResponse {
+    ErrorResponse::ForwardedError(format!("{e:?}"))
+}
+
+pub async fn wait_for_next_title(player: &players::PlayerLink) -> Result<String, ErrorResponse> {
+    let stream = player.subscribe().await.map_err(forward)?;
+    async fn _wait(
+        stream: impl Stream<Item = io::Result<PlayerEvent>>,
+    ) -> Result<Option<String>, mlib::Error> {
+        tokio::pin!(stream);
+        while let Some(event) = stream.next().await {
+            if let OwnedLibMpvEvent::PropertyChange { name, change, .. } = event?.event {
+                if name == "media-title" {
+                    let Ok(title) = change.into_string() else {
+                        continue;
+                    };
+                    return Ok(Some(title));
+                }
+            }
+        }
+        Ok(None)
+    }
+    let title = match timeout(Duration::from_secs(2), async { _wait(stream).await }).await {
+        Ok(Err(io_error)) => return Err(ErrorResponse::IoError(io_error.to_string())),
+        Ok(Ok(Some(title))) => title,
+        _ => player.media_title().await.map_err(forward)?,
+    };
+
+    Ok(title)
+}
 
 pub async fn handle<R, Fut>(
     cmd: spark_protocol::music::MusicCmd,
@@ -34,17 +70,13 @@ where
     };
     // ----
 
-    fn forward<E: std::fmt::Debug>(e: E) -> ErrorResponse {
-        ErrorResponse::ForwardedError(format!("{e:?}"))
-    }
-
     let response: Result<MusicResponse, ErrorResponse> = match cmd.command {
         spark_protocol::music::MusicCmdKind::Frwd => {
             player
                 .change_file(players::Direction::Next)
                 .then(|_| async {
                     Ok(MusicResponse::Title {
-                        title: players::media_title().await.map_err(forward)?,
+                        title: wait_for_next_title(player).await?,
                     })
                 })
                 .await
@@ -54,7 +86,7 @@ where
                 .change_file(players::Direction::Prev)
                 .then(|_| async {
                     Ok(MusicResponse::Title {
-                        title: players::media_title().await.map_err(forward)?,
+                        title: wait_for_next_title(player).await?,
                     })
                 })
                 .await
@@ -64,7 +96,7 @@ where
                 .cycle_pause()
                 .then(|_| async {
                     Ok(MusicResponse::PlayState {
-                        paused: players::is_paused().await.map_err(forward)?,
+                        paused: player.is_paused().await.map_err(forward)?,
                     })
                 })
                 .await
@@ -74,7 +106,7 @@ where
                 .change_volume(amount)
                 .then(|_| async {
                     Ok(MusicResponse::Volume {
-                        volume: players::volume().await.map_err(forward)?,
+                        volume: player.volume().await.map_err(forward)?,
                     })
                 })
                 .await

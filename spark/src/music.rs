@@ -41,9 +41,17 @@ pub async fn handle(destination: Destination, cmd: MusicCmd, config: Config) -> 
         }
     };
 
-    // let response = http_response.text().await?;
-    let response = http_response.json::<spark_protocol::Response>().await?;
+    if http_response.status().is_success() {
+        let response = http_response.text().await?;
+        match serde_json::from_str::<spark_protocol::Response>(&response) {
+            Ok(response) => println!("{response:?}"),
+            Err(e) => tracing::error!(?e, "deserialization failed"),
+        }
+    } else {
+        let status = http_response.status();
+        let response = http_response.text().await?;
+        tracing::error!(%status, message = %response, "request failed");
+    }
 
-    println!("{response:?}");
     Ok(())
 }
