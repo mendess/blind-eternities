@@ -18,5 +18,9 @@ where
     let r = respond_to(Ok(spark_protocol::SuccessfulResponse::Unit)).await;
     let e = std::process::Command::new(exe).arg("daemon").exec();
     tracing::error!(?e, "exec self failed");
+    if let Some(arg0) = std::env::args().next() {
+        let e = std::process::Command::new(arg0).arg("daemon").exec();
+        tracing::error!(?e, "exec arg0 failed");
+    }
     r
 }
