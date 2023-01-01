@@ -26,7 +26,7 @@ tracing-bunyan-formatter.workspace = true
 tracing-futures = "0.2.5"
 tracing-log.workspace = true
 tracing-subscriber = { workspace = true, features = ["registry", "env-filter"] }
-uuid = { workspace = true, features = ["serde"] }
+uuid.workspace = true
 actix-http = "3.2.2"
 actix-service = "2.0.2"
 
