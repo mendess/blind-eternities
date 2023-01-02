@@ -19,7 +19,7 @@ fn forward<E: std::fmt::Debug>(e: E) -> ErrorResponse {
 
 pub async fn wait_for_next_title(player: &players::PlayerLink) -> Result<String, ErrorResponse> {
     let stream = player.subscribe().await.map_err(forward)?;
-    async fn _wait(
+    async fn from_stream(
         stream: impl Stream<Item = io::Result<PlayerEvent>>,
     ) -> Result<Option<String>, mlib::Error> {
         tokio::pin!(stream);
@@ -35,10 +35,10 @@ pub async fn wait_for_next_title(player: &players::PlayerLink) -> Result<String,
         }
         Ok(None)
     }
-    let title = match timeout(Duration::from_secs(2), async { _wait(stream).await }).await {
+    let title = match timeout(Duration::from_secs(2), from_stream(stream)).await {
         Ok(Err(io_error)) => return Err(ErrorResponse::IoError(io_error.to_string())),
         Ok(Ok(Some(title))) => title,
-        _ => player.media_title().await.map_err(forward)?,
+        Ok(Ok(None)) | Err(_ /*elapsed*/) => player.media_title().await.map_err(forward)?,
     };
 
     Ok(title)

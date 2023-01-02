@@ -1,8 +1,0 @@
-port = 8000
-
-[db]
-host = "localhost"
-port = 5432
-username = "postgres"
-password = "postgres"
-name = "blind_eternities"
