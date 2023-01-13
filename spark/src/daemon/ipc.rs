@@ -4,10 +4,7 @@ pub mod reload;
 use crate::config::Config;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::Permissions, future::Future, io, os::unix::prelude::PermissionsExt, path::PathBuf,
-    sync::Arc,
-};
+use std::{fs::Permissions, future::Future, io, os::unix::prelude::PermissionsExt, sync::Arc};
 use structopt::StructOpt;
 use tokio::{
     fs,
@@ -20,18 +17,9 @@ pub enum Command {
     Reload,
 }
 
-async fn socket_path() -> io::Result<PathBuf> {
-    let (path, e) = namespaced_tmp::async_impl::in_tmp("spark", "socket").await;
-    if let Some(e) = e {
-        Err(e)
-    } else {
-        Ok(path)
-    }
-}
-
-pub async fn start(_config: Arc<Config>) -> io::Result<impl Future<Output = ()>> {
+pub async fn start(config: Arc<Config>) -> io::Result<impl Future<Output = ()>> {
     tracing::debug!("loading socket path");
-    let path = socket_path().await?;
+    let path = &config.ipc_socket_path;
     tracing::debug!(?path);
     let _ = fs::remove_file(&path).await;
     tracing::info!("binding ipc socket: {:?}", path);
@@ -51,8 +39,8 @@ pub async fn start(_config: Arc<Config>) -> io::Result<impl Future<Output = ()>>
     })
 }
 
-pub async fn send(cmd: &Command) -> anyhow::Result<()> {
-    let path = socket_path().await.context("getting socket path")?;
+pub async fn send(cmd: &Command, config: Config) -> anyhow::Result<()> {
+    let path = &config.ipc_socket_path;
     let socket = UnixStream::connect(path)
         .await
         .context("connecting to socket")?;

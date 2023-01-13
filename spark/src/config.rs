@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Context;
 use dirs::config_dir;
@@ -18,6 +18,8 @@ pub struct Config {
     pub network: Networking,
     #[serde(default)]
     pub default_user: Option<String>,
+    #[serde(default = "crate::config::ipc_socket_path")]
+    pub ipc_socket_path: PathBuf,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, Default, PartialEq, Eq)]
@@ -29,6 +31,15 @@ pub struct Networking {
 }
 
 const PREFIX: &str = "SPARK";
+
+fn ipc_socket_path() -> PathBuf {
+    let (path, e) = namespaced_tmp::blocking::in_tmp("spark", "socket");
+    if let Some(e) = e {
+        panic!("error creating ipc socket dir: {e:?}");
+    } else {
+        path
+    }
+}
 
 pub fn load_configuration() -> anyhow::Result<Config> {
     let config_path = config_dir()

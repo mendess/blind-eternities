@@ -7,7 +7,7 @@ use common::net::{
     MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, RecvError, WriteJsonLinesExt,
 };
 use serde::de::DeserializeOwned;
-use spark_protocol::{ErrorResponse, Response};
+use spark_protocol::Response;
 use sqlx::PgPool;
 use tokio::{
     io::{AsyncWriteExt, BufReader, BufWriter},
@@ -189,9 +189,7 @@ async fn handle_a_connection(
             });
             let response = match timeout(TIMEOUT, read.recv()).await {
                 Ok(Ok(Some(r))) => r,
-                Ok(Ok(None)) => Err(ErrorResponse::NetworkError(
-                    "daemon closed the channel socket before responding".into(),
-                )),
+                Ok(Ok(None)) => return Err(io::ErrorKind::UnexpectedEof.into()),
                 Ok(Err(e)) => {
                     if let RecvError::Serde(e) = &e {
                         let msg = MetaProtocolAck::DeserializationError {
@@ -219,6 +217,7 @@ async fn handle_a_connection(
     if let Err(e) = handle(&mut reader, &mut writer, rx).await {
         tracing::error!(?e, "persistent connection errored out");
     }
+    tracing::debug!("removing connection");
     connections.remove(hostname, gen).await;
     Some(())
 }

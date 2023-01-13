@@ -1,3 +1,4 @@
+mod backend;
 mod config;
 mod daemon;
 mod music;
@@ -36,6 +37,7 @@ enum Cmd {
         #[structopt(flatten)]
         cmd: spark_protocol::music::MusicCmd,
     },
+    Backend(Backend),
 }
 
 #[derive(StructOpt, Debug)]
@@ -50,6 +52,11 @@ enum SshTool {
     Rsync(routing::RsyncOpts),
     CopyId(routing::SshOpts),
     Show(routing::ShowRouteOpts),
+}
+
+#[derive(StructOpt, Debug)]
+enum Backend {
+    Persistents,
 }
 
 async fn app(args: Args) -> anyhow::Result<ExitStatus> {
@@ -72,10 +79,13 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
             .await
             .map(|_| ExitStatus::from_raw(0)),
         Cmd::Route(SshTool::CopyId(opts)) => routing::copy_id(&opts, &config).await,
-        Cmd::Msg(msg) => daemon::ipc::send(&msg)
+        Cmd::Msg(msg) => daemon::ipc::send(&msg, config)
             .await
             .map(|_| ExitStatus::from_raw(0)),
         Cmd::Music { destination, cmd } => music::handle(destination, cmd, config)
+            .await
+            .map(|_| ExitStatus::from_raw(0)),
+        Cmd::Backend(cmd) => backend::handle(cmd, config)
             .await
             .map(|_| ExitStatus::from_raw(0)),
     }

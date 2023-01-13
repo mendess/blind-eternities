@@ -40,6 +40,7 @@ pub fn run(
             .service(machine_status::routes())
             .service(remote_spark::routes())
             .service(music_players::routes())
+            .service(persistent_connections::routes())
             .app_data(conn.clone())
             .app_data(connections.clone())
     })

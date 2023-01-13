@@ -72,4 +72,8 @@ impl Connections {
             }
         }
     }
+
+    pub async fn connected_hosts(&self) -> Vec<Hostname> {
+        self.connected_hosts.lock().await.keys().cloned().collect()
+    }
 }

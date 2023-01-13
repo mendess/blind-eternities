@@ -35,7 +35,7 @@ impl ResponseError for MusicPlayersError {
             Self::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::ConnectionError(ConnectionError::NotFound) => StatusCode::NOT_FOUND,
             Self::ConnectionError(ConnectionError::ConnectionDropped) => {
-                StatusCode::INTERNAL_SERVER_ERROR
+                StatusCode::NOT_FOUND
             }
         }
     }
