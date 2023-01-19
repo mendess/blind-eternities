@@ -93,7 +93,12 @@ impl Display for Hostname {
 
 impl Hostname {
     pub fn from_this_host() -> Self {
-        Self(whoami::hostname())
+        let hostname = whoami::hostname();
+        if hostname == "localhost" {
+            Self(std::env::var("HOSTNAME").unwrap_or(hostname))
+        } else {
+            Self(hostname)
+        }
     }
 }
 
