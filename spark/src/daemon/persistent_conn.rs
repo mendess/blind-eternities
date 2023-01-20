@@ -37,7 +37,13 @@ async fn run(config: &Config, hostname: &Hostname) -> io::Result<()> {
             |response: spark_protocol::Response| async move { write.send(response).await };
         let result = match cmd {
             spark_protocol::Local::Reload => ipc::reload::reload(send_response).await,
+            #[cfg(feature = "music-ctl")]
             spark_protocol::Local::Music(m) => ipc::music::handle(m, send_response).await,
+            #[cfg(not(feature = "music-ctl"))]
+            spark_protocol::Local::Music(_) => Err(io::Error::new(
+                io::ErrorKind::Other,
+                "music control is disabled on this machine",
+            )),
         };
         if let Err(e) = result {
             tracing::error!(?e)

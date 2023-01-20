@@ -1,3 +1,4 @@
+#[cfg(feature = "music-ctl")]
 pub mod music;
 pub mod reload;
 

@@ -15,7 +15,6 @@ config.workspace = true
 dirs = "4.0.0"
 futures = "0.3.21"
 itertools.workspace = true
-mlib = { git = "https://github.com/mendess/m", branch = "oxidise", features = ["player"] }
 namespaced-tmp = { git = "https://github.com/mendess/namespaced-tmp", features = ["async", "user"] }
 once_cell.workspace = true
 open = "2.1.0"
@@ -44,8 +43,16 @@ version = "0.11.9"
 default-features = false
 features = ["json", "rustls-tls"]
 
+[dependencies.mlib]
+git = "https://github.com/mendess/m"
+branch = "oxidise"
+features = ["player"]
+optional = true
+
 
 [dev-dependencies]
 blind-eternities = { path = "../server" }
 
 [features]
+default = []
+music-ctl = ["mlib"]
