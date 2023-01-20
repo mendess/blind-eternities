@@ -52,9 +52,6 @@ features = ["player"]
 optional = true
 
 
-[dev-dependencies]
-blind-eternities = { path = "../server" }
-
 [features]
 default = []
 music-ctl = ["mlib"]

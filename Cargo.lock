@@ -2275,7 +2275,6 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrayvec",
- "blind-eternities",
  "chrono",
  "common",
  "config",

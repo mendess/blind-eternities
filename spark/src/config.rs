@@ -42,12 +42,16 @@ fn ipc_socket_path() -> PathBuf {
 }
 
 pub fn load_configuration() -> anyhow::Result<Config> {
-    let config_path = config_dir()
-        .map(|mut d| {
-            d.extend(["spark", "config"]);
-            d
-        })
-        .ok_or_else(|| anyhow::anyhow!("Failed to find configuration file"))?;
+    let config_path = if let Ok(p) = std::env::var("SPARK__CONFIG_FILE") {
+        PathBuf::from(p)
+    } else {
+        config_dir()
+            .map(|mut d| {
+                d.extend(["spark", "config"]);
+                d
+            })
+            .ok_or_else(|| anyhow::anyhow!("Failed to find configuration file"))?
+    };
 
     tracing::debug!(?config_path);
 
