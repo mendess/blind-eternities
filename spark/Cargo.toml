@@ -7,36 +7,38 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-arrayvec = "0.7.2"
 chrono.workspace = true
-common = { path = "../common" }
-spark-protocol = { path = "../spark-protocol", features = ["structopt"] }
 config.workspace = true
-dirs = "4.0.0"
-futures = "0.3.21"
+futures.workspace = true
 itertools.workspace = true
-namespaced-tmp = { git = "https://github.com/mendess/namespaced-tmp", features = ["async", "user"] }
 once_cell.workspace = true
-open = "2.1.0"
-pnet = "0.29.0"
 serde.workspace = true
-serde_json = "1.0.79"
 structopt.workspace = true
-tempfile = "3.3.0"
 thiserror.workspace = true
-tracing = { version = "0.1.31", features = ["log"] }
-tracing-bunyan-formatter = "0.3.2"
-tracing-futures = "0.2.5"
-tracing-log = "0.1.2"
-tracing-subscriber = { version = "0.3.9", features = ["registry", "env-filter", "fmt"] }
+tracing = { workspace = true, features = ["log"] }
+tracing-bunyan-formatter.workspace = true
+tracing-futures.workspace = true
+tracing-log.workspace = true
 uuid.workspace = true
 whoami.workspace = true
+tracing-subscriber = { workspace = true, features = ["registry", "env-filter", "fmt"] }
+
+common = { path = "../common" }
+spark-protocol = { path = "../spark-protocol", features = ["structopt"] }
+
+arrayvec = "0.7.2"
+dirs = "4.0.0"
+namespaced-tmp = { git = "https://github.com/mendess/namespaced-tmp", features = ["async", "user"] }
+open = "2.1.0"
+pnet = "0.29.0"
+serde_json = "1.0.79"
+tempfile = "3.3.0"
 
 
 [dependencies.tokio]
 workspace = true
 default-features = false
-features = ["macros", "rt", "time", "process", "fs", "net"]
+features = ["macros", "rt", "time", "process", "fs", "net", "signal"]
 
 [dependencies.reqwest]
 version = "0.11.9"
