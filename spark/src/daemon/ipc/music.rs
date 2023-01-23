@@ -70,6 +70,7 @@ where
     };
     // ----
 
+    // TODO: Io(NotFound) should be translated to "no players running for user {username}"
     let response: Result<MusicResponse, ErrorResponse> = match cmd.command {
         spark_protocol::music::MusicCmdKind::Frwd => {
             player

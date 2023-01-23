@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Context;
+use common::net::{defaults::default_persistent_conn_port, AuthenticatedClient, auth_client::UrlParseError};
 use dirs::config_dir;
 
 use crate::util::destination::Destination;
@@ -9,17 +10,28 @@ use crate::util::destination::Destination;
 pub struct Config {
     pub token: uuid::Uuid,
     pub backend_domain: String,
-    pub backend_port: u16,
-    #[serde(default = "::common::net::defaults::default_persistent_conn_port")]
-    pub persistent_conn_port: u16,
-    #[serde(default)]
-    pub enable_persistent_conn: bool,
     #[serde(default)]
     pub network: Networking,
+    #[serde(default)]
+    pub persistent_conn: Option<PersistentConn>,
     #[serde(default)]
     pub default_user: Option<String>,
     #[serde(default = "crate::config::ipc_socket_path")]
     pub ipc_socket_path: PathBuf,
+}
+
+#[derive(Debug, serde::Deserialize, PartialEq, Eq)]
+pub struct PersistentConn {
+    #[serde(default = "::common::net::defaults::default_persistent_conn_port")]
+    pub port: u16,
+}
+
+impl Default for PersistentConn {
+    fn default() -> Self {
+        Self {
+            port: default_persistent_conn_port(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, serde::Deserialize, Default, PartialEq, Eq)]
@@ -28,6 +40,13 @@ pub struct Networking {
     pub ssh: Option<u16>,
     #[serde(default)]
     pub aliases: HashMap<String, Destination>,
+}
+
+impl TryFrom<&Config> for AuthenticatedClient {
+    type Error = UrlParseError;
+    fn try_from(c: &Config) -> Result<Self, Self::Error> {
+        AuthenticatedClient::new(c.token, &c.backend_domain)
+    }
 }
 
 const PREFIX: &str = "SPARK";

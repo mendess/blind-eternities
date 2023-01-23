@@ -5,8 +5,7 @@ use spark_protocol::music::{MusicCmd, MusicCmdKind};
 use crate::{config::Config, util::destination::Destination};
 
 pub async fn handle(destination: Destination, cmd: MusicCmd, config: Config) -> anyhow::Result<()> {
-    let client =
-        AuthenticatedClient::new(config.token, &config.backend_domain, config.backend_port)?;
+    let client = AuthenticatedClient::try_from(&config)?;
 
     let Destination { username, hostname } = destination;
 
@@ -37,6 +36,7 @@ pub async fn handle(destination: Destination, cmd: MusicCmd, config: Config) -> 
                 request = request.query(&[("u", username)])
             };
             let request = cmd.to_query_string(|args| request.query(args));
+            tracing::debug!(?request, "sending GET request");
             request.send().await?
         }
     };

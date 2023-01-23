@@ -79,7 +79,7 @@ pub enum Response {
     },
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Chapter {
     pub title: String,
     pub index: u32,

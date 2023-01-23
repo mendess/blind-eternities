@@ -289,9 +289,8 @@ async fn route_to_ssh_hops(
 async fn fetch_statuses(
     config: &Config,
 ) -> anyhow::Result<(HashMap<String, MachineStatusFull>, Hostname)> {
-    let client =
-        AuthenticatedClient::new(config.token, &config.backend_domain, config.backend_port)
-            .context("creating an authenticated client")?;
+    let client = AuthenticatedClient::try_from(config)
+        .context("creating an authenticated client")?;
     let response = client
         .get("/machine/status")
         .expect("route should be well constructed")

@@ -8,15 +8,14 @@ use common::{
 };
 use tokio::{io::BufReader, net::TcpStream};
 
-use crate::config::Config;
+use crate::config::{Config, PersistentConn};
 
 use super::ipc;
 
-async fn run(config: &Config, hostname: &Hostname) -> io::Result<()> {
-    let (read, mut write) =
-        TcpStream::connect((config.backend_domain.as_str(), config.persistent_conn_port))
-            .await?
-            .into_split();
+async fn run(config: &Config, hostname: &Hostname, port: u16) -> io::Result<()> {
+    let (read, mut write) = TcpStream::connect((config.backend_domain.as_str(), port))
+        .await?
+        .into_split();
     let mut read = BufReader::new(read);
     let mut talker = (&mut read, &mut write);
     let syn = MetaProtocolSyn {
@@ -52,11 +51,11 @@ async fn run(config: &Config, hostname: &Hostname) -> io::Result<()> {
 }
 
 pub(super) async fn start(config: Arc<Config>) {
-    if config.enable_persistent_conn {
+    if let Some(PersistentConn { port }) = config.persistent_conn {
         let hostname = Hostname::from_this_host();
         loop {
             tracing::info!("starting persistent connection");
-            if let Err(e) = run(&config, &hostname).await {
+            if let Err(e) = run(&config, &hostname, port).await {
                 tracing::error!(?e, "persistent connection dropped");
             }
             tokio::time::sleep(Duration::from_secs(1)).await;

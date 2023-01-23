@@ -3,8 +3,7 @@ use common::{domain::Hostname, net::AuthenticatedClient};
 use crate::config::Config;
 
 pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Result<()> {
-    let client =
-        AuthenticatedClient::new(config.token, &config.backend_domain, config.backend_port)?;
+    let client = AuthenticatedClient::try_from(&config)?;
     match cmd {
         crate::Backend::Persistents => display_persistent_connections(client).await?,
     }

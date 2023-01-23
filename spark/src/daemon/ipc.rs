@@ -24,7 +24,7 @@ pub async fn start(config: Arc<Config>) -> io::Result<impl Future<Output = ()>> 
     tracing::debug!(?path);
     let _ = fs::remove_file(&path).await;
     tracing::info!("binding ipc socket: {:?}", path);
-    let socket = UnixListener::bind(&path)?;
+    let socket = UnixListener::bind(path)?;
     fs::set_permissions(path, Permissions::from_mode(0o777)).await?;
     Ok(async move {
         loop {
