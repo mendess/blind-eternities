@@ -58,6 +58,8 @@ async fn gateway_ip_and_mac() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
             .args(["-c", "route -n get default | grep gateway | cut -d: -f2"])
             .output()
             .await
+    } else if cfg!(target_os = "android") {
+        return Ok((std::net::Ipv4Addr::LOCALHOST.into(), None));
     } else {
         Command::new("sh")
             .args(["-c", "ip route get 1.1.1.1 | awk '{print $3}' | head -1"])
