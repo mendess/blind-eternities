@@ -20,4 +20,13 @@ esac
 
 cargo build -p spark --bin spark --release "${extra_args[@]}"
 
-sudo install ./target/release/spark /usr/bin
+target=~/../usr/bin
+if [ ! -d $target ]; then
+	target=/usr/bin
+fi
+if command -V sudo 2>/dev/null; then
+	sudo=sudo
+else
+	sudo=
+fi
+$sudo install ./target/release/spark $target
