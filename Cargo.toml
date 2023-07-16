@@ -1,5 +1,4 @@
 [workspace]
-
 members = [
     "server",
     "common",
@@ -38,3 +37,6 @@ features = [
     "migrate",
     "offline",
 ]
+
+[profile.release]
+debug = 2
