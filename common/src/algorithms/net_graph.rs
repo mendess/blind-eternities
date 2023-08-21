@@ -220,7 +220,7 @@ impl<'hostname> NetGraph<'hostname> {
             (today.timestamp_millis(), yesterday.timestamp_millis())
         };
         for (ip, nodes) in by_subnet.into_iter() {
-            let subgraph_label = ip.to_string().replace('.', "_");
+            let subgraph_label = ip.to_string().replace(|c| c == '.' || c == ':', "_");
             out.write_all(format!("    subgraph cluster_{} {{\n", subgraph_label).as_bytes())
                 .await?;
             for (i, n) in nodes {
