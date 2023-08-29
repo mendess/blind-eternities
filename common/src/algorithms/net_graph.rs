@@ -3,7 +3,7 @@ use std::{
     fmt::{self, Display},
     io,
     iter::FromIterator,
-    net::IpAddr,
+    net::{IpAddr, Ipv6Addr},
 };
 
 use chrono::{Duration, Utc};
@@ -54,7 +54,14 @@ impl<'hostname> Node<'hostname> {
     }
 
     fn share_nat(&self, other: &MachineStatus) -> bool {
-        matches!(self, Node::Machine(m) if m.external_ip == other.external_ip)
+        fn ip_eq(a: IpAddr, b: IpAddr) -> bool {
+            match (a, b) {
+                (IpAddr::V4(a), IpAddr::V4(b)) => a == b,
+                (IpAddr::V6(a), IpAddr::V6(b)) => a.octets()[0..8] == b.octets()[0..8],
+                _ => false,
+            }
+        }
+        matches!(self, Node::Machine(m) if ip_eq(m.external_ip, other.external_ip))
     }
 
     fn unwrap_as_internet_mut(&mut self) -> &mut Internet {
@@ -188,6 +195,16 @@ impl<'hostname> NetGraph<'hostname> {
         out: W,
         path: Option<&[NodeIndex<u32>]>,
     ) -> io::Result<()> {
+        fn external_ip_to_subnet(ip: IpAddr) -> String {
+            match ip {
+                IpAddr::V4(ip) => ip.to_string(),
+                IpAddr::V6(ip) => {
+                    let mut octets = ip.octets();
+                    octets[8..].fill(0);
+                    Ipv6Addr::from(octets).to_string()
+                }
+            }
+        }
         const COLOR_NAME: &str = r#" color="cornflowerblue""#;
         tokio::pin!(out);
 
@@ -197,7 +214,10 @@ impl<'hostname> NetGraph<'hostname> {
         let mut internet = None;
         for i in self.graph.node_indices() {
             if let Node::Machine(s) = self.graph[i] {
-                by_subnet.entry(s.external_ip).or_default().push((i, s));
+                by_subnet
+                    .entry(external_ip_to_subnet(s.external_ip))
+                    .or_default()
+                    .push((i, s));
             } else {
                 internet = Some(i);
             }

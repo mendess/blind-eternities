@@ -8,7 +8,10 @@ async fn _main() -> i32 {
     let hostname = match args.next() {
         Some(hostname) => hostname,
         None => {
-            println!("Usage {} [HOSTNAME]", env::args().next().unwrap());
+            println!(
+                "Usage {} HOSTNAME [-d|--delete]",
+                env::args().next().unwrap()
+            );
             return 1;
         }
     };
