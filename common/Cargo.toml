@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1"
 chrono = { version = "0.4.19", features = ["serde"] }
+either = "1.9.0"
 itertools.workspace = true
 once_cell.workspace = true
 petgraph = "0.6.0"

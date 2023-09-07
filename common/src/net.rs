@@ -8,6 +8,7 @@ use std::{
 };
 
 pub use auth_client::AuthenticatedClient;
+use either::Either;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
@@ -90,7 +91,7 @@ pub trait ReadJsonLinesExt {
 
 #[derive(Debug)]
 pub struct LineGuard<'s, T: AsyncBufRead + Unpin> {
-    reader: &'s mut T,
+    reader: Either<&'s mut T, Vec<u8>>,
     len: usize,
 }
 
@@ -98,23 +99,28 @@ impl<'s, R: Unpin + AsyncRead> Deref for LineGuard<'s, BufReader<R>> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        &self.reader.buffer()[..self.len]
+        match &self.reader {
+            Either::Left(reader) => &reader.buffer()[..self.len],
+            Either::Right(buffer) => buffer,
+        }
     }
 }
 
 impl<'s, R: Unpin + AsyncRead> LineGuard<'s, BufReader<R>> {
     pub fn as_str(&self) -> &str {
-        std::str::from_utf8(&self.reader.buffer()[..self.len]).expect("should have been a str")
+        std::str::from_utf8(self).expect("should have been a str")
     }
 
     pub fn as_str_checked(&self) -> Result<&str, std::str::Utf8Error> {
-        std::str::from_utf8(&self.reader.buffer()[..self.len])
+        std::str::from_utf8(self)
     }
 }
 
 impl<T: AsyncBufRead + Unpin> Drop for LineGuard<'_, T> {
     fn drop(&mut self) {
-        self.reader.consume(self.len + 1)
+        if let Either::Left(reader) = &mut self.reader {
+            reader.consume(self.len + 1)
+        }
     }
 }
 
@@ -144,13 +150,38 @@ impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
     }
 
     async fn recv_raw(&mut self) -> io::Result<Option<LineGuard<'_, Self>>> {
+        // TODO: this method allows for unbounded input to blow up the program
+        // probably need to set some limits
+        let mut last_len = Some(0);
+        let mut buffer = Vec::new();
         loop {
             let buf = self.fill_buf().await?;
             match buf {
                 [] => break Ok(None),
                 _ => {
-                    if let Some(len) = buf.iter().position(|b| *b == b'\n') {
-                        break Ok(Some(LineGuard { reader: self, len }));
+                    if let Some(last_len) = last_len.as_mut().filter(|l| buf.len() > **l) {
+                        if let Some(len) = buf.iter().position(|b| *b == b'\n') {
+                            break Ok(Some(LineGuard {
+                                reader: Either::Left(self),
+                                len,
+                            }));
+                        }
+                        *last_len = buf.len();
+                    } else {
+                        if let Some(len) = buf.iter().position(|b| *b == b'\n') {
+                            buffer.extend_from_slice(&buf[..len]);
+                            self.consume(len);
+                            tracing::warn!("this is a very long buffer: {buffer:?}");
+                            break Ok(Some(LineGuard {
+                                len: buffer.len(),
+                                reader: Either::Right(buffer),
+                            }));
+                        }
+
+                        buffer.extend_from_slice(buf);
+                        let len = buf.len();
+                        self.consume(len);
+                        last_len = None;
                     }
                 }
             }
