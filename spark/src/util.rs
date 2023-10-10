@@ -1,6 +1,11 @@
 pub mod destination;
 
-use std::{error::Error, mem::take, net::IpAddr, str::FromStr};
+use std::{
+    error::Error,
+    mem::take,
+    net::{IpAddr, Ipv4Addr},
+    str::FromStr,
+};
 
 use anyhow::Context;
 use common::domain::{machine_status::IpConnection, Hostname, MacAddr, MachineStatus};
@@ -39,9 +44,14 @@ async fn get_external_ip() -> anyhow::Result<IpAddr> {
                 warn!("consider installing dig for better performance");
             }
             Ok(IpAddr::from_str(
-                &reqwest::get("https://ifconfig.me")
+                &reqwest::Client::builder()
+                    .local_address(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
+                    .build()
+                    .unwrap()
+                    .get("https://ifconfig.me")
+                    .send()
                     .await
-                    .context("requesting ifconfig.md")?
+                    .context("requesting ifconfig.me")?
                     .text()
                     .await
                     .context("parsing ip from ifconfig.me")?,
@@ -134,6 +144,8 @@ pub(crate) async fn get_current_status(config: &Config) -> anyhow::Result<Machin
         async { get_ip_connections().await.context("getting ip connections") },
         async { get_external_ip().await.context("getting external ip") },
     )?;
+
+    tracing::debug!(%hostname, %external_ip, "current status obtained");
 
     Ok(MachineStatus {
         hostname,
