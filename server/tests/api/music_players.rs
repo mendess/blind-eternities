@@ -312,7 +312,9 @@ async fn username_can_be_overridden() {
             .await
             .expect("success");
         assert_status!(StatusCode::OK, resp.status());
-        resp.json::<Response>().await.expect("deserialized successfully")
+        resp.json::<Response>()
+            .await
+            .expect("deserialized successfully")
     });
 
     match response {

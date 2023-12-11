@@ -5,6 +5,7 @@ use std::{
     io,
     ops::Deref,
     str::FromStr,
+    time::Duration,
 };
 
 pub use auth_client::AuthenticatedClient;
@@ -13,6 +14,8 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
 use crate::domain::Hostname;
+
+pub const PERSISTENT_CONN_RECV_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaProtocolSyn {
@@ -159,7 +162,7 @@ impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
             match buf {
                 [] => break Ok(None),
                 _ => {
-                    if let Some(last_len) = last_len.as_mut().filter(|l| buf.len() > **l) {
+                    if let Some(last_len) = last_len.as_mut().filter(|l| **l < buf.len()) {
                         if let Some(len) = buf.iter().position(|b| *b == b'\n') {
                             break Ok(Some(LineGuard {
                                 reader: Either::Left(self),

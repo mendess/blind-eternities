@@ -5,7 +5,9 @@ use std::{
 
 use common::net::{
     MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, RecvError, WriteJsonLinesExt,
+    PERSISTENT_CONN_RECV_TIMEOUT,
 };
+use futures::StreamExt;
 use serde::de::DeserializeOwned;
 use spark_protocol::Response;
 use sqlx::PgPool;
@@ -25,9 +27,9 @@ use crate::{
     persistent_connections::connections::Request,
 };
 
-use super::connections::Connections;
+use super::{connections::Connections, ConnectionError};
 
-const TIMEOUT: Duration = Duration::from_secs(10);
+const TIMEOUT: Duration = Duration::from_secs(PERSISTENT_CONN_RECV_TIMEOUT.as_secs() / 2);
 
 macro_rules! send {
     ($writer:ident <- $msg:expr; {
@@ -173,7 +175,7 @@ async fn handle_a_connection(
     let _span = tracing::debug_span!(
         "handling new persistent connection",
         connected_hostname = %hostname,
-        %gen
+        ?gen
     );
 
     async fn handle(
@@ -222,6 +224,32 @@ async fn handle_a_connection(
     Some(())
 }
 
+async fn heartbeat_checker(connections: Arc<Connections>) {
+    loop {
+        tokio::time::sleep(PERSISTENT_CONN_RECV_TIMEOUT / 2).await;
+        let connections = &connections;
+        futures::stream::iter(connections.connected_hosts().await)
+            .map({
+                |(h, gen)| async move {
+                    match connections
+                        .request(&h, spark_protocol::Local::Heartbeat)
+                        .await
+                    {
+                        Err(ConnectionError::NotFound) | Ok(_) => None,
+                        Err(ConnectionError::ConnectionDropped) => Some((h, gen)),
+                    }
+                }
+            })
+            .buffer_unordered(usize::MAX)
+            .filter_map(|x| async { x })
+            .for_each(|(h, gen)| async move {
+                tracing::warn!(hostname = %h, "machine disconnected");
+                connections.remove(h, gen).await;
+            })
+            .await;
+    }
+}
+
 pub(super) async fn start(
     listener: TcpListener,
     connections: Arc<Connections>,
@@ -232,6 +260,7 @@ pub(super) async fn start(
         "starting persistent connection manager at port {:?}",
         listener.local_addr().map(|a| a.port())
     );
+    tokio::spawn(heartbeat_checker(connections.clone()));
     loop {
         let (mut conn, addr) = listener.accept().await?;
         let connections = connections.clone();

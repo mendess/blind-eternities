@@ -128,7 +128,7 @@ impl<const CREATE_DB: bool> TestAppBuilder<CREATE_DB> {
             },
         )
         .expect("Failed to bind address");
-        let _ = tokio::spawn(server);
+        tokio::spawn(server);
         let app = TestApp::<CREATE_DB> {
             address: format!("http://localhost:{}", port),
             persistent_conn_port,

@@ -43,19 +43,19 @@ async fn get_external_ip() -> anyhow::Result<IpAddr> {
             if e.kind() == io::ErrorKind::NotFound {
                 warn!("consider installing dig for better performance");
             }
-            Ok(IpAddr::from_str(
-                &reqwest::Client::builder()
-                    .local_address(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
-                    .build()
-                    .unwrap()
-                    .get("https://ifconfig.me")
-                    .send()
-                    .await
-                    .context("requesting ifconfig.me")?
-                    .text()
-                    .await
-                    .context("parsing ip from ifconfig.me")?,
-            )?)
+            let ip_str = reqwest::Client::builder()
+                .local_address(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
+                .build()
+                .unwrap()
+                .get("https://ifconfig.me")
+                .send()
+                .await
+                .context("requesting ifconfig.me")?
+                .text()
+                .await
+                .context("streaming text from ifconfig.me")?;
+            Ok(IpAddr::from_str(&ip_str)
+                .with_context(|| format!("parsing ip from ifconfig.me: {ip_str:?}"))?)
         }
     }
 }

@@ -12,9 +12,20 @@ pub(super) type Request = (Local, oneshot::Sender<Response>);
 
 pub type Response = Result<spark_protocol::SuccessfulResponse, ErrorResponse>;
 
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub struct Generation(usize);
+
+impl Generation {
+    fn new() -> Self {
+        static GENERATION: AtomicUsize = AtomicUsize::new(0);
+
+        Self(GENERATION.fetch_add(1, Ordering::SeqCst))
+    }
+}
+
 #[derive(Debug)]
 pub struct Connections {
-    connected_hosts: Mutex<HashMap<Hostname, (usize, mpsc::Sender<Request>)>>,
+    connected_hosts: Mutex<HashMap<Hostname, (Generation, mpsc::Sender<Request>)>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -40,14 +51,21 @@ impl Connections {
         match self.connected_hosts.lock().await.get(machine) {
             Some(conn) => {
                 let (tx, rx) = oneshot::channel();
-                tracing::info!("sending spark command");
+                let log_infos = command != Local::Heartbeat;
+                if log_infos {
+                    tracing::info!("sending spark command");
+                }
                 conn.1
                     .send((command, tx))
                     .await
                     .map_err(|_| ConnectionError::ConnectionDropped)?;
-                tracing::info!("waiting for response");
+                if log_infos {
+                    tracing::info!("waiting for response");
+                }
                 let resp = rx.await.map_err(|_| ConnectionError::ConnectionDropped)?;
-                tracing::info!(?resp, "received response");
+                if log_infos {
+                    tracing::info!(?resp, "received response");
+                }
                 Ok(resp)
             }
             None => {
@@ -57,15 +75,14 @@ impl Connections {
         }
     }
 
-    pub(super) async fn insert(&self, machine: Hostname) -> (usize, mpsc::Receiver<Request>) {
-        static GENERATION: AtomicUsize = AtomicUsize::new(0);
+    pub(super) async fn insert(&self, machine: Hostname) -> (Generation, mpsc::Receiver<Request>) {
         let (tx, rx) = mpsc::channel::<Request>(100);
-        let gen = GENERATION.fetch_add(1, Ordering::SeqCst);
+        let gen = Generation::new();
         self.connected_hosts.lock().await.insert(machine, (gen, tx));
         (gen, rx)
     }
 
-    pub(super) async fn remove(&self, machine: Hostname, gen: usize) {
+    pub async fn remove(&self, machine: Hostname, gen: Generation) {
         if let Entry::Occupied(o) = self.connected_hosts.lock().await.entry(machine) {
             if o.get().0 == gen {
                 o.remove_entry();
@@ -73,7 +90,12 @@ impl Connections {
         }
     }
 
-    pub async fn connected_hosts(&self) -> Vec<Hostname> {
-        self.connected_hosts.lock().await.keys().cloned().collect()
+    pub async fn connected_hosts(&self) -> Vec<(Hostname, Generation)> {
+        self.connected_hosts
+            .lock()
+            .await
+            .iter()
+            .map(|(k, (gen, _))| (k.clone(), *gen))
+            .collect()
     }
 }

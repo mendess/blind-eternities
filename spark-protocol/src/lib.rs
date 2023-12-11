@@ -14,6 +14,7 @@ pub use common::net::RecvError;
 #[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
 pub enum Local {
     Reload,
+    Heartbeat,
     Music(music::MusicCmd),
 }
 

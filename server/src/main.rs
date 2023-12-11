@@ -59,7 +59,7 @@ async fn migrate(config: &Settings) -> PgPool {
                 .expect("Failed to create database.");
         }
         Err(e) => {
-            Result::<(), _>::Err(e).expect("failed to inspect db");
+            panic!("{1}: {:?}", e, "failed to inspect db");
         }
     }
     let connection = PgPool::connect(&config.db.connection_string())

@@ -1,7 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Context;
-use common::net::{defaults::default_persistent_conn_port, AuthenticatedClient, auth_client::UrlParseError};
+use common::net::{
+    auth_client::UrlParseError, defaults::default_persistent_conn_port, AuthenticatedClient,
+};
 use dirs::config_dir;
 
 use crate::util::destination::Destination;

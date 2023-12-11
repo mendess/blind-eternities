@@ -13,8 +13,10 @@ use daemon::ipc::Command;
 use structopt::StructOpt;
 use util::destination::Destination;
 
+/// A spark to travel the blind eternities!
 #[derive(StructOpt, Debug)]
 struct Args {
+    /// Enable verbose logging
     #[structopt(short = "v", long = "verbose")]
     verbose: bool,
     #[structopt(subcommand)]
@@ -37,6 +39,7 @@ enum Cmd {
         #[structopt(flatten)]
         cmd: spark_protocol::music::MusicCmd,
     },
+    /// Query the backend
     Backend(Backend),
 }
 
@@ -56,6 +59,7 @@ enum SshTool {
 
 #[derive(StructOpt, Debug)]
 enum Backend {
+    /// list persistent connections
     Persistents,
 }
 
