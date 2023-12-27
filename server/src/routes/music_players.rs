@@ -45,7 +45,7 @@ struct UsernameParam {
     u: Option<String>,
 }
 
-#[instrument(name = "default player")]
+#[instrument(name = "default player", skip(conn))]
 async fn current(
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
@@ -64,7 +64,7 @@ async fn current(
     Ok(HttpResponse::Ok().json(response))
 }
 
-#[instrument(name = "skip forward")]
+#[instrument(name = "skip forward", skip(conn))]
 async fn skip_forward(
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
@@ -83,7 +83,7 @@ async fn skip_forward(
     Ok(HttpResponse::Ok().json(response))
 }
 
-#[instrument(name = "skip backward")]
+#[instrument(name = "skip backward", skip(conn))]
 async fn skip_backward(
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
@@ -109,7 +109,7 @@ struct Amount {
     username: UsernameParam,
 }
 
-#[instrument(name = "change volume")]
+#[instrument(name = "change volume", skip(conn))]
 async fn change_volume(
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
@@ -128,7 +128,7 @@ async fn change_volume(
     Ok(HttpResponse::Ok().json(response))
 }
 
-#[instrument(name = "cycle pause")]
+#[instrument(name = "cycle pause", skip(conn))]
 async fn cycle_pause(
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
@@ -155,7 +155,7 @@ struct QueueRequest {
     username: UsernameParam,
 }
 
-#[instrument(name = "queue")]
+#[instrument(name = "queue", skip(conn))]
 async fn queue(
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
