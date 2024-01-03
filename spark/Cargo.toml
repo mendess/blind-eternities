@@ -1,6 +1,6 @@
 [package]
 name = "spark"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -13,7 +13,7 @@ futures.workspace = true
 itertools.workspace = true
 once_cell.workspace = true
 serde.workspace = true
-structopt.workspace = true
+clap.workspace = true
 thiserror.workspace = true
 tracing = { workspace = true, features = ["log"] }
 tracing-bunyan-formatter.workspace = true
@@ -24,7 +24,7 @@ whoami.workspace = true
 tracing-subscriber = { workspace = true, features = ["registry", "env-filter", "fmt"] }
 
 common = { path = "../common" }
-spark-protocol = { path = "../spark-protocol", features = ["structopt"] }
+spark-protocol = { path = "../spark-protocol", features = ["clap"] }
 
 arrayvec = "0.7.2"
 dirs = "4.0.0"

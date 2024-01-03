@@ -8,48 +8,51 @@ mod util;
 use std::{os::unix::prelude::ExitStatusExt, process::ExitStatus};
 
 use anyhow::Context;
+use clap::{Parser, Subcommand};
 use common::telemetry::{get_subscriber_no_bunny, init_subscriber};
 use daemon::ipc::Command;
-use structopt::StructOpt;
 use util::destination::Destination;
 
 /// A spark to travel the blind eternities!
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct Args {
     /// Enable verbose logging
-    #[structopt(short = "v", long = "verbose")]
+    #[arg(short = 'v', long = "verbose")]
     verbose: bool,
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     cmd: Cmd,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Subcommand, Debug)]
 enum Cmd {
     /// run as a daemon
     Daemon,
     /// msg
+    #[command(subcommand)]
     Msg(Command),
-    #[structopt(flatten)]
+    #[command(flatten)]
     SshInline(SshToolInline),
     /// ssh tooling
+    #[command(subcommand)]
     Route(SshTool),
     /// remote music control
     Music {
         destination: Destination,
-        #[structopt(flatten)]
+        #[command(flatten)]
         cmd: spark_protocol::music::MusicCmd,
     },
     /// Query the backend
+    #[command(subcommand)]
     Backend(Backend),
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Subcommand, Debug)]
 enum SshToolInline {
     Ssh(routing::SshCommandOpts),
     Rsync(routing::RsyncOpts),
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Subcommand, Debug)]
 enum SshTool {
     Ssh(routing::SshCommandOpts),
     Rsync(routing::RsyncOpts),
@@ -57,7 +60,7 @@ enum SshTool {
     Show(routing::ShowRouteOpts),
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Subcommand, Debug)]
 enum Backend {
     /// list persistent connections
     Persistents,
@@ -97,7 +100,7 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let args = Args::from_args();
+    let args = Args::parse();
     init_subscriber(get_subscriber_no_bunny(
         if args.verbose { "debug" } else { "info" }.into(),
     ));

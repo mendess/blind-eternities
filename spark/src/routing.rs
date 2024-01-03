@@ -12,13 +12,13 @@ use std::{
 use anyhow::Context;
 use arrayvec::ArrayVec;
 use chrono::Utc;
+use clap::Parser;
 use common::{
     algorithms::net_graph::{NetGraph, SimpleNode},
     domain::{machine_status::MachineStatusFull, Hostname},
     net::AuthenticatedClient,
 };
 use itertools::Itertools;
-use structopt::StructOpt;
 use tokio::{fs::File, process::Command};
 use tracing::{debug, info};
 
@@ -33,18 +33,18 @@ enum PseudoTty {
     Allocate,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub(super) struct SshOpts {
     destination: Destination,
-    #[structopt(long = "dry-run")]
+    #[arg(long = "dry-run")]
     dry_run: bool,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub(super) struct SshCommandOpts {
-    #[structopt(flatten)]
+    #[command(flatten)]
     core: SshOpts,
-    #[structopt(short("c"), long("shell"), conflicts_with("args"))]
+    #[arg(short = 'c', long = "shell", conflicts_with("args"))]
     sub_shell: Option<String>,
     args: Vec<String>,
 }
@@ -75,10 +75,10 @@ pub(super) async fn ssh(opts: &SshCommandOpts, config: &Config) -> anyhow::Resul
     }
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub(super) struct RsyncOpts {
     rsync_options: String,
-    #[structopt(long = "dry-run")]
+    #[arg(long = "dry-run")]
     dry_run: bool,
     paths: Vec<String>,
 }
@@ -129,13 +129,13 @@ pub(super) async fn rsync(opts: &RsyncOpts, config: &Config) -> anyhow::Result<E
     r
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub struct ShowRouteOpts {
-    #[structopt(short, long)]
+    #[arg(short, long)]
     filename: Option<PathBuf>,
-    #[structopt(short, long)]
+    #[arg(short, long)]
     destination: Option<Hostname>,
-    #[structopt(short, long)]
+    #[arg(short, long)]
     list: bool,
 }
 

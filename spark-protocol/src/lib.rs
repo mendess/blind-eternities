@@ -11,7 +11,7 @@ pub use common::net::RecvError;
 
 /// Hits the local spark instance
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+#[cfg_attr(feature = "clap", derive(clap::Parser))]
 pub enum Local {
     Reload,
     Heartbeat,
@@ -20,23 +20,25 @@ pub enum Local {
 
 /// Hits the spark instance in a remote machine
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+#[cfg_attr(feature = "clap", derive(clap::Parser))]
 pub struct Remote {
     pub machine: String,
-    #[cfg_attr(feature = "structopt", structopt(subcommand))]
+    #[cfg_attr(feature = "clap", command(subcommand))]
     pub command: Local,
 }
 
 /// Hits a route in the backend and returns the response
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+#[cfg_attr(feature = "clap", derive(clap::Parser))]
 pub enum Backend {}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+#[cfg_attr(feature = "clap", derive(clap::Subcommand))]
 pub enum Command {
+    #[command(flatten)]
     Local(Local),
     Remote(Remote),
+    #[command(flatten)]
     Backend(Backend),
 }
 

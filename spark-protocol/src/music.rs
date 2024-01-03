@@ -3,27 +3,28 @@ use serde::{Deserialize, Serialize};
 type PlayerIdx = usize;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+#[cfg_attr(feature = "clap", derive(clap::Parser))]
 pub struct MusicCmd {
     pub index: Option<PlayerIdx>,
     pub username: Option<String>,
-    #[cfg_attr(feature = "structopt", structopt(subcommand))]
+    #[cfg_attr(feature = "clap", command(subcommand))]
     pub command: MusicCmdKind,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[cfg_attr(feature = "structopt", derive(structopt::StructOpt))]
+#[cfg_attr(feature = "clap", derive(clap::Parser))]
 pub enum MusicCmdKind {
     Frwd,
     Back,
     CyclePause,
     ChangeVolume {
+        #[arg(allow_hyphen_values = true)]
         amount: i32,
     },
     Current,
     Queue {
         query: String,
-        #[cfg_attr(feature = "structopt", structopt(short, long))]
+        #[cfg_attr(feature = "clap", clap(short, long))]
         search: bool,
     },
 }

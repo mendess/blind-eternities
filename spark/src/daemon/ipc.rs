@@ -4,16 +4,16 @@ pub mod reload;
 
 use crate::config::Config;
 use anyhow::Context;
+use clap::Subcommand;
 use serde::{Deserialize, Serialize};
 use std::{fs::Permissions, future::Future, io, os::unix::prelude::PermissionsExt, sync::Arc};
-use structopt::StructOpt;
 use tokio::{
     fs,
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{UnixListener, UnixStream},
 };
 
-#[derive(Clone, Debug, Deserialize, StructOpt, Serialize)]
+#[derive(Clone, Debug, Deserialize, Subcommand, Serialize)]
 pub enum Command {
     Reload,
 }
