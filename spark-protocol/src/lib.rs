@@ -13,8 +13,11 @@ pub use common::net::RecvError;
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[cfg_attr(feature = "clap", derive(clap::Parser))]
 pub enum Local {
+    /// Reload the spark instance
     Reload,
+    /// Used by the backend to test if a connection is live.
     Heartbeat,
+    /// Remotely control the music of a device.
     Music(music::MusicCmd),
 }
 
@@ -35,10 +38,10 @@ pub enum Backend {}
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[cfg_attr(feature = "clap", derive(clap::Subcommand))]
 pub enum Command {
-    #[command(flatten)]
+    #[cfg_attr(feature = "clap", command(flatten))]
     Local(Local),
     Remote(Remote),
-    #[command(flatten)]
+    #[cfg_attr(feature = "clap", command(flatten))]
     Backend(Backend),
 }
 
@@ -65,6 +68,7 @@ pub type Response = Result<SuccessfulResponse, ErrorResponse>;
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum SuccessfulResponse {
     Unit,
+    Version(String),
     MusicResponse(music::Response),
 }
 

@@ -18,7 +18,7 @@ pub enum MusicCmdKind {
     Back,
     CyclePause,
     ChangeVolume {
-        #[arg(allow_hyphen_values = true)]
+        #[cfg_attr(feature = "clap", arg(allow_hyphen_values = true))]
         amount: i32,
     },
     Current,
@@ -68,6 +68,7 @@ pub enum Response {
         volume: f64,
     },
     Current {
+        paused: bool,
         title: String,
         chapter: Option<Chapter>,
         volume: f64,

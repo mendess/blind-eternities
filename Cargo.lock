@@ -460,7 +460,7 @@ dependencies = [
 
 [[package]]
 name = "blind-eternities"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "actix-http",
  "actix-rt",
@@ -2384,7 +2384,7 @@ dependencies = [
 
 [[package]]
 name = "spark"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "arrayvec",

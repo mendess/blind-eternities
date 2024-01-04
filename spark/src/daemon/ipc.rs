@@ -15,6 +15,7 @@ use tokio::{
 
 #[derive(Clone, Debug, Deserialize, Subcommand, Serialize)]
 pub enum Command {
+    Version,
     Reload,
 }
 
@@ -54,7 +55,7 @@ pub async fn send(cmd: &Command, config: Config) -> anyhow::Result<()> {
         .context("writing command")?;
     let mut s = String::new();
     BufReader::new(r).read_line(&mut s).await?;
-    println!("daemon: {}", s.trim());
+    println!("{}", s.trim());
     Ok(())
 }
 
@@ -92,6 +93,12 @@ async fn handle_client(client: tokio::net::UnixStream) -> io::Result<()> {
 
         match cmd {
             Command::Reload => reload::reload(send_response).await?,
+            Command::Version => {
+                send_response(Ok(spark_protocol::SuccessfulResponse::Version(
+                    env!("CARGO_PKG_VERSION").into(),
+                )))
+                .await?
+            }
         };
     }
 }

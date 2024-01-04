@@ -206,6 +206,7 @@ async fn requesting_current_is_delivered() {
             &hostname,
             MusicCmdKind::Current,
             music::Response::Current {
+                paused: false,
                 title: "title".into(),
                 chapter: None,
                 volume: 100.,

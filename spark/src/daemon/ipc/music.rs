@@ -115,6 +115,7 @@ where
         spark_protocol::music::MusicCmdKind::Current => {
             async {
                 Ok(MusicResponse::Current {
+                    paused: player.is_paused().await.map_err(forward)?,
                     title: player.media_title().await.map_err(forward)?,
                     chapter: player.chapter_metadata().await.ok().map(|m| {
                         spark_protocol::music::Chapter {
