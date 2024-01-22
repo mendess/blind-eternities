@@ -1,18 +1,15 @@
 pub mod destination;
 
-use std::{
-    error::Error,
-    mem::take,
-    net::{IpAddr, Ipv4Addr},
-    str::FromStr,
-};
+use std::{mem::take, net::IpAddr, pin::pin, str::FromStr};
 
 use anyhow::Context;
 use common::domain::{machine_status::IpConnection, Hostname, MacAddr, MachineStatus};
-use futures::{stream, StreamExt, TryStreamExt};
+use futures::{
+    future::{select, Either},
+    stream, StreamExt, TryStreamExt,
+};
 use pnet::datalink;
-use tokio::{io, process::Command};
-use tracing::warn;
+use tokio::process::Command;
 
 use crate::config::Config;
 
@@ -21,43 +18,12 @@ pub(crate) async fn get_hostname() -> anyhow::Result<Hostname> {
 }
 
 async fn get_external_ip() -> anyhow::Result<IpAddr> {
-    let dig = Command::new("dig")
-        .args([
-            "dig",
-            "+short",
-            "myip.opendns.com",
-            "@resolver1.opendns.com",
-        ])
-        .output()
-        .await
-        .and_then(|o| {
-            fn to_io_e(e: impl Error + Send + Sync + 'static) -> io::Error {
-                io::Error::new(io::ErrorKind::Other, e)
-            }
-            let string = std::str::from_utf8(&o.stdout).map_err(to_io_e)?;
-            IpAddr::from_str(string.trim()).map_err(to_io_e)
-        });
-    match dig {
-        Ok(dig) => Ok(dig),
-        Err(e) => {
-            if e.kind() == io::ErrorKind::NotFound {
-                warn!("consider installing dig for better performance");
-            }
-            let ip_str = reqwest::Client::builder()
-                .local_address(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
-                .build()
-                .unwrap()
-                .get("https://ifconfig.me")
-                .send()
-                .await
-                .context("requesting ifconfig.me")?
-                .text()
-                .await
-                .context("streaming text from ifconfig.me")?;
-            Ok(IpAddr::from_str(&ip_str)
-                .with_context(|| format!("parsing ip from ifconfig.me: {ip_str:?}"))?)
-        }
+    match select(pin!(public_ip::addr_v4()), pin!(public_ip::addr_v6())).await {
+        Either::Left((Some(v4), _)) => Some(IpAddr::V4(v4)),
+        Either::Left((None, backup)) => backup.await.map(IpAddr::V6),
+        Either::Right((backup, main)) => main.await.map(IpAddr::V4).or(backup.map(IpAddr::V6)),
     }
+    .ok_or_else(|| anyhow::anyhow!("failed to get external ip"))
 }
 
 async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
@@ -142,7 +108,7 @@ pub(crate) async fn get_current_status(config: &Config) -> anyhow::Result<Machin
     let (hostname, ip_connections, external_ip) = tokio::try_join!(
         async { get_hostname().await.context("getting hostname") },
         async { get_ip_connections().await.context("getting ip connections") },
-        async { get_external_ip().await.context("getting external ip") },
+        async { get_external_ip().await },
     )?;
 
     tracing::debug!(%hostname, %external_ip, "current status obtained");
