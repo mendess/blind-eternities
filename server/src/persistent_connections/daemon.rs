@@ -9,7 +9,7 @@ use common::net::{
 };
 use futures::StreamExt;
 use serde::de::DeserializeOwned;
-use spark_protocol::Response;
+use spark_protocol::{Local, Response};
 use sqlx::PgPool;
 use tokio::{
     io::{AsyncWriteExt, BufReader, BufWriter},
@@ -20,7 +20,7 @@ use tokio::{
     sync::mpsc,
     time::timeout,
 };
-use tracing::instrument;
+use tracing::{instrument, Instrument};
 
 use crate::{
     auth::{self, is_localhost},
@@ -151,8 +151,7 @@ async fn handle_a_connection(
     tracing::info!(%addr, "accepted a connection");
 
     // start protocol
-    let (gen, hostname, rx) = {
-        let _span = tracing::info_span!("protocol", %addr);
+    let (gen, hostname, rx) = async {
         let hostname = receive(
             &mut reader,
             &mut writer,
@@ -167,10 +166,12 @@ async fn handle_a_connection(
         )
         .await?;
 
-        tracing::info!(connected_hostname = %hostname, "connection established");
         let (gen, rx) = connections.insert(hostname.clone()).await;
-        (gen, hostname, rx)
-    };
+        tracing::info!(connected_hostname = %hostname, "connection established");
+        Some((gen, hostname, rx))
+    }
+    .instrument(tracing::info_span!("protocol", %addr))
+    .await?;
 
     let _span = tracing::debug_span!(
         "handling new persistent connection",
@@ -184,7 +185,9 @@ async fn handle_a_connection(
         mut rx: mpsc::Receiver<Request>,
     ) -> io::Result<()> {
         while let Some((cmd, ch)) = rx.recv().await {
-            tracing::info!(?cmd, "received cmd");
+            if cmd != Local::Heartbeat {
+                tracing::info!(?cmd, "received cmd");
+            }
             send!(write <- &cmd; {
                 e => return Err(e),
                 elapsed => continue,
@@ -226,7 +229,7 @@ async fn handle_a_connection(
 
 async fn heartbeat_checker(connections: Arc<Connections>) {
     loop {
-        tokio::time::sleep(PERSISTENT_CONN_RECV_TIMEOUT / 2).await;
+        tokio::time::sleep(PERSISTENT_CONN_RECV_TIMEOUT / 6).await;
         let connections = &connections;
         futures::stream::iter(connections.connected_hosts().await)
             .map({

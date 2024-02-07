@@ -15,7 +15,7 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWrite
 
 use crate::domain::Hostname;
 
-pub const PERSISTENT_CONN_RECV_TIMEOUT: Duration = Duration::from_secs(10);
+pub const PERSISTENT_CONN_RECV_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaProtocolSyn {
@@ -24,6 +24,7 @@ pub struct MetaProtocolSyn {
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[must_use]
 pub enum MetaProtocolAck {
     Ok,
     DeserializationError {

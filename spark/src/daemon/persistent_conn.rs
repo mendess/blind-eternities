@@ -1,5 +1,6 @@
-use std::{io, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
+use anyhow::{bail, Context};
 use common::{
     domain::Hostname,
     net::{
@@ -14,7 +15,7 @@ use crate::config::{Config, PersistentConn};
 
 use super::ipc;
 
-async fn run(config: &Config, hostname: &Hostname, port: u16) -> io::Result<()> {
+async fn run(config: &Config, hostname: &Hostname, port: u16) -> anyhow::Result<()> {
     let (read, mut write) = TcpStream::connect((config.backend_domain.as_str(), port))
         .await?
         .into_split();
@@ -25,7 +26,19 @@ async fn run(config: &Config, hostname: &Hostname, port: u16) -> io::Result<()> 
         token: config.token,
     };
     tracing::info!(?syn, "starting protocol");
-    talker.talk::<_, MetaProtocolAck>(syn).await?;
+    let syn = || async {
+        match talker.talk::<_, MetaProtocolAck>(syn).await? {
+            None => bail!("server closed the connection without responding"),
+            Some(MetaProtocolAck::Ok) => Ok(()),
+            Some(MetaProtocolAck::BadToken(token)) => bail!("invalid token {token}"),
+            Some(MetaProtocolAck::InvalidValue(value)) => bail!("invalid value {value}"),
+            Some(MetaProtocolAck::DeserializationError {
+                expected_type,
+                error,
+            }) => bail!("serialization error. Expected {expected_type}. Error: {error}"),
+        }
+    };
+    syn().await.context("SYN")?;
     loop {
         tracing::info!("receiving command");
         let cmd = match timeout(
@@ -38,7 +51,7 @@ async fn run(config: &Config, hostname: &Hostname, port: u16) -> io::Result<()> 
                 Some(cmd) => cmd,
                 None => return Ok(()),
             },
-            Err(_timeout) => return Err(io::ErrorKind::TimedOut.into()),
+            Err(_timeout) => bail!("receiving command timed out"),
         };
         if cmd != spark_protocol::Local::Heartbeat {
             tracing::info!(?cmd, "running command");
@@ -54,8 +67,8 @@ async fn run(config: &Config, hostname: &Hostname, port: u16) -> io::Result<()> 
             #[cfg(feature = "music-ctl")]
             spark_protocol::Local::Music(m) => ipc::music::handle(m, send_response).await,
             #[cfg(not(feature = "music-ctl"))]
-            spark_protocol::Local::Music(_) => Err(io::Error::new(
-                io::ErrorKind::Other,
+            spark_protocol::Local::Music(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
                 "music control is disabled on this machine",
             )),
         };

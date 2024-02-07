@@ -75,6 +75,7 @@ impl Connections {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub(super) async fn insert(&self, machine: Hostname) -> (Generation, mpsc::Receiver<Request>) {
         let (tx, rx) = mpsc::channel::<Request>(100);
         let gen = Generation::new();
@@ -82,6 +83,7 @@ impl Connections {
         (gen, rx)
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn remove(&self, machine: Hostname, gen: Generation) {
         if let Entry::Occupied(o) = self.connected_hosts.lock().await.entry(machine) {
             if o.get().0 == gen {
