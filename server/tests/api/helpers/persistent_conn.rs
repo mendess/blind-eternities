@@ -76,8 +76,9 @@ macro_rules! timeout {
     ($fut:expr) => {
         timeout!(5 => $fut)
     };
-    ($t:expr => $fut:expr) => {
-        match ::tokio::time::timeout(::std::time::Duration::from_secs($t), $fut).await {
+    ($t:expr => $fut:expr) => {{
+        let x = ::tokio::time::timeout(::std::time::Duration::from_secs($t), $fut).await;
+        match x {
             Ok(x) => x,
             Err(_) => {
                 ::std::panic!(
@@ -94,7 +95,7 @@ macro_rules! timeout {
                 )
             }
         }
-    };
+    }};
 }
 
 #[macro_export]

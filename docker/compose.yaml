@@ -1,0 +1,34 @@
+name: blind-eternities
+services:
+  db:
+    image: postgres
+    container_name: db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+  blind-eternities:
+    build:
+      context: ..
+      dockerfile: docker/server.Dockerfile
+    restart: unless-stopped
+    ports:
+      - 1651:1651
+      - 2773:2773
+    volumes:
+      - ./config/server.toml:/configuration.toml
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+  grafana:
+    image: grafana/grafana-oss
+    user: '0'
+    ports:
+      - 3000:3000
+    volumes:
+      - ./data/grafana:/var/lib/grafana

@@ -1,12 +1,13 @@
 use std::{net as std_net, sync::Arc};
 
+use actix_service::Service;
 use actix_web::{dev::Server, web, App, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use sqlx::PgPool;
 use tokio::net as tokio_net;
 use tracing_actix_web::TracingLogger;
 
-use crate::routes::*;
+use crate::{metrics, routes::*};
 
 pub struct RunConfig {
     pub allow_any_localhost_token: bool,
@@ -31,11 +32,17 @@ pub fn run(
             allow_any_localhost_token,
         ),
     );
+    tokio::spawn(metrics::start_metrics_endpoint()?);
     let conn = web::Data::from(db);
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
             .wrap(bearer_auth.clone())
+            .wrap_fn(|req, srv| {
+                tracing::info!(req_name = ?req.match_name(), "request received");
+                metrics::new_request(req.match_pattern().as_deref().unwrap_or("UNMATCHED"));
+                srv.call(req)
+            })
             .route("/health_check", web::get().to(health_check))
             .service(machine_status::routes())
             .service(remote_spark::routes())
