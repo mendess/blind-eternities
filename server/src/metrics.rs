@@ -1,10 +1,11 @@
 use std::{future::Future, io, net::TcpListener, sync::OnceLock};
 
+use actix_http::Method;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use futures::TryFutureExt;
 use prometheus::{register_int_counter_vec, Encoder, IntCounterVec};
 
-pub fn new_request(route: &str) {
+pub fn new_request(route: &str, method: &Method) {
     static METRICS: OnceLock<IntCounterVec> = OnceLock::new();
 
     METRICS
@@ -12,11 +13,11 @@ pub fn new_request(route: &str) {
             register_int_counter_vec!(
                 "blind_eternities_requests",
                 "number of requests by route",
-                &["route"]
+                &["route", "method"]
             )
             .unwrap()
         })
-        .with_label_values(&[route])
+        .with_label_values(&[route, method.as_str()])
         .inc();
 }
 

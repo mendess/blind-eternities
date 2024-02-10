@@ -40,7 +40,10 @@ pub fn run(
             .wrap(bearer_auth.clone())
             .wrap_fn(|req, srv| {
                 tracing::info!(req_name = ?req.match_name(), "request received");
-                metrics::new_request(req.match_pattern().as_deref().unwrap_or("UNMATCHED"));
+                metrics::new_request(
+                    req.match_pattern().as_deref().unwrap_or("UNMATCHED"),
+                    req.method(),
+                );
                 srv.call(req)
             })
             .route("/health_check", web::get().to(health_check))
