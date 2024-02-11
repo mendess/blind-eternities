@@ -11,7 +11,7 @@ pub fn new_request(route: &str, method: &Method) {
     METRICS
         .get_or_init(|| {
             register_int_counter_vec!(
-                "blind_eternities_requests",
+                "requests",
                 "number of requests by route",
                 &["route", "method"]
             )
@@ -25,7 +25,12 @@ async fn metrics_handler() -> impl Responder {
     let encoder = prometheus::TextEncoder::new();
 
     let mut buffer = Vec::new();
-    if let Err(e) = encoder.encode(&prometheus::gather(), &mut buffer) {
+    let mut metrics = prometheus::gather();
+    for m in &mut metrics {
+        let name = format!("blind_eternities_{}", m.get_name());
+        m.set_name(name);
+    }
+    if let Err(e) = encoder.encode(&metrics, &mut buffer) {
         tracing::error!(error = ?e, "could not encode custom metrics");
     }
 
