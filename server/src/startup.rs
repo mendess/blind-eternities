@@ -39,7 +39,6 @@ pub fn run(
             .wrap(TracingLogger::default())
             .wrap(bearer_auth.clone())
             .wrap_fn(|req, srv| {
-                tracing::info!(req_name = ?req.match_name(), "request received");
                 metrics::new_request(
                     req.match_pattern().as_deref().unwrap_or("UNMATCHED"),
                     req.method(),
