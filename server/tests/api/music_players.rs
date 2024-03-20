@@ -7,7 +7,7 @@ use spark_protocol::{Local, Response, SuccessfulResponse};
 use crate::helpers::{fake_hostname, TestApp};
 use crate::{assert_status, timeout};
 
-impl TestApp<false> {
+impl TestApp<true> {
     async fn request_cmd(&self, hostname: &Hostname, cmd: &str) -> Response {
         let resp = self
             .get_authed(&format!("music/players/{hostname}/{cmd}"))
@@ -81,7 +81,7 @@ impl TestApp<false> {
 
 #[actix_rt::test]
 async fn requesting_to_skip_a_song_is_delivered() {
-    let app = TestApp::spawn_without_db().await;
+    let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
 
@@ -110,7 +110,7 @@ async fn requesting_to_skip_a_song_is_delivered() {
 
 #[actix_rt::test]
 async fn requesting_to_skip_back_a_song_is_delivered() {
-    let app = TestApp::spawn_without_db().await;
+    let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
 
@@ -139,7 +139,7 @@ async fn requesting_to_skip_back_a_song_is_delivered() {
 
 #[actix_web::test]
 async fn requesting_to_cycle_pause_is_delivered() {
-    let app = TestApp::spawn_without_db().await;
+    let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
 
@@ -165,7 +165,7 @@ async fn requesting_to_cycle_pause_is_delivered() {
 
 #[actix_web::test]
 async fn requesting_to_change_volume_is_delivered() {
-    let app = TestApp::spawn_without_db().await;
+    let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
 
@@ -197,7 +197,7 @@ async fn requesting_to_change_volume_is_delivered() {
 
 #[actix_web::test]
 async fn requesting_current_is_delivered() {
-    let app = TestApp::spawn_without_db().await;
+    let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
 
@@ -229,7 +229,7 @@ async fn requesting_current_is_delivered() {
 
 #[actix_web::test]
 async fn requesting_to_queue_a_song_is_delivered() {
-    let app = TestApp::spawn_without_db().await;
+    let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
 
@@ -278,7 +278,7 @@ async fn requesting_to_queue_a_song_is_delivered() {
 
 #[actix_web::test]
 async fn username_can_be_overridden() {
-    let app = TestApp::spawn_without_db().await;
+    let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
 

@@ -4,6 +4,7 @@ use std::net::TcpListener;
 
 use actix_rt::task::spawn_blocking;
 use blind_eternities::{
+    auth,
     configuration::{get_configuration, DbSettings},
     startup,
 };
@@ -29,16 +30,17 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 });
 
 #[derive(Clone, Debug)]
-pub struct TestApp<const CREATE_DB: bool = true> {
+pub struct TestApp<const CREATE_DB: bool = true, R = auth::Admin> {
     pub address: String,
     pub persistent_conn_port: u16,
     pub db_pool: PgPool,
     pub db_name: String,
     pub http: reqwest::Client,
     pub token: uuid::Uuid,
+    pub _phantom: std::marker::PhantomData<R>,
 }
 
-impl<const CREATE_DB: bool> Drop for TestApp<CREATE_DB> {
+impl<const CREATE_DB: bool, R> Drop for TestApp<CREATE_DB, R> {
     fn drop(&mut self) {
         if !CREATE_DB {
             return;
@@ -70,6 +72,8 @@ impl<const CREATE_DB: bool> Drop for TestApp<CREATE_DB> {
                     .await
                 {
                     eprintln!("Failed to drop database {}: {:?}", db_name, e)
+                } else {
+                    eprintln!("dropped database '{db_name}'");
                 }
             });
         })
@@ -80,17 +84,15 @@ impl<const CREATE_DB: bool> Drop for TestApp<CREATE_DB> {
     }
 }
 
-pub struct TestAppBuilder<const CREATE_DB: bool> {
-    allow_any_localhost_token: bool,
+pub struct TestAppBuilder<const CREATE_DB: bool, R> {
+    _phantom: std::marker::PhantomData<R>,
 }
 
-impl<const CREATE_DB: bool> TestAppBuilder<CREATE_DB> {
-    pub fn allow_any_localhost_token(mut self, b: bool) -> Self {
-        self.allow_any_localhost_token = b;
-        self
-    }
-
-    pub async fn spawn(&mut self) -> TestApp<CREATE_DB> {
+impl<const CREATE_DB: bool, R> TestAppBuilder<CREATE_DB, R>
+where
+    R: auth::Role + std::fmt::Debug,
+{
+    pub async fn spawn(&mut self) -> TestApp<CREATE_DB, R> {
         Lazy::force(&TRACING);
 
         tracing::debug!("creating socket");
@@ -123,33 +125,34 @@ impl<const CREATE_DB: bool> TestAppBuilder<CREATE_DB> {
             persistent_conns_listener,
             connection.clone(),
             startup::RunConfig {
-                allow_any_localhost_token: self.allow_any_localhost_token,
                 override_num_workers: Some(1),
+                enable_metrics: false,
             },
         )
         .expect("Failed to bind address");
         tokio::spawn(server);
-        let app = TestApp::<CREATE_DB> {
+        let app = TestApp::<CREATE_DB, R> {
             address: format!("http://localhost:{}", port),
             persistent_conn_port,
             db_pool: connection,
             db_name: conf.db.name,
             http: reqwest::Client::new(),
             token: uuid::Uuid::new_v4(),
+            _phantom: std::marker::PhantomData,
         };
         if CREATE_DB {
             tracing::debug!("inserting auth token");
-            insert_test_token(&app.db_pool, app.token).await;
+            auth::insert_token::<R>(&app.db_pool, app.token, "hostname").await;
         }
         tracing::debug!(?app, "app created");
         app
     }
 }
 
-impl TestAppBuilder<true> {
-    pub fn without_db(self) -> TestAppBuilder<false> {
+impl<R> TestAppBuilder<true, R> {
+    pub fn without_db(self) -> TestAppBuilder<false, R> {
         TestAppBuilder {
-            allow_any_localhost_token: self.allow_any_localhost_token,
+            _phantom: self._phantom,
         }
     }
 }
@@ -161,15 +164,16 @@ impl TestApp<true> {
 }
 
 impl TestApp<false> {
+    #[allow(dead_code)]
     pub async fn spawn_without_db() -> Self {
         TestApp::<true>::builder().without_db().spawn().await
     }
 }
 
-impl TestApp<true> {
-    pub fn builder() -> TestAppBuilder<true> {
+impl<R> TestApp<true, R> {
+    pub fn builder() -> TestAppBuilder<true, R> {
         TestAppBuilder {
-            allow_any_localhost_token: true,
+            _phantom: std::marker::PhantomData,
         }
     }
 }
@@ -205,17 +209,6 @@ impl<const CREATE_DB: bool> TestApp<CREATE_DB> {
             .delete(format!("{}/{}", self.address, path))
             .bearer_auth(self.token)
     }
-}
-
-async fn insert_test_token(pool: &PgPool, token: Uuid) {
-    sqlx::query!(
-        "INSERT INTO api_tokens (token, created_at, hostname) VALUES ($1, NOW(), $2)",
-        token,
-        "hostname"
-    )
-    .execute(pool)
-    .await
-    .expect("Failed to insert token");
 }
 
 async fn configure_database(config: &DbSettings) -> PgPool {

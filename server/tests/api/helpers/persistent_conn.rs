@@ -18,7 +18,7 @@ use tokio::{
     },
 };
 
-impl<const CREATE_DB: bool> TestApp<CREATE_DB> {
+impl TestApp<true> {
     pub async fn connect_device(&self, hostname: &Hostname) -> Device {
         tracing::debug!(
             "connecting to port {} as {}",

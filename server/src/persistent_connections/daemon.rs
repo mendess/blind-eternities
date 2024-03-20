@@ -22,10 +22,7 @@ use tokio::{
 };
 use tracing::{instrument, Instrument};
 
-use crate::{
-    auth::{self, is_localhost},
-    persistent_connections::connections::Request,
-};
+use crate::{auth, persistent_connections::connections::Request};
 
 use super::{connections::Connections, ConnectionError};
 
@@ -141,7 +138,6 @@ async fn handle_a_connection(
     addr: SocketAddr,
     db: Arc<PgPool>,
     connections: Arc<Connections>,
-    allow_any_localhost_token: bool,
 ) -> Option<()> {
     // accept a connection
     let (mut reader, mut writer, addr) = {
@@ -157,11 +153,9 @@ async fn handle_a_connection(
             &mut writer,
             "receiving syn",
             |MetaProtocolSyn { hostname, token }| async move {
-                if allow_any_localhost_token && is_localhost(addr) {
-                    Ok(hostname)
-                } else {
-                    auth::check_token(&db, token).await.map(|_| hostname)
-                }
+                auth::check_token::<auth::Admin>(&db, token)
+                    .await
+                    .map(|_| hostname)
             },
         )
         .await?;
@@ -257,7 +251,6 @@ pub(super) async fn start(
     listener: TcpListener,
     connections: Arc<Connections>,
     db: Arc<PgPool>,
-    allow_any_localhost_token: bool,
 ) -> io::Result<Infallible> {
     tracing::info!(
         "starting persistent connection manager at port {:?}",
@@ -269,7 +262,7 @@ pub(super) async fn start(
         let connections = connections.clone();
         let db = db.clone();
         tokio::spawn(async move {
-            handle_a_connection(&mut conn, addr, db, connections, allow_any_localhost_token).await;
+            handle_a_connection(&mut conn, addr, db, connections).await;
             if let Err(e) = conn.shutdown().await {
                 tracing::error!(?e, "failed to shutdown conn");
             }

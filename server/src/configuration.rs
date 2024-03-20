@@ -6,8 +6,12 @@ pub struct Settings {
     pub db: DbSettings,
     #[serde(default = "::common::net::defaults::default_persistent_conn_port")]
     pub persistent_conn_port: u16,
-    #[serde(default)]
-    pub allow_any_localhost_token: bool,
+    #[serde(default = "enabled")]
+    pub enable_metrics: bool,
+}
+
+fn enabled() -> bool {
+    true
 }
 
 #[derive(Debug, serde::Deserialize)]
