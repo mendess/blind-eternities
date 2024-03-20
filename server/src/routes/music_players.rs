@@ -7,7 +7,10 @@ use spark_protocol::{
 };
 use tracing::instrument;
 
-use crate::persistent_connections::{ConnectionError, Connections};
+use crate::{
+    auth,
+    persistent_connections::{ConnectionError, Connections},
+};
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/music").service(
@@ -47,6 +50,7 @@ struct UsernameParam {
 
 #[instrument(name = "default player", skip(conn))]
 async fn current(
+    _: auth::Music,
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
     username: web::Query<UsernameParam>,
@@ -66,6 +70,7 @@ async fn current(
 
 #[instrument(name = "skip forward", skip(conn))]
 async fn skip_forward(
+    _: auth::Music,
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
     username: web::Query<UsernameParam>,
@@ -85,6 +90,7 @@ async fn skip_forward(
 
 #[instrument(name = "skip backward", skip(conn))]
 async fn skip_backward(
+    _: auth::Music,
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
     username: web::Query<UsernameParam>,
@@ -111,6 +117,7 @@ struct Amount {
 
 #[instrument(name = "change volume", skip(conn))]
 async fn change_volume(
+    _: auth::Music,
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
     amount: web::Query<Amount>,
@@ -130,6 +137,7 @@ async fn change_volume(
 
 #[instrument(name = "cycle pause", skip(conn))]
 async fn cycle_pause(
+    _: auth::Music,
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
     username: web::Query<UsernameParam>,
@@ -157,6 +165,7 @@ struct QueueRequest {
 
 #[instrument(name = "queue", skip(conn))]
 async fn queue(
+    _: auth::Music,
     conn: web::Data<Connections>,
     hostname: web::Path<Hostname>,
     body: web::Json<QueueRequest>,

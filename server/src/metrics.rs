@@ -47,7 +47,7 @@ async fn metrics_handler() -> impl Responder {
 pub fn start_metrics_endpoint() -> io::Result<impl Future<Output = io::Result<()>>> {
     Ok(
         HttpServer::new(|| App::new().route("/metrics", web::get().to(metrics_handler)))
-            .listen(TcpListener::bind("0.0.0.0:9000")?)?
+            .listen(dbg!(TcpListener::bind("0.0.0.0:9000"))?)?
             .run()
             .into_future(),
     )

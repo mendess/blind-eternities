@@ -1,5 +1,29 @@
 {
   "db": "PostgreSQL",
+  "008cd5367891d8c95efbb13efabd6cded0e2e2cce5991a91f8c5a70688d5b865": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Varchar",
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "admin",
+                  "music"
+                ]
+              },
+              "name": "role"
+            }
+          }
+        ]
+      }
+    },
+    "query": "INSERT INTO api_tokens (token, created_at, hostname, role) VALUES ($1, NOW(), $2, $3)"
+  },
   "1c18f3a5ad21b8041449b348daa17a2a7d07b3f4ce4da85eced72bf93c6c905d": {
     "describe": {
       "columns": [
@@ -91,7 +115,19 @@
     },
     "query": "INSERT INTO ip_connection (hostname, local_ip, gateway_ip, gateway_mac)\n            VALUES ($1, $2, $3, $4)"
   },
-  "3c560270149415b25fb7575dbc31fe26148e079fe14fefea1f98b5418c51bdee": {
+  "4b4816d6ef8afc25c7b77223fd883cf39390604878eba12289274128b5e456a0": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "DELETE FROM ip_connection WHERE hostname = $1"
+  },
+  "f90365df1fd701c4c852f6258f0918cb850193b75457284866d5e2905ecf0885": {
     "describe": {
       "columns": [
         {
@@ -105,22 +141,21 @@
       ],
       "parameters": {
         "Left": [
-          "Uuid"
+          "Uuid",
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "admin",
+                  "music"
+                ]
+              },
+              "name": "role"
+            }
+          }
         ]
       }
     },
-    "query": "SELECT token FROM api_tokens WHERE token = $1"
-  },
-  "4b4816d6ef8afc25c7b77223fd883cf39390604878eba12289274128b5e456a0": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Text"
-        ]
-      }
-    },
-    "query": "DELETE FROM ip_connection WHERE hostname = $1"
+    "query": "SELECT token FROM api_tokens WHERE token = $1 AND role = $2"
   }
 }

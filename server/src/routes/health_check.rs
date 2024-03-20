@@ -1,5 +1,7 @@
 use actix_web::{HttpResponse, Responder};
 
-pub async fn health_check() -> impl Responder {
+use crate::auth;
+
+pub async fn health_check(_: auth::Admin) -> impl Responder {
     HttpResponse::Ok()
 }

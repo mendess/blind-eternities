@@ -12,6 +12,8 @@ use common::domain::machine_status::{self, IpConnection, MachineStatusFull};
 use futures::stream::{StreamExt, TryStreamExt};
 use sqlx::PgPool;
 
+use crate::auth;
+
 pub fn routes() -> actix_web::Scope {
     web::scope("/machine").service(
         web::resource("/status")
@@ -37,6 +39,7 @@ impl ResponseError for MachineStatusError {}
     )
 )]
 pub async fn post(
+    _: auth::Admin,
     status: web::Json<machine_status::MachineStatus>,
     conn: web::Data<PgPool>,
 ) -> Result<HttpResponse, MachineStatusError> {
@@ -92,7 +95,10 @@ pub async fn post(
 }
 
 #[tracing::instrument(name = "list machine status", skip(conn))]
-pub async fn get(conn: web::Data<PgPool>) -> Result<HttpResponse, MachineStatusError> {
+pub async fn get(
+    _: auth::Admin,
+    conn: web::Data<PgPool>,
+) -> Result<HttpResponse, MachineStatusError> {
     let status = sqlx::query!(
         r#"SELECT
             ms.hostname as "hostname!",
