@@ -28,7 +28,7 @@ impl ResponseError for AuthError {
     }
 }
 
-pub async fn insert_token<R: Role>(pool: &PgPool, token: Uuid, name: &str) {
+pub async fn insert_token<R: Role>(pool: &PgPool, token: Uuid, name: &str) -> sqlx::Result<()> {
     sqlx::query!(
         "INSERT INTO api_tokens (token, created_at, hostname, role) VALUES ($1, NOW(), $2, $3)",
         token,
@@ -36,15 +36,19 @@ pub async fn insert_token<R: Role>(pool: &PgPool, token: Uuid, name: &str) {
         R::KIND.expect("can't insert a role for the Nobody role") as priv_role::RoleKind,
     )
     .execute(pool)
-    .await
-    .expect("Failed to insert token");
+    .await?;
+    Ok(())
 }
 
 #[async_recursion::async_recursion]
 pub async fn check_token<R: Role>(conn: &PgPool, token: Uuid) -> Result<R, AuthError> {
-    let role = match R::KIND {
+    println!("checking token for role: {}", std::any::type_name::<R>());
+    let role = match dbg!(R::KIND) {
         Some(role) => role,
-        None => return Err(AuthError::UnauthorizedToken),
+        None => {
+            println!("about to unauthorize {token}");
+            return Err(AuthError::UnauthorizedToken);
+        }
     };
     let result = sqlx::query!(
         "SELECT token FROM api_tokens WHERE token = $1 AND role = $2",
@@ -53,8 +57,7 @@ pub async fn check_token<R: Role>(conn: &PgPool, token: Uuid) -> Result<R, AuthE
     )
     .fetch_optional(conn)
     .await
-    .context("failed to fetch token from db")
-    .map_err(AuthError::UnexpectedError)?
+    .context("failed to fetch token from db")?
     .map(|_| R::INSTANCE);
 
     match result {
@@ -66,7 +69,7 @@ pub async fn check_token<R: Role>(conn: &PgPool, token: Uuid) -> Result<R, AuthE
 }
 
 mod priv_role {
-    #[derive(sqlx::Type)]
+    #[derive(sqlx::Type, Debug)]
     #[sqlx(type_name = "role", rename_all = "lowercase")]
     pub enum RoleKind {
         Admin,
@@ -80,6 +83,7 @@ mod priv_role {
         const INSTANCE: Self;
     }
 
+    #[derive(Debug)]
     pub struct NoBody {}
 
     impl Role for NoBody {
@@ -131,7 +135,7 @@ macro_rules! gen_role_extractor {
                     .expect("pg pool not configured")
                     .clone();
 
-                async move { check_token(&conn, bearer_future.await?).await }.boxed_local()
+                async move { check_token::<$role>(&conn, bearer_future.await?).await }.boxed_local()
             }
         }
     };

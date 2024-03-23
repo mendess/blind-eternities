@@ -1,3 +1,4 @@
+use blind_eternities::auth;
 use common::domain::Hostname;
 use reqwest::StatusCode;
 use serde::Serialize;
@@ -7,7 +8,13 @@ use spark_protocol::{Local, Response, SuccessfulResponse};
 use crate::helpers::{fake_hostname, TestApp};
 use crate::{assert_status, timeout};
 
-impl TestApp<true> {
+struct Simulation<'s, R> {
+    hostname: &'s Hostname,
+    expect_to_receive: MusicCmdKind,
+    respond_with: R,
+}
+
+impl TestApp {
     async fn request_cmd(&self, hostname: &Hostname, cmd: &str) -> Response {
         let resp = self
             .get_authed(&format!("music/players/{hostname}/{cmd}"))
@@ -20,9 +27,11 @@ impl TestApp<true> {
 
     async fn simulate_device<R>(
         &self,
-        hostname: &Hostname,
-        expect_receive: MusicCmdKind,
-        respond_with: R,
+        Simulation {
+            hostname,
+            expect_to_receive,
+            respond_with,
+        }: Simulation<'_, R>,
     ) -> tokio::task::JoinHandle<()>
     where
         R: Into<SuccessfulResponse>,
@@ -36,7 +45,7 @@ impl TestApp<true> {
                 Local::Music(MusicCmd {
                     index: None,
                     username: None,
-                    command: expect_receive,
+                    command: expect_to_receive,
                 }),
                 req
             );
@@ -87,15 +96,16 @@ async fn requesting_to_skip_a_song_is_delivered() {
 
     let title = "title";
     let device = app
-        .simulate_device(
-            &hostname,
-            MusicCmdKind::Frwd,
-            music::Response::Title {
+        .simulate_device(Simulation {
+            hostname: &hostname,
+            expect_to_receive: MusicCmdKind::Frwd,
+            respond_with: music::Response::Title {
                 title: title.into(),
             },
-        )
+        })
         .await;
 
+    let app = app.downgrade_to::<auth::Music>().await;
     let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::Frwd.to_route()));
 
     let last = response.map(|e| match e {
@@ -116,15 +126,16 @@ async fn requesting_to_skip_back_a_song_is_delivered() {
 
     let title = "title";
     let device = app
-        .simulate_device(
-            &hostname,
-            MusicCmdKind::Back,
-            music::Response::Title {
+        .simulate_device(Simulation {
+            hostname: &hostname,
+            expect_to_receive: MusicCmdKind::Back,
+            respond_with: music::Response::Title {
                 title: title.into(),
             },
-        )
+        })
         .await;
 
+    let app = app.downgrade_to::<auth::Music>().await;
     let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::Back.to_route()));
 
     let last = response.map(|e| match e {
@@ -144,13 +155,14 @@ async fn requesting_to_cycle_pause_is_delivered() {
     let hostname = fake_hostname();
 
     let device = app
-        .simulate_device(
-            &hostname,
-            MusicCmdKind::CyclePause,
-            music::Response::PlayState { paused: true },
-        )
+        .simulate_device(Simulation {
+            hostname: &hostname,
+            expect_to_receive: MusicCmdKind::CyclePause,
+            respond_with: music::Response::PlayState { paused: true },
+        })
         .await;
 
+    let app = app.downgrade_to::<auth::Music>().await;
     let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::CyclePause.to_route()));
 
     let last = response.map(|e| match e {
@@ -170,13 +182,14 @@ async fn requesting_to_change_volume_is_delivered() {
     let hostname = fake_hostname();
 
     let device = app
-        .simulate_device(
-            &hostname,
-            MusicCmdKind::ChangeVolume { amount: 2 },
-            music::Response::Volume { volume: 2.0 },
-        )
+        .simulate_device(Simulation {
+            hostname: &hostname,
+            expect_to_receive: MusicCmdKind::ChangeVolume { amount: 2 },
+            respond_with: music::Response::Volume { volume: 2.0 },
+        })
         .await;
 
+    let app = app.downgrade_to::<auth::Music>().await;
     let response = timeout!(app.request_cmd(
         &hostname,
         &format!(
@@ -202,19 +215,20 @@ async fn requesting_current_is_delivered() {
     let hostname = fake_hostname();
 
     let device = app
-        .simulate_device(
-            &hostname,
-            MusicCmdKind::Current,
-            music::Response::Current {
+        .simulate_device(Simulation {
+            hostname: &hostname,
+            expect_to_receive: MusicCmdKind::Current,
+            respond_with: music::Response::Current {
                 paused: false,
                 title: "title".into(),
                 chapter: None,
                 volume: 100.,
                 progress: 53.,
             },
-        )
+        })
         .await;
 
+    let app = app.downgrade_to::<auth::Music>().await;
     let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::Current.to_route()));
 
     let last = response.map(|e| match e {
@@ -234,14 +248,14 @@ async fn requesting_to_queue_a_song_is_delivered() {
     let hostname = fake_hostname();
 
     let device = app
-        .simulate_device(
-            &hostname,
-            MusicCmdKind::Queue {
+        .simulate_device(Simulation {
+            hostname: &hostname,
+            expect_to_receive: MusicCmdKind::Queue {
                 query: "nice song :)".into(),
                 search: false,
             },
-            SuccessfulResponse::Unit,
-        )
+            respond_with: SuccessfulResponse::Unit,
+        })
         .await;
 
     #[derive(Serialize)]
@@ -250,6 +264,7 @@ async fn requesting_to_queue_a_song_is_delivered() {
         search: bool,
     }
 
+    let app = app.downgrade_to::<auth::Music>().await;
     let response = timeout!(async {
         app.post_authed(&format!(
             "music/players/{hostname}/{}",
@@ -302,6 +317,7 @@ async fn username_can_be_overridden() {
         }
     });
 
+    let app = app.downgrade_to::<auth::Music>().await;
     let response = timeout!(async {
         let resp = app
             .get_authed(&format!(

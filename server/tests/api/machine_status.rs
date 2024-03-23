@@ -26,7 +26,7 @@ impl TestApp {
     pub async fn post_machine_status(&self, body: impl ToString) -> reqwest::Response {
         self.post("machine/status")
             .header("Content-Type", "application/json")
-            .bearer_auth(self.token)
+            .bearer_auth(self.auth_token)
             .body(body.to_string())
             .send()
             .await
@@ -143,7 +143,7 @@ async fn machine_status_returns_posted_status() {
     // act
     let response = app
         .get("machine/status")
-        .bearer_auth(app.token)
+        .bearer_auth(app.auth_token)
         .send()
         .await
         .expect("failed to execute request");
