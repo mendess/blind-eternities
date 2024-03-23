@@ -18,7 +18,7 @@ use tokio::{
     },
 };
 
-impl TestApp<true> {
+impl TestApp {
     pub async fn connect_device(&self, hostname: &Hostname) -> Device {
         tracing::debug!(
             "connecting to port {} as {}",
@@ -37,7 +37,7 @@ impl TestApp<true> {
 
         let syn = MetaProtocolSyn {
             hostname: hostname.clone(),
-            token: self.token,
+            token: self.auth_token,
         };
         tracing::debug!(?syn, "sending syn");
         assert_eq!(

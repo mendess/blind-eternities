@@ -487,7 +487,6 @@ dependencies = [
  "fake",
  "futures",
  "itertools",
- "once_cell",
  "prometheus",
  "proptest",
  "regex",
