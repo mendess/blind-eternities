@@ -2,10 +2,9 @@ pub mod persistent_conn;
 
 use std::{net::TcpListener, sync::OnceLock};
 
-use actix_rt::task::spawn_blocking;
 use blind_eternities::{
     auth,
-    configuration::{get_configuration, DbSettings},
+    configuration::{DbSettings, Settings},
     startup,
 };
 use common::{
@@ -54,12 +53,19 @@ impl TestApp {
         let persistent_conn_port = persistent_conns_listener.local_addr().unwrap().port();
         let _spawn_span = tracing::debug_span!("spawning test app", port);
 
-        tracing::debug!("loading configuration");
-        let mut conf =
-            spawn_blocking(|| get_configuration().expect("Failed to read configuration"))
-                .await
-                .unwrap();
-        conf.db.name = Uuid::new_v4().to_string();
+        let conf = Settings {
+            port: 8000,
+            db: DbSettings {
+                username: "postgres".into(),
+                password: "postgres".into(),
+                port: 5432,
+                host: "localhost".into(),
+                name: Uuid::new_v4().to_string(),
+                migrate: false,
+            },
+            persistent_conn_port,
+            enable_metrics: true,
+        };
 
         tracing::debug!("configuring database");
         let connection = configure_database(&conf.db).await;
