@@ -5,13 +5,14 @@ use common::net::{
     auth_client::UrlParseError, defaults::default_persistent_conn_port, AuthenticatedClient,
 };
 use dirs::config_dir;
+use url::Url;
 
 use crate::util::destination::Destination;
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq)]
 pub struct Config {
     pub token: uuid::Uuid,
-    pub backend_domain: String,
+    pub backend_domain: Url,
     #[serde(default)]
     pub network: Networking,
     #[serde(default)]
@@ -47,7 +48,7 @@ pub struct Networking {
 impl TryFrom<&Config> for AuthenticatedClient {
     type Error = UrlParseError;
     fn try_from(c: &Config) -> Result<Self, Self::Error> {
-        AuthenticatedClient::new(c.token, &c.backend_domain)
+        AuthenticatedClient::new(c.token, c.backend_domain.clone())
     }
 }
 

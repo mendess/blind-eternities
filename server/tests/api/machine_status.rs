@@ -1,5 +1,5 @@
 use crate::helpers::{fake_hostname, TestApp};
-use chrono::{NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use fake::{
     faker::internet::en::{MACAddress, IP},
     Fake,
@@ -161,10 +161,10 @@ async fn machine_status_returns_posted_status() {
         .remove(base_json["hostname"].as_str().unwrap())
         .expect("an object");
 
-    fn json_value_to_ndt(j: &serde_json::Value) -> NaiveDateTime {
-        j.as_str()
+    fn json_value_to_ndt(j: &serde_json::Value) -> DateTime<Utc> {
+        dbg!(j.as_str())
             .expect("is a string")
-            .parse::<NaiveDateTime>()
+            .parse::<DateTime<Utc>>()
             .expect("naive date time to be parsed from last heartbeat")
     }
 
@@ -176,7 +176,7 @@ async fn machine_status_returns_posted_status() {
                 .remove("last_heartbeat")
                 .expect("a last heartbeat"),
         );
-        assert!(hb < Utc::now().naive_utc());
+        assert!(hb < Utc::now());
         hb
     };
 

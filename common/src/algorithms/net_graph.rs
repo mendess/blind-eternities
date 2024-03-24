@@ -234,8 +234,8 @@ impl<'hostname> NetGraph<'hostname> {
         .await?;
 
         let (today, yesterday) = {
-            let today = Utc::now().naive_utc();
-            let yesterday = today - Duration::hours(1);
+            let today = Utc::now();
+            let yesterday = today - Duration::try_hours(1).unwrap();
 
             (today.timestamp_millis(), yesterday.timestamp_millis())
         };
@@ -338,7 +338,7 @@ mod test {
                 ssh: None,
                 default_user: None,
             },
-            last_heartbeat: Utc::now().naive_utc(),
+            last_heartbeat: Utc::now(),
         }
     }
 

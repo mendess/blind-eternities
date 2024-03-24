@@ -14,7 +14,7 @@ use tokio::process::Command;
 use crate::config::Config;
 
 pub(crate) async fn get_hostname() -> anyhow::Result<Hostname> {
-    Ok(tokio::task::spawn_blocking(Hostname::from_this_host).await?)
+    Ok(tokio::task::spawn_blocking(Hostname::from_this_host).await??)
 }
 
 async fn get_external_ip() -> anyhow::Result<IpAddr> {

@@ -312,7 +312,7 @@ async fn fetch_statuses(
         fields: get_current_status(config)
             .await
             .context("getting the local status")?,
-        last_heartbeat: Utc::now().naive_utc(),
+        last_heartbeat: Utc::now(),
     };
 
     let hostname = this.hostname.clone();

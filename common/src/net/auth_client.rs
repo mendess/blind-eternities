@@ -11,12 +11,7 @@ pub struct AuthenticatedClient {
 }
 
 impl AuthenticatedClient {
-    pub fn new(token: uuid::Uuid, domain: &str) -> Result<Self> {
-        let base = if domain == "localhost" {
-            Url::parse(&format!("http://{domain}"))?
-        } else {
-            Url::parse(&format!("https://{domain}"))?
-        };
+    pub fn new(token: uuid::Uuid, base: Url) -> Result<Self> {
         if base.cannot_be_a_base() {
             return Err(UrlParseError::SetHostOnCannotBeABaseUrl);
         }

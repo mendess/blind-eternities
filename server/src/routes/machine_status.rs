@@ -138,7 +138,7 @@ pub async fn get(
                                 ip_connections: vec![],
                                 default_user: record.default_user,
                             },
-                            last_heartbeat: record.last_heartbeat,
+                            last_heartbeat: record.last_heartbeat.and_utc(),
                         })
                         .fields
                         .ip_connections

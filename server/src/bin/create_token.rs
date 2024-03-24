@@ -1,4 +1,4 @@
-use blind_eternities::configuration::get_configuration;
+use blind_eternities::{auth, configuration::get_configuration};
 use sqlx::{PgPool, Row};
 use std::env;
 use uuid::Uuid;
@@ -34,10 +34,7 @@ async fn _main() -> i32 {
     } else {
         let uuid = Uuid::new_v4();
 
-        sqlx::query("INSERT INTO api_tokens (token, created_at, hostname) VALUES ($1, NOW(), $2)")
-            .bind(uuid)
-            .bind(&hostname)
-            .execute(&connection)
+        auth::insert_token::<auth::Admin>(&connection, uuid, &hostname)
             .await
             .map(|_| uuid)
     };

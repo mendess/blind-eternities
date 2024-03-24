@@ -1,6 +1,6 @@
 [package]
 name = "spark"
-version = "0.2.6"
+version = "0.3.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -22,6 +22,7 @@ tracing-log.workspace = true
 uuid.workspace = true
 whoami.workspace = true
 tracing-subscriber = { workspace = true, features = ["registry", "env-filter", "fmt"] }
+url = { workspace = true, features = ["serde"] }
 
 common = { path = "../common" }
 spark-protocol = { path = "../spark-protocol", features = ["clap"] }

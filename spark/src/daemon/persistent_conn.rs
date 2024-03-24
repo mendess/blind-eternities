@@ -16,9 +16,15 @@ use crate::config::{Config, PersistentConn};
 use super::ipc;
 
 async fn run(config: &Config, hostname: &Hostname, port: u16) -> anyhow::Result<()> {
-    let (read, mut write) = TcpStream::connect((config.backend_domain.as_str(), port))
-        .await?
-        .into_split();
+    let (read, mut write) = TcpStream::connect((
+        config
+            .backend_domain
+            .host_str()
+            .context("no host in backend domain")?,
+        port,
+    ))
+    .await?
+    .into_split();
     let mut read = BufReader::new(read);
     let mut talker = (&mut read, &mut write);
     let syn = MetaProtocolSyn {
@@ -78,9 +84,9 @@ async fn run(config: &Config, hostname: &Hostname, port: u16) -> anyhow::Result<
     }
 }
 
-pub(super) async fn start(config: Arc<Config>) {
+pub(super) async fn start(config: Arc<Config>) -> whoami::Result<()> {
     if let Some(PersistentConn { port }) = config.persistent_conn {
-        let hostname = Hostname::from_this_host();
+        let hostname = Hostname::from_this_host()?;
         loop {
             tracing::info!("starting persistent connection");
             if let Err(e) = run(&config, &hostname, port).await {
@@ -89,4 +95,5 @@ pub(super) async fn start(config: Arc<Config>) {
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
+    Ok(())
 }

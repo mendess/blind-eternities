@@ -1,4 +1,5 @@
-use chrono::NaiveDateTime;
+use chrono::DateTime;
+use chrono::Utc;
 
 use super::Hostname;
 use super::MacAddr;
@@ -23,7 +24,7 @@ pub struct MachineStatus {
 pub struct MachineStatusFull {
     #[serde(flatten)]
     pub fields: MachineStatus,
-    pub last_heartbeat: NaiveDateTime,
+    pub last_heartbeat: DateTime<Utc>,
 }
 
 impl Deref for MachineStatusFull {

@@ -1,4 +1,4 @@
-use std::{future::Future, io, time::Duration};
+use std::{future::Future, io, str::FromStr, time::Duration};
 
 use futures::{FutureExt, Stream, StreamExt};
 use mlib::{
@@ -117,7 +117,7 @@ where
                 Ok(MusicResponse::Current {
                     paused: player.is_paused().await.map_err(forward)?,
                     title: player.media_title().await.map_err(forward)?,
-                    chapter: player.chapter_metadata().await.ok().map(|m| {
+                    chapter: player.chapter_metadata().await.ok().flatten().map(|m| {
                         spark_protocol::music::Chapter {
                             title: m.title,
                             index: m.index as u32,
@@ -134,9 +134,9 @@ where
                 let item = if search {
                     Item::Search(Search::new(query))
                 } else {
-                    match Link::from_url(query) {
+                    match Link::from_str(&query) {
                         Ok(l) => Item::Link(l),
-                        Err(query) => {
+                        Err(_) => {
                             let mut playlist =
                                 mlib::playlist::Playlist::load().await.map_err(forward)?;
                             let song = handle_search_result(
