@@ -1,6 +1,6 @@
 # inspiration: https://dev.to/rogertorres/first-steps-with-docker-rust-30oi
 
-FROM rust:1.75.0-buster as build
+FROM rust:1.77.0-buster as build
 
 # create an empty shell project
 RUN USER=root cargo new --bin blind-eternities
