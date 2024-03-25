@@ -5,33 +5,34 @@ version = "0.3.0"
 default-run = "blind-eternities"
 
 [dependencies]
+actix-http.workspace = true
+actix-service.workspace = true
+actix-web-httpauth.workspace = true
+actix-web.workspace = true
+anyhow.workspace = true
+argon2.workspace = true
+async-recursion.workspace = true
 chrono.workspace = true
+common = { path = "../common", features = ["sqlx"] }
 config.workspace = true
 futures.workspace = true
 itertools.workspace = true
+prometheus.workspace = true
 regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
+spark-protocol = { path = "../spark-protocol" }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 tracing = { workspace = true, features = ["log"] }
+tracing-actix-web.workspace = true
 tracing-bunyan-formatter.workspace = true
 tracing-futures.workspace = true
 tracing-log.workspace = true
-tracing-subscriber = { workspace = true, features = ["registry", "env-filter"] }
 uuid.workspace = true
 
-common = { path = "../common" }
-spark-protocol = { path = "../spark-protocol" }
-
-actix-http = "3.2.2"
-actix-service = "2.0.2"
-actix-web = "4.0.1"
-actix-web-httpauth = "0.6.0-beta.8"
-anyhow = "1.0.55"
-argon2 = { version = "0.3.4", features = ["std"] }
-tracing-actix-web = "0.5.0"
-prometheus = { version = "0.13.3", default-features = false, features = ["process"] }
-async-recursion = "1.1.0"
+[dependencies.tracing-subscriber]
+workspace = true
+features = ["registry", "env-filter"]
 
 [dependencies.sqlx]
 workspace = true
@@ -42,13 +43,12 @@ features = [
 ]
 
 [dev-dependencies]
-actix-rt = "2.6.0"
-tokio = "1.17.0"
-serde_json = "1.0.79"
-proptest = "1.0.0"
-fake = "2.4.3"
+actix-rt.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+proptest.workspace = true
+fake.workspace = true
 
 [dev-dependencies.reqwest]
-version = "0.11.9"
-default-features = false
-features = ["json", "rustls-tls"]
+workspace = true
+features = ["json"]

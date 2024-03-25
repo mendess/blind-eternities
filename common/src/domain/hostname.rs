@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "sqlx")]
 use sqlx::{Database, Decode};
 use std::{
     convert::TryFrom,
@@ -103,6 +104,7 @@ impl Hostname {
 }
 
 //TODO: delete?
+#[cfg(feature = "sqlx")]
 impl<'r, DB: Database> Decode<'r, DB> for Hostname
 where
     String: Decode<'r, DB>,

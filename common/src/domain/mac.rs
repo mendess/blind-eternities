@@ -3,6 +3,7 @@ use serde::{
     de::{self, Visitor},
     Deserialize, Serialize,
 };
+#[cfg(feature = "sqlx")]
 use sqlx::{Database, Decode};
 use std::{
     convert::TryInto,
@@ -138,6 +139,7 @@ impl Display for MacAddr {
 }
 
 //TODO: delete?
+#[cfg(feature = "sqlx")]
 impl<'r, DB: Database> Decode<'r, DB> for MacAddr
 where
     &'r str: Decode<'r, DB>,

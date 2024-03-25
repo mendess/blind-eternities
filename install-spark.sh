@@ -11,6 +11,6 @@ case "$REPLY" in
         ;;
 esac
 
-cargo build --bin spark --release "${extra_args[@]}"
+cargo build -p spark --bin spark --release "${extra_args[@]}"
 
 sudo install ./target/release/spark /usr/bin

@@ -6,28 +6,32 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = "0.1"
-chrono = { version = "0.4.19", features = ["serde"] }
-either = "1.9.0"
+async-trait.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+either.workspace = true
 itertools.workspace = true
 once_cell.workspace = true
-petgraph = "0.6.0"
+petgraph.workspace = true
 regex.workspace = true
-serde = { version = "1.0.136", features = ["derive"] }
-serde_json = "1.0.79"
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-bunyan-formatter.workspace = true
 tracing-log.workspace = true
-tracing-subscriber.workspace = true
-url = "2.2.2"
+url.workspace = true
 uuid.workspace = true
 whoami.workspace = true
+
+[dependencies.tracing-subscriber]
+workspace = true
+features = ["env-filter"]
 
 [dependencies.sqlx]
 workspace = true
 default-features = false
+optional = true
 features = [
     "runtime-actix-rustls",
     "macros",
@@ -37,13 +41,13 @@ features = [
 ]
 
 [dependencies.reqwest]
-version = "0.11.9"
-default-features = false
-features = ["json", "rustls-tls"]
+workspace = true
+features = ["json"]
 
 [dev-dependencies]
-fake = "2.4.3"
-proptest = "1.0.0"
-rand = "0.8.5"
+fake.workspace = true
+proptest.workspace = true
+rand.workspace = true
 
 [features]
+sqlx = ["dep:sqlx"]
