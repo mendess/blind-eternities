@@ -93,7 +93,7 @@ mod test {
     fn network_is_optional() {
         let conf = r#"{
             "token": "e751e207-59a8-4797-ab04-e8884b67e68e",
-            "backend_domain": "url",
+            "backend_domain": "http://url",
             "backend_port": 8000
         }"#;
         let conf = serde_json::from_str::<Config>(conf).expect("network should be fully optional");

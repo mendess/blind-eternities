@@ -7,7 +7,7 @@ use crate::helpers::{fake_hostname, TestApp};
 async fn auth_is_required() {
     let app = TestApp::spawn().await;
     let response = app
-        .get("health_check")
+        .get("admin/health_check")
         .send()
         .await
         .expect("Failed to send request");
@@ -19,7 +19,7 @@ async fn auth_is_required() {
 async fn non_existent_token_is_regected() {
     let app = TestApp::spawn().await;
     let response = app
-        .get("health_check")
+        .get("admin/health_check")
         .bearer_auth(uuid::Uuid::new_v4())
         .send()
         .await
@@ -32,7 +32,7 @@ async fn non_existent_token_is_regected() {
 async fn invalid_format_token_is_rejected() {
     let app = TestApp::spawn().await;
     let response = app
-        .get("health_check")
+        .get("admin/health_check")
         .bearer_auth("I'm a very naughty token hehehehe")
         .send()
         .await
@@ -46,7 +46,7 @@ async fn music_auth_cant_access_admin_routes() {
     let app = TestApp::spawn().await.downgrade_to::<auth::Music>().await;
 
     let response = app
-        .get_authed("health_check")
+        .get_authed("admin/health_check")
         .send()
         .await
         .expect("Failed to send request");

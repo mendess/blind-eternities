@@ -64,6 +64,10 @@ enum SshTool {
 enum Backend {
     /// list persistent connections
     Persistents,
+    /// add a music auth token
+    AddMusicToken { username: String },
+    /// delete a music auth token
+    DeleteMusicToken { username: String },
 }
 
 async fn app(args: Args) -> anyhow::Result<ExitStatus> {

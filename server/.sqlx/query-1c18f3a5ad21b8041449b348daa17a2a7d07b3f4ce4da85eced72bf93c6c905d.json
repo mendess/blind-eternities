@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n            ms.hostname as \"hostname!\",\n            external_ip as \"external_ip!\",\n            last_heartbeat as \"last_heartbeat!\",\n            local_ip as \"local_ip?\",\n            gateway_ip as \"gateway_ip?\",\n            ssh_port,\n            gateway_mac,\n            default_user\n         FROM machine_status ms\n         LEFT JOIN ip_connection ip ON ms.hostname = ip.hostname",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hostname!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "external_ip!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "last_heartbeat!",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 3,
+        "name": "local_ip?",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "gateway_ip?",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "ssh_port",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "gateway_mac",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "default_user",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "1c18f3a5ad21b8041449b348daa17a2a7d07b3f4ce4da85eced72bf93c6c905d"
+}

@@ -62,7 +62,7 @@ pub async fn post(
         status.ssh.map(i32::from),
         status.default_user,
     )
-    .execute(&mut transaction)
+    .execute(transaction.as_mut())
     .await
     .context("Failed to execute query")?;
 
@@ -70,7 +70,7 @@ pub async fn post(
         r#"DELETE FROM ip_connection WHERE hostname = $1"#,
         status.hostname.as_ref()
     )
-    .execute(&mut transaction)
+    .execute(transaction.as_mut())
     .await
     .context("Failed to delete old ips")?;
 
@@ -83,7 +83,7 @@ pub async fn post(
             c.gateway_ip.to_string(),
             c.gateway_mac.map(|x| x.to_string()),
         )
-        .execute(&mut transaction)
+        .execute(transaction.as_mut())
         .await
         .context("Failed to insert new ips")?;
     }

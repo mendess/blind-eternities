@@ -40,6 +40,13 @@ pub async fn insert_token<R: Role>(pool: &PgPool, token: Uuid, name: &str) -> sq
     Ok(())
 }
 
+pub async fn delete_token(pool: &PgPool, name: &str) -> sqlx::Result<()> {
+    sqlx::query!("DELETE FROM api_tokens WHERE hostname = $1", name)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 #[async_recursion::async_recursion]
 pub async fn check_token<R: Role>(conn: &PgPool, token: Uuid) -> Result<R, AuthError> {
     let role = match R::KIND {
@@ -47,20 +54,20 @@ pub async fn check_token<R: Role>(conn: &PgPool, token: Uuid) -> Result<R, AuthE
         None => return Err(AuthError::UnauthorizedToken),
     };
     let result = sqlx::query!(
-        "SELECT token FROM api_tokens WHERE token = $1 AND role = $2",
+        "SELECT true as exists FROM api_tokens WHERE token = $1 AND role = $2",
         token,
         role as priv_role::RoleKind
     )
     .fetch_optional(conn)
     .await
-    .context("failed to fetch token from db")?
-    .map(|_| R::INSTANCE);
+    .context("failed to fetch token from db")?;
 
-    match result {
-        Some(r) => Ok(r),
-        None => check_token::<R::Parent>(conn, token)
+    if result.is_some() {
+        Ok(R::INSTANCE)
+    } else {
+        check_token::<R::Parent>(conn, token)
             .await
-            .map(|_| R::INSTANCE),
+            .map(|_| R::INSTANCE)
     }
 }
 
@@ -75,7 +82,10 @@ mod priv_role {
     pub trait Role: Send {
         type Parent: Role;
 
+        /// value to send to DB
         const KIND: Option<RoleKind>;
+
+        /// instance of self
         const INSTANCE: Self;
     }
 

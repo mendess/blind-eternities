@@ -40,10 +40,9 @@ pub fn run(
                 );
                 srv.call(req)
             })
-            .route("/health_check", web::get().to(health_check))
+            .service(admin::routes())
             .service(machine_status::routes())
             .service(music_players::routes())
-            .service(persistent_connections::routes())
             .app_data(conn.clone())
             .app_data(connections.clone())
     })

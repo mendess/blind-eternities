@@ -4,7 +4,7 @@ use crate::helpers::TestApp;
 async fn health_check_works() {
     let test_app = TestApp::spawn().await;
     let response = test_app
-        .get_authed("health_check")
+        .get_authed("admin/health_check")
         .send()
         .await
         .expect("Failed to execute request.");

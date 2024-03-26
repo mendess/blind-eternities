@@ -10,7 +10,6 @@ actix-service.workspace = true
 actix-web-httpauth.workspace = true
 actix-web.workspace = true
 anyhow.workspace = true
-argon2.workspace = true
 async-recursion.workspace = true
 chrono.workspace = true
 common = { path = "../common", features = ["sqlx"] }
@@ -22,25 +21,18 @@ regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
 spark-protocol = { path = "../spark-protocol" }
 thiserror.workspace = true
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing = { workspace = true, features = ["log"] }
 tracing-actix-web.workspace = true
 tracing-bunyan-formatter.workspace = true
 tracing-futures.workspace = true
 tracing-log.workspace = true
 uuid.workspace = true
+sqlx.workspace = true
 
 [dependencies.tracing-subscriber]
 workspace = true
 features = ["registry", "env-filter"]
-
-[dependencies.sqlx]
-workspace = true
-default-features = false
-features = [
-    "postgres",
-    "offline",
-]
 
 [dev-dependencies]
 actix-rt.workspace = true

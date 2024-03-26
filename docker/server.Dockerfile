@@ -23,8 +23,8 @@ COPY ./spark-protocol/Cargo.toml ./spark-protocol/Cargo.toml
 COPY ./common/src ./common/src
 COPY ./spark-protocol/src ./spark-protocol/src
 
-COPY ./sqlx-data.json ./sqlx-data.json
-RUN cargo build --release --bin blind-eternities
+COPY ./server/.sqlx ./server/.sqlx
+RUN cargo build -p blind-eternities --release --bin blind-eternities
 RUN rm -r ./server/src
 
 # copy real source
@@ -34,8 +34,8 @@ COPY ./server/src ./server/src
 RUN rm ./target/release/blind-eternities*
 COPY ./server/migrations ./server/migrations
 RUN find ./spark/src/ -exec touch '{}' ';'
-RUN cargo build --release --bin blind-eternities
-RUN cargo build --release --bin create_token
+RUN cargo build -p blind-eternities --release --bin blind-eternities
+RUN cargo build -p blind-eternities --release --bin create_token
 
 # executing image
 FROM debian:buster-slim

@@ -30,15 +30,7 @@ features = ["env-filter"]
 
 [dependencies.sqlx]
 workspace = true
-default-features = false
 optional = true
-features = [
-    "runtime-actix-rustls",
-    "macros",
-    "uuid",
-    "chrono",
-    "migrate"
-]
 
 [dependencies.reqwest]
 workspace = true
