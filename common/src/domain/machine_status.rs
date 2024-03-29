@@ -45,6 +45,14 @@ impl MachineStatus {
     pub fn is_port_forwarded(&self) -> bool {
         self.ssh.is_some()
     }
+
+    pub fn preferred_ip(&self) -> Option<IpAddr> {
+        self.ip_connections
+            .iter()
+            .find(|ip| ip.local_ip.is_ipv4())
+            .or_else(|| self.ip_connections.first())
+            .map(|c| c.local_ip)
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

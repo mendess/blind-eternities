@@ -12,7 +12,7 @@ use std::{
 use anyhow::Context;
 use arrayvec::ArrayVec;
 use chrono::Utc;
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use common::{
     algorithms::net_graph::{NetGraph, SimpleNode},
     domain::{machine_status::MachineStatusFull, Hostname},
@@ -135,17 +135,36 @@ pub struct ShowRouteOpts {
     filename: Option<PathBuf>,
     #[arg(short, long)]
     destination: Option<Hostname>,
-    #[arg(short, long)]
-    list: bool,
+    #[arg(short, long, action = ArgAction::Count)]
+    list: u8,
 }
 
 pub(super) async fn show_route(opts: &ShowRouteOpts, config: &Config) -> anyhow::Result<()> {
     let (statuses, hostname) = fetch_statuses(config).await?;
 
-    if opts.list {
-        for s in statuses.keys() {
-            println!("{}", s);
-        }
+    'list_hostnames: {
+        let printer: fn((String, MachineStatusFull)) = match opts.list {
+            0 => break 'list_hostnames,
+            1 => |(name, _)| println!("{name}"),
+            2 => |(name, status)| {
+                println!(
+                    "{name:<15} @ [{:<15}] -> {}",
+                    status.external_ip,
+                    status
+                        .preferred_ip()
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| "unknown".to_string())
+                )
+            },
+            3.. => |(name, MachineStatusFull { fields: status, .. })| {
+                print!("{name:<15} @ [{:^15}] -> ", status.external_ip);
+                for ip in status.ip_connections.into_iter().map(|c| c.local_ip) {
+                    print!("{ip} ")
+                }
+                println!();
+            },
+        };
+        statuses.into_iter().for_each(printer);
         return Ok(());
     }
 
