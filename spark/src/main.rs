@@ -8,7 +8,7 @@ mod util;
 use std::{os::unix::prelude::ExitStatusExt, process::ExitStatus};
 
 use anyhow::Context;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use common::telemetry::{get_subscriber_no_bunny, init_subscriber};
 use daemon::ipc::Command;
 use util::destination::Destination;
@@ -44,6 +44,8 @@ enum Cmd {
     /// Query the backend
     #[command(subcommand)]
     Backend(Backend),
+    /// Generate Compleations
+    AutoComplete { shell: clap_complete::Shell },
 }
 
 #[derive(Subcommand, Debug)]
@@ -99,6 +101,10 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
         Cmd::Backend(cmd) => backend::handle(cmd, config)
             .await
             .map(|_| ExitStatus::from_raw(0)),
+        Cmd::AutoComplete { shell } => {
+            clap_complete::generate(shell, &mut Args::command(), "spark", &mut std::io::stdout());
+            Ok(ExitStatus::from_raw(0))
+        }
     }
 }
 
