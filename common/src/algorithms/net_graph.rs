@@ -224,11 +224,11 @@ impl<'hostname> NetGraph<'hostname> {
         )
         .await?;
 
-        let (today, yesterday) = {
+        let (today, one_hour_ago) = {
             let today = Utc::now();
-            let yesterday = today - Duration::try_hours(1).unwrap();
+            let one_hour_ago = today - Duration::try_hours(1).unwrap();
 
-            (today.timestamp_millis(), yesterday.timestamp_millis())
+            (today.timestamp_millis(), one_hour_ago.timestamp_millis())
         };
         for (ip, nodes) in by_subnet.into_iter() {
             let subgraph_label = ip.to_string().replace(|c| c == '.' || c == ':', "_");
@@ -236,12 +236,12 @@ impl<'hostname> NetGraph<'hostname> {
                 .await?;
             for (i, n) in nodes {
                 let hb = n.last_heartbeat.timestamp_millis();
-                let color = if hb < yesterday {
+                let color = if hb < one_hour_ago {
                     tracing::info!("node: {} @ {:?} :: {}", n.hostname, n.last_heartbeat, 1);
                     tracing::debug!("node: {:#?} :: {}", n, 1);
                     String::from(" style=filled fillcolor=1")
                 } else {
-                    let color = 1 + ((7 * (hb - yesterday)) / (today - yesterday));
+                    let color = 1 + ((7 * (hb - one_hour_ago)) / (today - one_hour_ago));
                     tracing::info!("node: {} @ {:?} :: {}", n.hostname, n.last_heartbeat, color);
                     tracing::debug!("node: {:#?} :: {}", n, color);
                     format!(" style=filled fillcolor={}", color)
@@ -251,7 +251,7 @@ impl<'hostname> NetGraph<'hostname> {
                         "        {} [ label = \"{}{}\" {color} ]\n",
                         i.index(),
                         Node::Machine(n),
-                        if hb < yesterday {
+                        if hb < one_hour_ago {
                             format!("\n{}", n.last_heartbeat)
                         } else {
                             String::new()
