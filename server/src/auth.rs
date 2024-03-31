@@ -40,10 +40,18 @@ pub async fn insert_token<R: Role>(pool: &PgPool, token: Uuid, name: &str) -> sq
     Ok(())
 }
 
-pub async fn delete_token(pool: &PgPool, name: &str) -> sqlx::Result<()> {
-    sqlx::query!("DELETE FROM api_tokens WHERE hostname = $1", name)
-        .execute(pool)
-        .await?;
+pub async fn delete_token<R: Role>(pool: &PgPool, name: &str) -> Result<(), AuthError> {
+    let Some(role) = R::KIND else {
+        return Err(AuthError::InvalidToken);
+    };
+    sqlx::query!(
+        "DELETE FROM api_tokens WHERE hostname = $1 AND role = $2",
+        name,
+        role as priv_role::RoleKind
+    )
+    .execute(pool)
+    .await
+    .context("failed to delete token from db")?;
     Ok(())
 }
 

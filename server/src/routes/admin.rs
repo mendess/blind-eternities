@@ -25,6 +25,8 @@ async fn health_check(_: auth::Admin) -> impl Responder {
 #[derive(thiserror::Error, Debug)]
 pub enum MusicTokenError {
     #[error(transparent)]
+    AuthError(#[from] auth::AuthError),
+    #[error(transparent)]
     SqlxError(#[from] sqlx::Error),
 }
 
@@ -45,7 +47,7 @@ async fn delete_music_token(
     db: web::Data<PgPool>,
     username: String,
 ) -> Result<HttpResponse, MusicTokenError> {
-    auth::delete_token(&db, &username).await?;
+    auth::delete_token::<auth::Music>(&db, &username).await?;
     Ok(HttpResponse::Ok().into())
 }
 
