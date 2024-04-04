@@ -1,4 +1,4 @@
-use itertools::Itertools;
+use itertools::{EitherOrBoth, Itertools};
 use serde::{
     de::{self, Visitor},
     Deserialize, Serialize,
@@ -90,25 +90,31 @@ impl<'de> Visitor<'de> for MacVisitor {
         E: de::Error,
     {
         let mut buf = [0; 8];
-        let mut i = 0;
-        for s in v.split(':') {
-            if i >= buf.len() {
-                return Err(E::invalid_length(i, &"between 6 and 8 bytes"));
+        for (i, element) in v.split(':').zip_longest(&mut buf).enumerate() {
+            match element {
+                EitherOrBoth::Both(s, b) => {
+                    *b = match u8::from_str_radix(s, 16) {
+                        Ok(b) => b,
+                        Err(_) => {
+                            return Err(E::invalid_type(de::Unexpected::Other(s), &"byte (0-255)"))
+                        }
+                    };
+                }
+                // I still have string values but no more slots in buffer.
+                EitherOrBoth::Left(_) => {
+                    return Err(E::invalid_length(i, &"between 6 and 8 bytes"));
+                }
+                // string is done.
+                EitherOrBoth::Right(&mut 0) if i == 6 => {
+                    let [v6 @ .., _, _] = buf;
+                    return Ok(MacAddr::V6(MacAddr6(v6)));
+                }
+                EitherOrBoth::Right(_) => {
+                    return Err(E::invalid_length(i, &"between 6 and 8 bytes"));
+                }
             }
-            buf[i] = match u8::from_str_radix(s, 16) {
-                Ok(b) => b,
-                Err(_) => return Err(E::invalid_type(de::Unexpected::Other(s), &"byte (0-255)")),
-            };
-            i += 1;
         }
-        match i {
-            6 => {
-                let [v6 @ .., _, _] = buf;
-                Ok(MacAddr::V6(MacAddr6(v6)))
-            }
-            8 => Ok(MacAddr::V8(MacAddr8(buf))),
-            l => Err(E::invalid_length(l, &"between 6 and 8 bytes")),
-        }
+        Ok(MacAddr::V8(MacAddr8(buf)))
     }
 }
 
