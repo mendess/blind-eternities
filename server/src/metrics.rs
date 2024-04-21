@@ -3,7 +3,7 @@ use std::{future::Future, io, net::TcpListener, sync::OnceLock};
 use actix_http::Method;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use futures::TryFutureExt;
-use prometheus::{register_int_counter_vec, Encoder, IntCounterVec};
+use prometheus::{register_int_counter_vec, register_int_gauge, Encoder, IntCounterVec, IntGauge};
 
 pub fn new_request(route: &str, method: &Method) {
     static METRICS: OnceLock<IntCounterVec> = OnceLock::new();
@@ -19,6 +19,28 @@ pub fn new_request(route: &str, method: &Method) {
         })
         .with_label_values(&[route, method.as_str()])
         .inc();
+}
+
+fn persistent_connections() -> &'static IntGauge {
+    static METRICS: OnceLock<IntGauge> = OnceLock::new();
+
+    METRICS.get_or_init(|| {
+        let metric = register_int_gauge!(
+            "persistent_connections",
+            "number of persistent_connections online"
+        )
+        .unwrap();
+        metric.set(0);
+        metric
+    })
+}
+
+pub fn persistent_connected() {
+    persistent_connections().inc();
+}
+
+pub fn persistent_disconnected() {
+    persistent_connections().dec();
 }
 
 async fn metrics_handler() -> impl Responder {

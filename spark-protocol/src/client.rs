@@ -6,9 +6,9 @@ use tokio::{
     net::{self, UnixStream},
 };
 
-use crate::Response;
+use crate::{Command, Response};
 
-use super::{socket_path, Command};
+use super::socket_path;
 
 #[derive(Debug)]
 pub struct Client {
@@ -18,11 +18,8 @@ pub struct Client {
 
 impl Client {
     #[inline(always)]
-    pub async fn send<'s, C>(&mut self, cmd: C) -> Result<Option<Response>, RecvError>
-    where
-        C: Into<Command>,
-    {
-        self.writer.send(&cmd.into()).await?;
+    pub async fn send(&mut self, cmd: &Command) -> Result<Option<Response>, RecvError> {
+        self.writer.send(cmd).await?;
         self.reader.recv().await
     }
 }
@@ -61,7 +58,7 @@ impl From<UnixStream> for Client {
     }
 }
 
-pub async fn send(cmd: Command) -> Result<Option<Response>, RecvError> {
+pub async fn send(cmd: &Command) -> Result<Option<Response>, RecvError> {
     let path = socket_path().await?;
     let socket = UnixStream::connect(path).await?;
     Client::from(socket).send(cmd).await

@@ -1,7 +1,6 @@
 mod backend;
 mod config;
 mod daemon;
-mod music;
 mod routing;
 mod util;
 
@@ -9,9 +8,11 @@ use std::{os::unix::prelude::ExitStatusExt, process::ExitStatus};
 
 use anyhow::Context;
 use clap::{CommandFactory, Parser, Subcommand};
-use common::telemetry::{get_subscriber_no_bunny, init_subscriber};
-use daemon::ipc::Command;
-use util::destination::Destination;
+use common::{
+    domain::Hostname,
+    telemetry::{get_subscriber_no_bunny, init_subscriber},
+};
+use spark_protocol::{Command, ResponseExt};
 
 /// A spark to travel the blind eternities!
 #[derive(Parser, Debug)]
@@ -28,8 +29,12 @@ enum Cmd {
     /// run as a daemon
     Daemon,
     /// msg
-    #[command(subcommand)]
-    Msg(Command),
+    Msg {
+        #[arg(long)]
+        hostname: Option<Hostname>,
+        #[command(subcommand)]
+        msg: Command,
+    },
     #[command(flatten)]
     SshInline(SshToolInline),
     /// ssh tooling
@@ -37,9 +42,11 @@ enum Cmd {
     Route(SshTool),
     /// remote music control
     Music {
-        destination: Destination,
-        #[command(flatten)]
-        cmd: spark_protocol::music::MusicCmd,
+        hostname: Hostname,
+        #[command(subcommand)]
+        cmd: spark_protocol::music::MusicCmdKind,
+        #[arg(short, long, default_value_t = false)]
+        session: bool,
     },
     /// Query the backend
     #[command(subcommand)]
@@ -67,9 +74,9 @@ enum Backend {
     /// list persistent connections
     Persistents,
     /// add a music auth token
-    AddMusicToken { username: String },
+    CreateMusicSession { hostname: Hostname },
     /// delete a music auth token
-    DeleteMusicToken { username: String },
+    DeleteMusicSession { session: String },
 }
 
 async fn app(args: Args) -> anyhow::Result<ExitStatus> {
@@ -92,12 +99,29 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
             .await
             .map(|_| ExitStatus::from_raw(0)),
         Cmd::Route(SshTool::CopyId(opts)) => routing::copy_id(&opts, &config).await,
-        Cmd::Msg(msg) => daemon::ipc::send(&msg, config)
-            .await
-            .map(|_| ExitStatus::from_raw(0)),
-        Cmd::Music { destination, cmd } => music::handle(destination, cmd, config)
-            .await
-            .map(|_| ExitStatus::from_raw(0)),
+        Cmd::Msg { hostname, msg } => {
+            let response = match hostname {
+                None => daemon::ipc::send(&msg, config).await?,
+                Some(hostname) => daemon::persistent_conn::send(config, hostname, msg).await?,
+            };
+            println!("{}", response.display());
+            Ok(ExitStatus::from_raw(0))
+        }
+        Cmd::Music {
+            session,
+            cmd,
+            hostname,
+        } => {
+            let response = if session {
+                daemon::persistent_conn::send_to_session(config, hostname.into_string(), cmd)
+                    .await?
+            } else {
+                daemon::persistent_conn::send(config, hostname, cmd.into()).await?
+            };
+            println!("{}", response.display());
+
+            Ok(ExitStatus::from_raw(0))
+        }
         Cmd::Backend(cmd) => backend::handle(cmd, config)
             .await
             .map(|_| ExitStatus::from_raw(0)),

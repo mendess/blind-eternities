@@ -1,70 +1,57 @@
-use blind_eternities::auth;
+use blind_eternities::auth::music_session::MusicSession;
 use common::domain::Hostname;
-use reqwest::StatusCode;
 use serde::Serialize;
-use spark_protocol::music::{self, MusicCmd, MusicCmdKind};
-use spark_protocol::{Local, Response, SuccessfulResponse};
+use spark_protocol::music::{self, MusicCmdKind};
+use spark_protocol::SuccessfulResponse;
 
-use crate::helpers::{fake_hostname, TestApp};
-use crate::{assert_status, timeout};
-
-struct Simulation<'s, R> {
-    hostname: &'s Hostname,
-    expect_to_receive: MusicCmdKind,
-    respond_with: R,
-}
+use crate::helpers::{fake_hostname, Simulation, TestApp};
+use crate::timeout;
 
 impl TestApp {
-    async fn request_cmd(&self, hostname: &Hostname, cmd: &str) -> Response {
-        let resp = self
-            .get_authed(&format!("music/players/{hostname}/{cmd}"))
+    async fn create_session(&self, hostname: &Hostname) -> MusicSession {
+        self.get_authed(&format!("admin/music-session/{hostname}"))
             .send()
             .await
-            .expect("success");
-        assert_status!(StatusCode::OK, resp.status());
-        resp.json().await.expect("deserialized successfully")
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap()
     }
 
-    async fn simulate_device<R>(
+    async fn send_session_cmd(
         &self,
-        Simulation {
-            hostname,
-            expect_to_receive,
-            respond_with,
-        }: Simulation<'_, R>,
-    ) -> tokio::task::JoinHandle<()>
-    where
-        R: Into<SuccessfulResponse>,
-    {
-        let mut device = timeout!(self.connect_device(hostname));
-
-        let respond_with = respond_with.into();
-        tokio::spawn(async move {
-            let req = timeout!(device.recv()).expect("success recv").expect("eof");
-            assert_eq!(
-                Local::Music(MusicCmd {
-                    index: None,
-                    username: None,
-                    command: expect_to_receive,
-                }),
-                req
-            );
-            timeout!(device.send(Ok(respond_with))).expect("success send");
-        })
+        session: &MusicSession,
+        command: MusicCmdKind,
+    ) -> spark_protocol::Response {
+        self.post(&format!("music/{session}"))
+            .json(&command)
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap()
     }
 }
 
-/// GET  /{hostname}/frwd
-/// GET  /{hostname}/back
+/// [`spark_protocol::Command::Frwd`]
+/// [`spark_protocol::Command::Back`]
 /// ```
 ///     { title: String }
 /// ```
-/// GET  /{hostname}/cycle-pause
+/// [`spark_protocol::Command::CyclePause`]
 /// ```
 ///     { paused: bool }
 /// ```
-/// GET  /{hostname}/change-volume
-/// GET  /{hostname}/current
+/// [`spark_protocol::Command::ChangeVolume`]
+/// ```
+///     { volume: f32 }
+/// ```
+/// [`spark_protocol::Command::Current`]
 /// ```
 /// {
 ///     title: String,
@@ -76,11 +63,12 @@ impl TestApp {
 ///     progress: f32,
 /// }
 /// ```
-/// POST /{hostname}/queue
+/// [`spark_protocol::Command::Queue`]
 /// ```
 /// // =>
 /// { index: usize? } & (
-///     { name_or_link: String } | { search: String }
+///     | { name_or_link: String }
+///     | { search: String }
 /// )
 /// ```
 /// ```
@@ -93,20 +81,20 @@ async fn requesting_to_skip_a_song_is_delivered() {
     let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
+    let session = app.create_session(&hostname).await;
 
     let title = "title";
     let device = app
         .simulate_device(Simulation {
             hostname: &hostname,
             expect_to_receive: MusicCmdKind::Frwd,
-            respond_with: music::Response::Title {
+            respond_with: Ok(SuccessfulResponse::MusicResponse(music::Response::Title {
                 title: title.into(),
-            },
+            })),
         })
         .await;
 
-    let app = app.downgrade_to::<auth::Music>().await;
-    let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::Frwd.to_route()));
+    let response = timeout!(app.send_session_cmd(&session, MusicCmdKind::Frwd));
 
     let last = response.map(|e| match e {
         SuccessfulResponse::MusicResponse(music::Response::Title { title }) => title,
@@ -123,20 +111,20 @@ async fn requesting_to_skip_back_a_song_is_delivered() {
     let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
+    let session = app.create_session(&hostname).await;
 
     let title = "title";
     let device = app
         .simulate_device(Simulation {
             hostname: &hostname,
             expect_to_receive: MusicCmdKind::Back,
-            respond_with: music::Response::Title {
+            respond_with: Ok(SuccessfulResponse::MusicResponse(music::Response::Title {
                 title: title.into(),
-            },
+            })),
         })
         .await;
 
-    let app = app.downgrade_to::<auth::Music>().await;
-    let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::Back.to_route()));
+    let response = timeout!(app.send_session_cmd(&session, MusicCmdKind::Back));
 
     let last = response.map(|e| match e {
         SuccessfulResponse::MusicResponse(music::Response::Title { title }) => title,
@@ -153,17 +141,19 @@ async fn requesting_to_cycle_pause_is_delivered() {
     let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
+    let session = app.create_session(&hostname).await;
 
     let device = app
         .simulate_device(Simulation {
             hostname: &hostname,
             expect_to_receive: MusicCmdKind::CyclePause,
-            respond_with: music::Response::PlayState { paused: true },
+            respond_with: Ok(SuccessfulResponse::MusicResponse(
+                music::Response::PlayState { paused: true },
+            )),
         })
         .await;
 
-    let app = app.downgrade_to::<auth::Music>().await;
-    let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::CyclePause.to_route()));
+    let response = timeout!(app.send_session_cmd(&session, MusicCmdKind::CyclePause));
 
     let last = response.map(|e| match e {
         SuccessfulResponse::MusicResponse(music::Response::PlayState { paused }) => paused,
@@ -180,23 +170,20 @@ async fn requesting_to_change_volume_is_delivered() {
     let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
+    let session = app.create_session(&hostname).await;
 
     let device = app
         .simulate_device(Simulation {
             hostname: &hostname,
             expect_to_receive: MusicCmdKind::ChangeVolume { amount: 2 },
-            respond_with: music::Response::Volume { volume: 2.0 },
+            respond_with: Ok(SuccessfulResponse::MusicResponse(music::Response::Volume {
+                volume: 2.0,
+            })),
         })
         .await;
 
-    let app = app.downgrade_to::<auth::Music>().await;
-    let response = timeout!(app.request_cmd(
-        &hostname,
-        &format!(
-            "{}?a=2",
-            MusicCmdKind::ChangeVolume { amount: 0 }.to_route()
-        )
-    ));
+    let response =
+        timeout!(app.send_session_cmd(&session, MusicCmdKind::ChangeVolume { amount: 2 }));
 
     let last = response.map(|e| match e {
         SuccessfulResponse::MusicResponse(music::Response::Volume { volume }) => volume,
@@ -213,23 +200,25 @@ async fn requesting_current_is_delivered() {
     let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
+    let session = app.create_session(&hostname).await;
 
     let device = app
         .simulate_device(Simulation {
             hostname: &hostname,
             expect_to_receive: MusicCmdKind::Current,
-            respond_with: music::Response::Current {
-                paused: false,
-                title: "title".into(),
-                chapter: None,
-                volume: 100.,
-                progress: 53.,
-            },
+            respond_with: Ok(SuccessfulResponse::MusicResponse(
+                music::Response::Current {
+                    paused: false,
+                    title: "title".into(),
+                    chapter: None,
+                    volume: 100.,
+                    progress: 53.,
+                },
+            )),
         })
         .await;
 
-    let app = app.downgrade_to::<auth::Music>().await;
-    let response = timeout!(app.request_cmd(&hostname, MusicCmdKind::Current.to_route()));
+    let response = timeout!(app.send_session_cmd(&session, MusicCmdKind::Current));
 
     let last = response.map(|e| match e {
         SuccessfulResponse::MusicResponse(music::Response::Current { title, .. }) => title,
@@ -246,15 +235,18 @@ async fn requesting_to_queue_a_song_is_delivered() {
     let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
+    let session = app.create_session(&hostname).await;
+
+    let command_to_send = MusicCmdKind::Queue {
+        query: "nice song :)".into(),
+        search: false,
+    };
 
     let device = app
         .simulate_device(Simulation {
             hostname: &hostname,
-            expect_to_receive: MusicCmdKind::Queue {
-                query: "nice song :)".into(),
-                search: false,
-            },
-            respond_with: SuccessfulResponse::Unit,
+            expect_to_receive: command_to_send.clone(),
+            respond_with: Ok(SuccessfulResponse::Unit),
         })
         .await;
 
@@ -264,27 +256,7 @@ async fn requesting_to_queue_a_song_is_delivered() {
         search: bool,
     }
 
-    let app = app.downgrade_to::<auth::Music>().await;
-    let response = timeout!(async {
-        app.post_authed(&format!(
-            "music/players/{hostname}/{}",
-            MusicCmdKind::Queue {
-                query: "".into(),
-                search: false
-            }
-            .to_route()
-        ))
-        .json(&QueueRequest {
-            query: "nice song :)".into(),
-            search: false,
-        })
-        .send()
-        .await
-        .expect("failed to send request")
-        .json::<Response>()
-        .await
-        .expect("failed to deserialize")
-    });
+    let response = timeout!(app.send_session_cmd(&session, command_to_send));
 
     device.await.expect("device task failed");
 
@@ -292,52 +264,12 @@ async fn requesting_to_queue_a_song_is_delivered() {
 }
 
 #[actix_web::test]
-async fn username_can_be_overridden() {
+async fn creating_two_tokens_to_the_same_hostname_returns_the_same_token() {
     let app = TestApp::spawn().await;
 
     let hostname = fake_hostname();
+    let session0 = app.create_session(&hostname).await;
+    let session1 = app.create_session(&hostname).await;
 
-    let username = fake_hostname().into_string();
-
-    let mut device = timeout!(app.connect_device(&hostname));
-
-    let device_task = tokio::spawn({
-        let username = username.clone();
-        async move {
-            let req = timeout!(device.recv()).expect("success recv").expect("eof");
-            assert_eq!(
-                Local::Music(MusicCmd {
-                    index: None,
-                    username: Some(username),
-                    command: MusicCmdKind::Frwd,
-                }),
-                req
-            );
-            timeout!(device.send(Ok(SuccessfulResponse::Unit))).expect("success send");
-        }
-    });
-
-    let app = app.downgrade_to::<auth::Music>().await;
-    let response = timeout!(async {
-        let resp = app
-            .get_authed(&format!(
-                "music/players/{hostname}/{}",
-                MusicCmdKind::Frwd.to_route()
-            ))
-            .query(&[("u", &username)])
-            .send()
-            .await
-            .expect("success");
-        assert_status!(StatusCode::OK, resp.status());
-        resp.json::<Response>()
-            .await
-            .expect("deserialized successfully")
-    });
-
-    match response {
-        Ok(SuccessfulResponse::Unit) => {}
-        r => panic!("unexpected response variant: {r:?}"),
-    }
-
-    device_task.await.expect("device task failed");
+    assert_eq!(session0, session1);
 }

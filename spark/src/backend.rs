@@ -6,9 +6,11 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
     let client = AuthenticatedClient::try_from(&config)?;
     match cmd {
         crate::Backend::Persistents => display_persistent_connections(client).await?,
-        crate::Backend::AddMusicToken { username } => add_music_token(client, username).await?,
-        crate::Backend::DeleteMusicToken { username } => {
-            delete_music_token(client, username).await?
+        crate::Backend::CreateMusicSession { hostname } => {
+            create_music_session(client, hostname).await?
+        }
+        crate::Backend::DeleteMusicSession { session } => {
+            delete_music_session(client, session).await?
         }
     }
     Ok(())
@@ -16,7 +18,7 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
 
 async fn display_persistent_connections(client: AuthenticatedClient) -> anyhow::Result<()> {
     let conns: Vec<Hostname> = client
-        .get("/admin/persistent-connections")?
+        .get("/persistent-connections")?
         .send()
         .await?
         .error_for_status()?
@@ -31,30 +33,29 @@ async fn display_persistent_connections(client: AuthenticatedClient) -> anyhow::
     Ok(())
 }
 
-async fn add_music_token(client: AuthenticatedClient, username: String) -> anyhow::Result<()> {
+async fn create_music_session(
+    client: AuthenticatedClient,
+    hostname: Hostname,
+) -> anyhow::Result<()> {
     let token = client
-        .post("/admin/music_token")?
-        .body(username)
+        .get(&format!("/admin/music-session/{hostname}"))?
         .send()
         .await?
         .error_for_status()?
-        .text()
+        .json::<String>()
         .await?;
 
-    println!("new token added: {token}");
+    println!("session id is: {token}");
     Ok(())
 }
 
-async fn delete_music_token(client: AuthenticatedClient, username: String) -> anyhow::Result<()> {
+async fn delete_music_session(client: AuthenticatedClient, session: String) -> anyhow::Result<()> {
     client
-        .delete("/admin/music_token")?
-        .body(username)
+        .delete(&format!("/admin/music-session/{session}"))?
         .send()
         .await?
-        .error_for_status()?
-        .text()
-        .await?;
+        .error_for_status()?;
 
-    println!("token deleted");
+    println!("session deleted");
     Ok(())
 }

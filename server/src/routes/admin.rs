@@ -1,20 +1,16 @@
 use actix_web::{web, HttpResponse, Responder, ResponseError};
+use common::domain::Hostname;
 use sqlx::PgPool;
-use uuid::Uuid;
 
-use crate::{auth, persistent_connections::Connections};
+use crate::auth::{self, music_session::MusicSession};
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/admin")
         .service(web::resource("/health_check").route(web::get().to(health_check)))
         .service(
-            web::resource("/music_token")
-                .route(web::post().to(add_music_token))
-                .route(web::delete().to(delete_music_token)),
-        )
-        .route(
-            "/persistent-connections",
-            web::get().to(list_persistent_connections),
+            web::resource("/music-session/{hostname}")
+                .route(web::get().to(create_music_session))
+                .route(web::delete().to(delete_music_session)),
         )
 }
 
@@ -23,35 +19,33 @@ async fn health_check(_: auth::Admin) -> impl Responder {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum MusicTokenError {
+pub enum MusicSessionError {
     #[error(transparent)]
     AuthError(#[from] auth::AuthError),
     #[error(transparent)]
     SqlxError(#[from] sqlx::Error),
 }
 
-impl ResponseError for MusicTokenError {}
+impl ResponseError for MusicSessionError {}
 
-async fn add_music_token(
+#[tracing::instrument(skip(db))]
+async fn create_music_session(
     _: auth::Admin,
     db: web::Data<PgPool>,
-    username: String,
-) -> Result<HttpResponse, MusicTokenError> {
-    let new_token = Uuid::new_v4();
-    auth::insert_token::<auth::Music>(&db, new_token, &username).await?;
-    Ok(HttpResponse::Ok().json(new_token))
+    hostname: web::Path<Hostname>,
+) -> Result<impl Responder, MusicSessionError> {
+    let id = MusicSession::create_for(&db, &hostname).await?;
+    tracing::info!("created id = {id}");
+
+    Ok(HttpResponse::Ok().json(id))
 }
 
-async fn delete_music_token(
+#[tracing::instrument(skip(db))]
+async fn delete_music_session(
     _: auth::Admin,
     db: web::Data<PgPool>,
-    username: String,
-) -> Result<HttpResponse, MusicTokenError> {
-    auth::delete_token::<auth::Music>(&db, &username).await?;
-    Ok(HttpResponse::Ok().into())
-}
-
-async fn list_persistent_connections(connections: web::Data<Connections>) -> impl Responder {
-    let connected = connections.connected_hosts().await;
-    HttpResponse::Ok().json(connected.into_iter().map(|(h, _)| h).collect::<Vec<_>>())
+    id: web::Path<MusicSession>,
+) -> Result<impl Responder, MusicSessionError> {
+    id.into_inner().delete(&db).await?;
+    Ok(HttpResponse::Ok())
 }

@@ -1,4 +1,4 @@
-use std::{future::Future, io, str::FromStr, time::Duration};
+use std::{io, str::FromStr, time::Duration};
 
 use futures::{FutureExt, Stream, StreamExt};
 use mlib::{
@@ -44,13 +44,7 @@ pub async fn wait_for_next_title(player: &players::PlayerLink) -> Result<String,
     Ok(title)
 }
 
-pub async fn handle<R, Fut>(
-    cmd: spark_protocol::music::MusicCmd,
-    respond_to: impl FnOnce(spark_protocol::Response) -> Fut,
-) -> R
-where
-    Fut: Future<Output = R>,
-{
+pub async fn handle(cmd: spark_protocol::music::MusicCmd) -> spark_protocol::Response {
     // memory hard
     let player: players::PlayerLink;
     let player = match cmd.index {
@@ -160,7 +154,7 @@ where
             .await
         }
     };
-    respond_to(response.map(Into::into)).await
+    response.map(Into::into)
 }
 
 fn handle_search_result<T>(r: PartialSearchResult<T>) -> Result<T, String> {

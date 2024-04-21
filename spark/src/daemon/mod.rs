@@ -1,5 +1,6 @@
 //! Tasks are the background tasks that will be executed by the daemon
 
+mod handle_message;
 pub(crate) mod ipc;
 pub(crate) mod machine_status;
 pub(crate) mod persistent_conn;

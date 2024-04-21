@@ -1,3 +1,5 @@
+pub mod music_session;
+
 use std::future::ready;
 
 use actix_http::StatusCode;
@@ -28,11 +30,12 @@ impl ResponseError for AuthError {
     }
 }
 
-pub async fn insert_token<R: Role>(pool: &PgPool, token: Uuid, name: &str) -> sqlx::Result<()> {
+#[tracing::instrument(skip_all, fields(machine_name = machine, token_kind = ?R::KIND))]
+pub async fn insert_token<R: Role>(pool: &PgPool, token: Uuid, machine: &str) -> sqlx::Result<()> {
     sqlx::query!(
         "INSERT INTO api_tokens (token, created_at, hostname, role) VALUES ($1, NOW(), $2, $3)",
         token,
-        name,
+        machine,
         R::KIND.expect("can't insert a role for the Nobody role") as priv_role::RoleKind,
     )
     .execute(pool)
@@ -40,6 +43,7 @@ pub async fn insert_token<R: Role>(pool: &PgPool, token: Uuid, name: &str) -> sq
     Ok(())
 }
 
+#[tracing::instrument(skip_all, fields(machine_name = name, token_kind = ?R::KIND))]
 pub async fn delete_token<R: Role>(pool: &PgPool, name: &str) -> Result<(), AuthError> {
     let Some(role) = R::KIND else {
         return Err(AuthError::InvalidToken);
@@ -56,6 +60,7 @@ pub async fn delete_token<R: Role>(pool: &PgPool, name: &str) -> Result<(), Auth
 }
 
 #[async_recursion::async_recursion]
+#[tracing::instrument(skip_all, fields(token_kind = ?R::KIND, result))]
 pub async fn check_token<R: Role>(conn: &PgPool, token: Uuid) -> Result<R, AuthError> {
     let role = match R::KIND {
         Some(role) => role,

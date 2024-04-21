@@ -4,16 +4,18 @@ use anyhow::{bail, Context};
 use common::{
     domain::Hostname,
     net::{
-        MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, TalkJsonLinesExt, WriteJsonLinesExt,
-        PERSISTENT_CONN_RECV_TIMEOUT,
+        AuthenticatedClient, MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, TalkJsonLinesExt,
+        WriteJsonLinesExt, PERSISTENT_CONN_RECV_TIMEOUT,
     },
 };
-use spark_protocol::{ErrorResponse, SuccessfulResponse};
+use futures::FutureExt;
+use spark_protocol::{music::MusicCmdKind, Command};
 use tokio::{io::BufReader, net::TcpStream, time::timeout};
 
-use crate::config::{Config, PersistentConn};
-
-use super::ipc;
+use crate::{
+    config::{Config, PersistentConn},
+    daemon::handle_message,
+};
 
 async fn run(config: &Config, hostname: &Hostname, port: u16) -> anyhow::Result<()> {
     let (read, mut write) = TcpStream::connect((
@@ -32,7 +34,7 @@ async fn run(config: &Config, hostname: &Hostname, port: u16) -> anyhow::Result<
         token: config.token,
     };
     tracing::info!(?syn, "starting protocol");
-    let syn = || async {
+    async {
         match talker.talk::<_, MetaProtocolAck>(syn).await? {
             None => bail!("server closed the connection without responding"),
             Some(MetaProtocolAck::Ok) => Ok(()),
@@ -43,13 +45,14 @@ async fn run(config: &Config, hostname: &Hostname, port: u16) -> anyhow::Result<
                 error,
             }) => bail!("serialization error. Expected {expected_type}. Error: {error}"),
         }
-    };
-    syn().await.context("SYN")?;
+    }
+    .await
+    .context("SYN")?;
     loop {
         tracing::info!("receiving command");
         let cmd = match timeout(
             PERSISTENT_CONN_RECV_TIMEOUT,
-            read.recv::<spark_protocol::Local>(),
+            read.recv::<spark_protocol::Command>(),
         )
         .await
         {
@@ -59,26 +62,10 @@ async fn run(config: &Config, hostname: &Hostname, port: u16) -> anyhow::Result<
             },
             Err(_timeout) => bail!("receiving command timed out"),
         };
-        if cmd != spark_protocol::Local::Heartbeat {
+        if cmd != spark_protocol::Command::Heartbeat {
             tracing::info!(?cmd, "running command");
         }
-        let write = &mut write;
-        let send_response =
-            |response: spark_protocol::Response| async move { write.send(response).await };
-        let result = match cmd {
-            spark_protocol::Local::Heartbeat => {
-                send_response(Ok::<_, ErrorResponse>(SuccessfulResponse::Unit)).await
-            }
-            spark_protocol::Local::Reload => ipc::reload::reload(send_response).await,
-            #[cfg(feature = "music-ctl")]
-            spark_protocol::Local::Music(m) => ipc::music::handle(m, send_response).await,
-            #[cfg(not(feature = "music-ctl"))]
-            spark_protocol::Local::Music(_) => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "music control is disabled on this machine",
-            )),
-        };
-        if let Err(e) = result {
+        if let Err(e) = handle_message::rxtx(cmd).then(|msg| write.send(msg)).await {
             tracing::error!(?e)
         }
     }
@@ -96,4 +83,40 @@ pub(super) async fn start(config: Arc<Config>) -> whoami::Result<()> {
         }
     }
     Ok(())
+}
+
+pub async fn send(
+    config: Config,
+    hostname: Hostname,
+    command: Command,
+) -> anyhow::Result<spark_protocol::Response> {
+    let client = AuthenticatedClient::try_from(&config)?;
+    client
+        .post(&format!("/persistent-connections/send/{}", hostname))?
+        .json(&command)
+        .send()
+        .await
+        .context("sending request to persistent-connections/send")?
+        .error_for_status()?
+        .json::<spark_protocol::Response>()
+        .await
+        .context("deserializing response")
+}
+
+pub async fn send_to_session(
+    config: Config,
+    session: String,
+    command: MusicCmdKind,
+) -> anyhow::Result<spark_protocol::Response> {
+    let client = AuthenticatedClient::try_from(&config)?;
+    client
+        .post(&format!("/music/{}", session))?
+        .json(&command)
+        .send()
+        .await
+        .context("sending request to persistent-connections/send")?
+        .error_for_status()?
+        .json::<spark_protocol::Response>()
+        .await
+        .context("deserializing response")
 }

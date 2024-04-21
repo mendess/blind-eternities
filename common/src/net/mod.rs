@@ -135,7 +135,7 @@ impl<R: AsyncRead + Unpin + Send> ReadJsonLinesExt for BufReader<R> {
             Some(line) => line,
             None => return Ok(None),
         };
-        tracing::debug!(line = ?line.deref(), "deserializing");
+        tracing::debug!(data = ?std::str::from_utf8(line.deref()), "deserializing");
         Ok(serde_json::from_slice(&line)?)
     }
 

@@ -5,14 +5,22 @@ type PlayerIdx = usize;
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[cfg_attr(feature = "clap", derive(clap::Parser))]
 pub struct MusicCmd {
-    pub index: Option<PlayerIdx>,
-    pub username: Option<String>,
     #[cfg_attr(feature = "clap", command(subcommand))]
     pub command: MusicCmdKind,
+    #[cfg_attr(feature = "clap", arg(short, long))]
+    pub index: Option<PlayerIdx>,
+    #[cfg_attr(feature = "clap", arg(short, long))]
+    pub username: Option<String>,
+}
+
+impl From<MusicCmd> for super::Command {
+    fn from(cmd: MusicCmd) -> Self {
+        Self::Music(cmd)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[cfg_attr(feature = "clap", derive(clap::Parser))]
+#[cfg_attr(feature = "clap", derive(clap::Subcommand))]
 pub enum MusicCmdKind {
     Frwd,
     Back,
@@ -27,6 +35,16 @@ pub enum MusicCmdKind {
         #[cfg_attr(feature = "clap", clap(short, long))]
         search: bool,
     },
+}
+
+impl From<MusicCmdKind> for super::Command {
+    fn from(command: MusicCmdKind) -> Self {
+        Self::Music(MusicCmd {
+            command,
+            index: None,
+            username: None,
+        })
+    }
 }
 
 impl MusicCmdKind {

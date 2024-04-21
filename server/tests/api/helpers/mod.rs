@@ -12,8 +12,11 @@ use common::{
     telemetry::{get_subscriber, init_subscriber},
 };
 use fake::{Fake, StringFaker};
+use reqwest::StatusCode;
 use sqlx::{pool::PoolOptions, Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
+
+use crate::{assert_status, timeout};
 
 fn init_tracing() {
     static TRACING: OnceLock<()> = OnceLock::new();
@@ -143,6 +146,42 @@ impl TestApp {
             .expect("failed to insert_token new auth token");
         uuid
     }
+
+    pub async fn send_cmd(
+        &self,
+        hostname: Hostname,
+        cmd: impl Into<spark_protocol::Command>,
+    ) -> spark_protocol::Response {
+        let resp = self
+            .post_authed(&format!("persistent-connections/send/{hostname}"))
+            .json(&cmd.into())
+            .send()
+            .await
+            .expect("success");
+        assert_status!(StatusCode::OK, resp.status());
+        resp.json().await.expect("deserialized successfully")
+    }
+
+    pub async fn simulate_device<C, R>(
+        &self,
+        Simulation {
+            hostname,
+            expect_to_receive,
+            respond_with,
+        }: Simulation<'_, C, R>,
+    ) -> tokio::task::JoinHandle<()>
+    where
+        C: Into<spark_protocol::Command> + Send + 'static,
+        R: Into<spark_protocol::Response> + Send + 'static,
+    {
+        let mut device = timeout!(self.connect_device(hostname));
+
+        tokio::spawn(async move {
+            let req = timeout!(device.recv()).expect("success recv").expect("eof");
+            assert_eq!(expect_to_receive.into(), req);
+            timeout!(device.send(respond_with.into())).expect("success send");
+        })
+    }
 }
 
 impl Drop for TestApp {
@@ -184,6 +223,12 @@ impl Drop for TestApp {
             eprintln!("drop thread panicked {e:?}");
         }
     }
+}
+
+pub struct Simulation<'s, C, R> {
+    pub hostname: &'s Hostname,
+    pub expect_to_receive: C,
+    pub respond_with: R,
 }
 
 async fn configure_database(config: &DbSettings) -> PgPool {

@@ -9,7 +9,7 @@ use common::net::{
 };
 use futures::StreamExt;
 use serde::de::DeserializeOwned;
-use spark_protocol::{Local, Response};
+use spark_protocol::{Command, Response};
 use sqlx::PgPool;
 use tokio::{
     io::{AsyncWriteExt, BufReader, BufWriter},
@@ -179,7 +179,7 @@ async fn handle_a_connection(
         mut rx: mpsc::Receiver<Request>,
     ) -> io::Result<()> {
         while let Some((cmd, ch)) = rx.recv().await {
-            if cmd != Local::Heartbeat {
+            if cmd != Command::Heartbeat {
                 tracing::info!(?cmd, "received cmd");
             }
             send!(write <- &cmd; {
@@ -229,7 +229,7 @@ async fn heartbeat_checker(connections: Arc<Connections>) {
             .map({
                 |(h, gen)| async move {
                     match connections
-                        .request(&h, spark_protocol::Local::Heartbeat)
+                        .request(&h, spark_protocol::Command::Heartbeat)
                         .await
                     {
                         Err(ConnectionError::NotFound) | Ok(_) => None,
@@ -240,7 +240,7 @@ async fn heartbeat_checker(connections: Arc<Connections>) {
             .buffer_unordered(usize::MAX)
             .filter_map(|x| async { x })
             .for_each(|(h, gen)| async move {
-                tracing::warn!(hostname = %h, "machine disconnected");
+                tracing::warn!(machine = %h, "machine disconnected");
                 connections.remove(h, gen).await;
             })
             .await;

@@ -58,7 +58,7 @@ impl ServerBuilder {
     }
 
     // TODO: move to spark and finish implementing
-    pub async fn serve<F, Fut>(self, handler: F) -> io::Result<()>
+    pub async fn serve<F, Fut>(self, handler: F) -> io::Result<impl Future<Output = ()>>
     where
         F: Fn(Command) -> Fut + Clone + Send + 'static,
         Fut: Future<Output = Result<SuccessfulResponse, ErrorResponse>> + Send + 'static,
@@ -66,10 +66,11 @@ impl ServerBuilder {
         async fn create_socket<P: AsRef<Path> + Debug>(p: P) -> io::Result<UnixListener> {
             if let Err(e) = fs::remove_file(&p).await {
                 if e.kind() != io::ErrorKind::NotFound {
-                    tracing::error!(?e, "failed to remove old socket");
+                    tracing::error!(?e, path = ?p, "failed to remove old socket");
                     return Err(e);
                 }
             }
+            tracing::info!(path = ?p, "binding ipc socket");
             let socket = UnixListener::bind(&p)?;
             fs::set_permissions(p, Permissions::from_mode(0o777)).await?;
             Ok(socket)
@@ -78,40 +79,50 @@ impl ServerBuilder {
             Some(p) => create_socket(p).await?,
             None => create_socket(socket_path().await?).await?,
         };
-        let mut id = 0;
-        loop {
-            let (client, _) = socket.accept().await?;
-            let local_id = id;
-            id += 1;
-            tokio::spawn({
-                let handler = handler.clone();
-                async move {
-                    let mut client = Client::from(client);
-                    loop {
-                        let rcv = client.recv().await;
-                        tracing::info!(%local_id, req = ?rcv, "received local request");
-                        match rcv {
-                            Ok(Some(c)) => {
-                                let response = handler(c);
-                                client.send(response.await).await?;
-                            }
-                            Ok(None) => break,
-                            Err(RecvError::Io(e)) => return Err(e),
-                            Err(RecvError::Serde(s)) => {
-                                client
-                                    .send(Err(ErrorResponse::DeserializingCommand(s.to_string())))
-                                    .await?;
+        Ok(async move {
+            let mut id = 0;
+            loop {
+                let (client, _) = match socket.accept().await {
+                    Ok(client) => client,
+                    Err(e) => {
+                        tracing::error!(?e, "failed to accept a connection.");
+                        break;
+                    }
+                };
+                let local_id = id;
+                id += 1;
+                tokio::spawn({
+                    let handler = handler.clone();
+                    async move {
+                        let mut client = Client::from(client);
+                        loop {
+                            let rcv = client.recv().await;
+                            tracing::info!(%local_id, req = ?rcv, "received local request");
+                            match rcv {
+                                Ok(Some(c)) => {
+                                    let response = handler(c);
+                                    client.send(response.await).await?;
+                                }
+                                Ok(None) => break,
+                                Err(RecvError::Io(e)) => return Err(e),
+                                Err(RecvError::Serde(s)) => {
+                                    client
+                                        .send(Err(ErrorResponse::DeserializingCommand(
+                                            s.to_string(),
+                                        )))
+                                        .await?;
+                                }
                             }
                         }
+                        io::Result::Ok(())
                     }
-                    io::Result::Ok(())
-                }
-            });
-        }
+                });
+            }
+        })
     }
 }
 
-pub async fn server<F, Fut>(handler: F) -> io::Result<()>
+pub async fn server<F, Fut>(handler: F) -> io::Result<impl Future<Output = ()>>
 where
     F: Fn(Command) -> Fut + Clone + Send + 'static,
     Fut: Future<Output = Result<SuccessfulResponse, ErrorResponse>> + Send + 'static,

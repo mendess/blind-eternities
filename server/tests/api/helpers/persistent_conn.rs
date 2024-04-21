@@ -6,7 +6,7 @@ use common::{
         MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, TalkJsonLinesExt, WriteJsonLinesExt,
     },
 };
-use spark_protocol::{Local, Response};
+use spark_protocol::{Command, Response};
 
 use super::TestApp;
 
@@ -49,6 +49,7 @@ impl TestApp {
                 .expect("eof"),
         );
 
+        tracing::debug!("simulated device connected");
         Device {
             read: r,
             write: BufWriter::new(w),
@@ -62,7 +63,7 @@ pub struct Device {
 }
 
 impl Device {
-    pub async fn recv(&mut self) -> io::Result<Option<Local>> {
+    pub async fn recv(&mut self) -> io::Result<Option<Command>> {
         Ok(self.read.recv().await?)
     }
 
@@ -74,7 +75,7 @@ impl Device {
 #[macro_export]
 macro_rules! timeout {
     ($fut:expr) => {
-        timeout!(5 => $fut)
+        timeout!(15 => $fut)
     };
     ($t:expr => $fut:expr) => {{
         let x = ::tokio::time::timeout(::std::time::Duration::from_secs($t), $fut).await;

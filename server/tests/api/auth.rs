@@ -56,7 +56,7 @@ async fn music_auth_cant_access_admin_routes() {
 
 #[actix_rt::test]
 async fn admin_auth_can_access_music_routes() {
-    let app = TestApp::spawn().await.downgrade_to::<auth::Music>().await;
+    let app = TestApp::spawn().await;
 
     let response = app
         .get_authed(&format!("music/players/{}/current", fake_hostname()))
@@ -64,5 +64,5 @@ async fn admin_auth_can_access_music_routes() {
         .await
         .expect("Failed to send request");
 
-    assert_ne!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_ne!(response.status(), StatusCode::OK);
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM api_tokens WHERE hostname = $1",
+  "query": "DELETE FROM music_sessions WHERE id = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "f83ede9bcf55e29b4c3e90320b5b8816cb708dea02c4bc3be4afe2912164fc0f"
+  "hash": "1cb2bccc04c69e4b022f1fa425ca1e1b581cbaa23e3fa552b1efbc2eefe08846"
 }

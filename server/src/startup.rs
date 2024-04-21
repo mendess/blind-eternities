@@ -29,7 +29,7 @@ pub fn run(
     if run_config.enable_metrics {
         tokio::spawn(metrics::start_metrics_endpoint()?);
     }
-    let conn = web::Data::from(db);
+    let db = web::Data::from(db);
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
@@ -42,8 +42,9 @@ pub fn run(
             })
             .service(admin::routes())
             .service(machine_status::routes())
-            .service(music_players::routes())
-            .app_data(conn.clone())
+            .service(persistent_connections::routes())
+            .service(music::routes())
+            .app_data(db.clone())
             .app_data(connections.clone())
     })
     .listen(server_listener)?;

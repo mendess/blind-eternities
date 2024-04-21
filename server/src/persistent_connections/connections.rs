@@ -5,10 +5,12 @@ use std::{
 };
 
 use common::domain::Hostname;
-use spark_protocol::{ErrorResponse, Local};
+use spark_protocol::{Command, ErrorResponse};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-pub(super) type Request = (Local, oneshot::Sender<Response>);
+use crate::metrics;
+
+pub(super) type Request = (Command, oneshot::Sender<Response>);
 
 pub type Response = Result<spark_protocol::SuccessfulResponse, ErrorResponse>;
 
@@ -43,15 +45,19 @@ impl Connections {
         }
     }
 
-    pub(crate) async fn request(
+    pub(crate) async fn request<C>(
         &self,
         machine: &Hostname,
-        command: Local,
-    ) -> Result<Response, ConnectionError> {
+        command: C,
+    ) -> Result<Response, ConnectionError>
+    where
+        C: Into<Command>,
+    {
+        let command = command.into();
         match self.connected_hosts.lock().await.get(machine) {
             Some(conn) => {
                 let (tx, rx) = oneshot::channel();
-                let log_infos = command != Local::Heartbeat;
+                let log_infos = command != Command::Heartbeat;
                 if log_infos {
                     tracing::info!("sending spark command");
                 }
@@ -80,6 +86,7 @@ impl Connections {
         let (tx, rx) = mpsc::channel::<Request>(100);
         let gen = Generation::new();
         self.connected_hosts.lock().await.insert(machine, (gen, tx));
+        metrics::persistent_connected();
         (gen, rx)
     }
 
@@ -88,6 +95,7 @@ impl Connections {
         if let Entry::Occupied(o) = self.connected_hosts.lock().await.entry(machine) {
             if o.get().0 == gen {
                 o.remove_entry();
+                metrics::persistent_disconnected();
             }
         }
     }
