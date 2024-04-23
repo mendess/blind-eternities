@@ -1,12 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT true as exists FROM api_tokens WHERE token = $1 AND role = $2",
+  "query": "SELECT hostname FROM api_tokens WHERE token = $1 AND role = $2",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "exists",
-        "type_info": "Bool"
+        "name": "hostname",
+        "type_info": "Varchar"
       }
     ],
     "parameters": {
@@ -26,8 +26,8 @@
       ]
     },
     "nullable": [
-      null
+      false
     ]
   },
-  "hash": "4825f63301f603b9a49243300facfd9f6821eb53ccb2bbf9f438fb113b893f23"
+  "hash": "86ae1b7b703c5bf8ace33856a7be86307d1c87cddd5c6334b417b0d5b7380ae3"
 }

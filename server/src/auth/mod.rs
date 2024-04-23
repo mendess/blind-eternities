@@ -66,8 +66,8 @@ pub async fn check_token<R: Role>(conn: &PgPool, token: Uuid) -> Result<R, AuthE
         Some(role) => role,
         None => return Err(AuthError::UnauthorizedToken),
     };
-    let result = sqlx::query!(
-        "SELECT true as exists FROM api_tokens WHERE token = $1 AND role = $2",
+    let result = sqlx::query_scalar!(
+        "SELECT hostname FROM api_tokens WHERE token = $1 AND role = $2",
         token,
         role as priv_role::RoleKind
     )
@@ -75,7 +75,8 @@ pub async fn check_token<R: Role>(conn: &PgPool, token: Uuid) -> Result<R, AuthE
     .await
     .context("failed to fetch token from db")?;
 
-    if result.is_some() {
+    if let Some(hostname) = result {
+        tracing::info!(auth = hostname, "authorized");
         Ok(R::INSTANCE)
     } else {
         check_token::<R::Parent>(conn, token)
