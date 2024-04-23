@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE music_sessions\n                                        SET\n                                            expires_at = NOW() + interval '4 hours',\n                                            id = substr(md5(random()::text), 0, 7)\n                                        WHERE hostname = $1\n                                        RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b1a1537ed17db6aa40d6c16c9764316ee65b85df3b5375d49ddc2c2f2f963dad"
+}
