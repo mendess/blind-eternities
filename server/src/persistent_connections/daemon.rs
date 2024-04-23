@@ -1,7 +1,4 @@
-use std::{
-    any::type_name, convert::Infallible, future::Future, io, net::SocketAddr, sync::Arc,
-    time::Duration,
-};
+use std::{any::type_name, convert::Infallible, future::Future, io, sync::Arc, time::Duration};
 
 use common::net::{
     MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, RecvError, WriteJsonLinesExt,
@@ -135,16 +132,15 @@ where
 
 async fn handle_a_connection(
     conn: &mut TcpStream,
-    addr: SocketAddr,
     db: Arc<PgPool>,
     connections: Arc<Connections>,
 ) -> Option<()> {
     // accept a connection
-    let (mut reader, mut writer, addr) = {
+    let (mut reader, mut writer) = {
         let (r, w) = conn.split();
-        (BufReader::new(r), BufWriter::new(w), addr)
+        (BufReader::new(r), BufWriter::new(w))
     };
-    tracing::info!(%addr, "accepted a connection");
+    tracing::info!("accepted a connection");
 
     // start protocol
     let (gen, hostname, rx) = async {
@@ -164,7 +160,7 @@ async fn handle_a_connection(
         tracing::info!(connected_hostname = %hostname, "connection established");
         Some((gen, hostname, rx))
     }
-    .instrument(tracing::info_span!("protocol", %addr))
+    .instrument(tracing::info_span!("protocol"))
     .await?;
 
     let _span = tracing::debug_span!(
@@ -263,7 +259,9 @@ pub(super) async fn start(
         let connections = connections.clone();
         let db = db.clone();
         tokio::spawn(async move {
-            handle_a_connection(&mut conn, addr, db, connections).await;
+            handle_a_connection(&mut conn, db, connections)
+                .instrument(tracing::info_span!("handling a persistent connection", %addr))
+                .await;
             match tokio::time::timeout(Duration::from_secs(60), conn.shutdown()).await {
                 Ok(Ok(_)) => {}
                 Ok(Err(e)) => tracing::error!(?e, "failed to shutdown conn"),
