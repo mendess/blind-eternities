@@ -119,7 +119,6 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
                 daemon::persistent_conn::send(config, hostname, cmd.into()).await?
             };
             println!("{}", response.display());
-
             Ok(ExitStatus::from_raw(0))
         }
         Cmd::Backend(cmd) => backend::handle(cmd, config)
