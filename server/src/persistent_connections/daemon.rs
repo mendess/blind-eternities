@@ -17,7 +17,7 @@ use tokio::{
     sync::mpsc,
     time::timeout,
 };
-use tracing::{instrument, Instrument};
+use tracing::Instrument;
 
 use crate::{auth, metrics, persistent_connections::connections::Request};
 
@@ -56,13 +56,7 @@ macro_rules! send {
     }}
 }
 
-#[instrument("receiving from client", skip(reader, writer, verifier))]
-async fn receive<T, V, R, W, F, E, Fut>(
-    reader: &mut R,
-    writer: &mut W,
-    name: &str,
-    verifier: F,
-) -> Option<V>
+async fn receive<T, V, R, W, F, E, Fut>(reader: &mut R, writer: &mut W, verifier: F) -> Option<V>
 where
     T: DeserializeOwned,
     R: ReadJsonLinesExt,
@@ -147,13 +141,13 @@ async fn handle_a_connection(
         let hostname = receive(
             &mut reader,
             &mut writer,
-            "receiving syn",
             |MetaProtocolSyn { hostname, token }| async move {
                 auth::check_token::<auth::Admin>(&db, token)
                     .await
                     .map(|_| hostname)
             },
         )
+        .instrument(tracing::info_span!("receiving from client", what = "syn"))
         .await?;
 
         let (gen, rx) = connections.insert(hostname.clone()).await;

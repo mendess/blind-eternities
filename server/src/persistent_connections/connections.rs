@@ -54,14 +54,20 @@ impl Connections {
         C: Into<Command>,
     {
         let command = command.into();
-        match self.connected_hosts.lock().await.get(machine) {
-            Some(conn) => {
+        let channel = self
+            .connected_hosts
+            .lock()
+            .await
+            .get(machine)
+            .map(|(_, ch)| ch.clone());
+        match channel {
+            Some(channel) => {
                 let (tx, rx) = oneshot::channel();
                 let log_infos = command != Command::Heartbeat;
                 if log_infos {
                     tracing::info!("sending spark command");
                 }
-                conn.1
+                channel
                     .send((command, tx))
                     .await
                     .map_err(|_| ConnectionError::ConnectionDropped)?;
