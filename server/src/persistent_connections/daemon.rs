@@ -22,7 +22,7 @@ use tokio::{
 };
 use tracing::{instrument, Instrument};
 
-use crate::{auth, persistent_connections::connections::Request};
+use crate::{auth, metrics, persistent_connections::connections::Request};
 
 use super::{connections::Connections, ConnectionError};
 
@@ -259,13 +259,19 @@ pub(super) async fn start(
     tokio::spawn(heartbeat_checker(connections.clone()));
     loop {
         let (mut conn, addr) = listener.accept().await?;
+        metrics::live_persistent_connection_sockets().inc();
         let connections = connections.clone();
         let db = db.clone();
         tokio::spawn(async move {
             handle_a_connection(&mut conn, addr, db, connections).await;
-            if let Err(e) = conn.shutdown().await {
-                tracing::error!(?e, "failed to shutdown conn");
+            match tokio::time::timeout(Duration::from_secs(60), conn.shutdown()).await {
+                Ok(Ok(_)) => {}
+                Ok(Err(e)) => tracing::error!(?e, "failed to shutdown conn"),
+                Err(_timeout) => {
+                    tracing::error!("timeout while shutting down persistent connection socket")
+                }
             }
+            metrics::live_persistent_connection_sockets().dec();
         });
     }
 }

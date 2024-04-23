@@ -21,6 +21,17 @@ pub fn new_request(route: &str, method: &Method) {
         .inc();
 }
 
+pub fn live_persistent_connection_sockets() -> &'static IntGauge {
+    static METRICS: OnceLock<IntGauge> = OnceLock::new();
+    METRICS.get_or_init(|| {
+        register_int_gauge!(
+            "live_persistent_connection_sockets",
+            "Number of open sockets for persistent connections",
+        )
+        .unwrap()
+    })
+}
+
 fn persistent_connections() -> &'static IntGauge {
     static METRICS: OnceLock<IntGauge> = OnceLock::new();
 
