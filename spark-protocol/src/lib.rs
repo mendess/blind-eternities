@@ -9,6 +9,14 @@ use tokio::io;
 
 pub use common::net::RecvError;
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[cfg_attr(feature = "clap", derive(clap::Subcommand))]
+pub enum Spawn {
+#[cfg_attr(feature = "clap", arg(short, long))]
+        detach: bool,
+        Vec<String>,
+}
+
 /// Command to send to a spark instance.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[cfg_attr(feature = "clap", derive(clap::Subcommand))]
@@ -21,16 +29,9 @@ pub enum Command {
     Music(music::MusicCmd),
     /// Returns the running version
     Version,
+    /// Spawn a process on the host
+    Spawn(Spawn),
 }
-
-// /// Hits the spark instance in a remote machine
-// #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-// #[cfg_attr(feature = "clap", derive(clap::Parser))]
-// pub struct Remote {
-//     pub machine: Hostname,
-//     #[cfg_attr(feature = "clap", command(subcommand))]
-//     pub command: Command,
-// }
 
 pub type Response = Result<SuccessfulResponse, ErrorResponse>;
 
@@ -39,6 +40,11 @@ pub enum SuccessfulResponse {
     Unit,
     Version(String),
     MusicResponse(music::Response),
+    SpawnOutput {
+        status_code: ExitCode,
+        stdout: String,
+        stderr: String,
+    },
 }
 
 impl From<music::Response> for SuccessfulResponse {
@@ -66,7 +72,7 @@ impl fmt::Display for ResponseDisplay<'_> {
             Ok(response) => match response {
                 SuccessfulResponse::Unit => f.write_str("success"),
                 SuccessfulResponse::Version(version) => f.write_str(version),
-                SuccessfulResponse::MusicResponse(music_resp) => {
+                SuccessfulResponse::Music(music_resp) => {
                     use music::{Chapter, Response::*};
                     match music_resp {
                         Title { title } => write!(f, "Now playing: {title}"),
@@ -104,6 +110,15 @@ impl fmt::Display for ResponseDisplay<'_> {
                             writeln!(f, "--> moved to {moved_to}.")?;
                             writeln!(f, "Currently playing {current}")
                         }
+                    }
+                }
+                SuccessfulResponse::SpawnOutput { status, stdout, stderr } => {
+                    println!("Returned {status}");
+                    if !stdout.is_empty() {
+                        println!("{stdout}");
+                    }
+                    if !stderr.is_empty() {
+                        eprintln!("{stderr}");
                     }
                 }
             },
