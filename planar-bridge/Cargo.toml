@@ -1,0 +1,21 @@
+[package]
+name = "planar-bridge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-files.workspace = true
+actix-web.workspace = true
+askama.workspace = true
+askama_actix.workspace = true
+common = { path = "../common" }
+config.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+spark-protocol = { path = "../spark-protocol" }
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+url = { workspace = true, features = ["serde"] }
+uuid.workspace = true

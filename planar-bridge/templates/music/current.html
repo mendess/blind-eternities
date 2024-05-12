@@ -1,0 +1,9 @@
+<h2 id="title" class="font-bold m-4">{{ title }}</h2>
+{% if let Some(chapter) = chapter %}
+<h3 id="chapter">{{ chapter.index }} - {{ chapter.title }}</h3>
+{% endif %}
+<br>
+<div class="mx-auto w-full bg-gray-200 rounded-full h-1.5 mb-4 dark:bg-gray-700 md:w-1/2">
+  <div class="bg-blue-600 h-1.5 rounded-full dark:bg-blue-500" style="width: {{ progress.round() }}%"></div>
+</div>
+<br>

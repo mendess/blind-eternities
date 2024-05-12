@@ -4,7 +4,7 @@ mod daemon;
 mod routing;
 mod util;
 
-use std::{os::unix::prelude::ExitStatusExt, process::ExitStatus};
+use std::{io::IsTerminal, os::unix::prelude::ExitStatusExt, process::ExitStatus};
 
 use anyhow::Context;
 use clap::{CommandFactory, Parser, Subcommand};
@@ -104,7 +104,7 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
                 None => daemon::ipc::send(&msg, config).await?,
                 Some(hostname) => daemon::persistent_conn::send(config, hostname, msg).await?,
             };
-            println!("{}", response.display());
+            show_response(response);
             Ok(ExitStatus::from_raw(0))
         }
         Cmd::Music {
@@ -118,7 +118,7 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
             } else {
                 daemon::persistent_conn::send(config, hostname, cmd.into()).await?
             };
-            println!("{}", response.display());
+            show_response(response);
             Ok(ExitStatus::from_raw(0))
         }
         Cmd::Backend(cmd) => backend::handle(cmd, config)
@@ -128,6 +128,14 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
             clap_complete::generate(shell, &mut Args::command(), "spark", &mut std::io::stdout());
             Ok(ExitStatus::from_raw(0))
         }
+    }
+}
+
+fn show_response(response: spark_protocol::Response) {
+    if std::io::stdout().is_terminal() {
+        println!("{}", response.display());
+    } else {
+        serde_json::to_writer(std::io::stdout().lock(), &response).unwrap()
     }
 }
 
