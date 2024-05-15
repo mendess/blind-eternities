@@ -1,3 +1,5 @@
+use std::time::{Duration, SystemTime};
+
 use common::{domain::Hostname, net::AuthenticatedClient};
 
 use crate::config::Config;
@@ -6,9 +8,10 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
     let client = AuthenticatedClient::try_from(&config)?;
     match cmd {
         crate::Backend::Persistents => display_persistent_connections(client).await?,
-        crate::Backend::CreateMusicSession { hostname } => {
-            create_music_session(client, hostname).await?
-        }
+        crate::Backend::CreateMusicSession {
+            hostname,
+            expire_in,
+        } => create_music_session(client, hostname, expire_in).await?,
         crate::Backend::DeleteMusicSession { session } => {
             delete_music_session(client, session).await?
         }
@@ -36,9 +39,20 @@ async fn display_persistent_connections(client: AuthenticatedClient) -> anyhow::
 async fn create_music_session(
     client: AuthenticatedClient,
     hostname: Hostname,
+    expire_in: Option<Duration>,
 ) -> anyhow::Result<()> {
-    let token = client
-        .get(&format!("/admin/music-session/{hostname}"))?
+    let mut req = client.get(&format!("/admin/music-session/{hostname}"))?;
+    if let Some(expire_in) = expire_in {
+        let now = SystemTime::now() + expire_in;
+        req = req.query(&[
+            "expire_at",
+            &now.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                .to_string(),
+        ]);
+    }
+    let token = req
         .send()
         .await?
         .error_for_status()?

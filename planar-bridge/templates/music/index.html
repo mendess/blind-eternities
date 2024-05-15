@@ -10,7 +10,7 @@
     <style>body { background: black; }</style>
   </head>
   <body class="text-white text-center items-center justify-center">
-    <h1 class="text-6xl md:text-8xl italic font-extrabold">Jukebox</h1>
+    <h1 class="text-2xl italic font-extrabold">Jukebox</h1>
     <div>
       <div>
         <div hx-get="/music/current?{{ query_string }}"
@@ -52,8 +52,15 @@
         </div>
       </div>
       {% include "volume-control.html" %}
-      <div>
-        <!-- <input label="search"> -->
+      <div class="flex flex-col items-center">
+        <input class="m-4 px-4 py-2 border rounded-md focus:outline-none focus:border-blue-500"
+               style="color:black"
+               type="search" name="search" placeholder="queue a song"
+               hx-post="/music/search?{{ query_string }}"
+               hx-trigger="load, input changed delay:100ms, search"
+               hx-target="#search-results">
+        <p id="queuing" class="htmx-indicator">queueing...</p>
+        <ul class="justify-center text-surface dark:text-white" id="search-results"></ul>
       </div>
     </div>
   </body>

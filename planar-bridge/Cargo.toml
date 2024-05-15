@@ -11,11 +11,14 @@ askama_actix.workspace = true
 common = { path = "../common" }
 config.workspace = true
 futures.workspace = true
-reqwest.workspace = true
+mlib = { workspace = true, features = ["playlist"] }
+reqwest = { workspace = true, features = ["stream"] }
 serde.workspace = true
 spark-protocol = { path = "../spark-protocol" }
 thiserror.workspace = true
-tracing.workspace = true
 tracing-subscriber.workspace = true
+tracing.workspace = true
+tokio-util.workspace = true
+tokio.workspace = true
 url = { workspace = true, features = ["serde"] }
 uuid.workspace = true

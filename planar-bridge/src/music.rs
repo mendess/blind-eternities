@@ -1,4 +1,8 @@
-use std::io;
+use std::{
+    io,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use actix_web::{
     web::{self, get, post},
@@ -6,7 +10,8 @@ use actix_web::{
 };
 use askama_actix::Template;
 use common::domain::{music_session::MusicSession, Hostname};
-use futures::{future::LocalBoxFuture, FutureExt};
+use futures::{future::LocalBoxFuture, FutureExt, TryStreamExt};
+use mlib::playlist::{PartialSearchResult, Playlist};
 use reqwest::{
     header::{HeaderName, HeaderValue},
     StatusCode,
@@ -26,6 +31,8 @@ pub fn routes() -> actix_web::Scope {
         .route("/current", get().to(now_playing))
         .route("/volume", get().to(volume))
         .route("/ctl", post().to(ctl))
+        .route("/search", post().to(search))
+        .route("/queue", post().to(queue))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -36,6 +43,8 @@ enum Error {
     Reqwest(#[from] reqwest::Error),
     #[error("unexpected response")]
     UnexpectedBackendResponse(String),
+    #[error("mlib error")]
+    Mlib(#[from] mlib::Error),
     #[error("player not found")]
     PlayerOrSessionNotFound,
     #[error("unauthorized")]
@@ -48,7 +57,7 @@ async fn request_from_backend(
     client: &Backend,
     target: &Target,
     cmd: MusicCmdKind,
-) -> Result<spark_protocol::Response, Error> {
+) -> Result<spark_protocol::music::Response, Error> {
     let request = match target {
         Target::Host { hostname, auth } => client
             .post(&format!("/persistent-connections/send/{hostname}"))
@@ -72,13 +81,21 @@ async fn request_from_backend(
         return Err(Error::PlayerOrSessionNotFound);
     }
 
-    Ok(response.error_for_status()?.json().await?)
+    match response
+        .error_for_status()?
+        .json::<spark_protocol::Response>()
+        .await?
+    {
+        Ok(SuccessfulResponse::MusicResponse(r)) => Ok(r),
+        Ok(r) => Err(Error::UnexpectedBackendResponse(format!("{r:?}"))),
+        Err(e) => Err(Error::UnexpectedBackendResponse(format!("{e:?}"))),
+    }
 }
 
 impl ResponseError for Error {
     fn status_code(&self) -> reqwest::StatusCode {
         match self {
-            Self::Io(_) | Self::Reqwest(_) | Self::UnexpectedBackendResponse(_) => {
+            Self::Io(_) | Self::Reqwest(_) | Self::UnexpectedBackendResponse(_) | Self::Mlib(_) => {
                 reqwest::StatusCode::INTERNAL_SERVER_ERROR
             }
             Self::PlayerOrSessionNotFound => reqwest::StatusCode::NOT_FOUND,
@@ -158,13 +175,13 @@ struct NowPlaying {
 async fn now_playing(backend: web::Data<Backend>, target: Target) -> Result<NowPlaying, Error> {
     let response = request_from_backend(&backend, &target, MusicCmdKind::Current).await?;
 
-    let Ok(SuccessfulResponse::MusicResponse(Response::Current {
+    let Response::Current {
         paused,
         title,
         chapter,
         volume: _,
         progress,
-    })) = response
+    } = response
     else {
         tracing::error!(?response, "unexpected backend response");
         return Err(Error::UnexpectedBackendResponse(format!("{response:?}")));
@@ -190,11 +207,6 @@ async fn ctl(
 ) -> Result<actix_web::HttpResponse, Error> {
     tracing::info!(?cmd, "ctl");
     let response = request_from_backend(&backend, &target, cmd.into_inner().command).await?;
-    let response = match response {
-        Err(e) => return Err(Error::UnexpectedBackendResponse(format!("{e:?}"))),
-        Ok(SuccessfulResponse::MusicResponse(r)) => r,
-        Ok(r) => return Err(Error::UnexpectedBackendResponse(format!("{r:?}"))),
-    };
     let res = match response {
         Response::PlayState { paused } => {
             HttpResponse::build(StatusCode::OK).body(PlayPause { paused }.render().unwrap())
@@ -216,9 +228,108 @@ async fn ctl(
 
 async fn volume(backend: web::Data<Backend>, target: Target) -> Result<String, Error> {
     let response = request_from_backend(&backend, &target, MusicCmdKind::Current).await?;
-    let Ok(SuccessfulResponse::MusicResponse(Response::Current { volume, .. })) = response else {
+    let Response::Current { volume, .. } = response else {
         return Err(Error::UnexpectedBackendResponse(format!("{response:?}")));
     };
 
     Ok(volume.to_string())
+}
+
+#[derive(Template)]
+#[template(path = "music/search-results.html")]
+struct SearchResults {
+    songs: Vec<String>,
+    target: Target,
+}
+
+#[derive(Deserialize, Debug)]
+struct SearchFormData {
+    search: String,
+}
+
+async fn search(
+    target: Target,
+    web::Form(SearchFormData { search }): web::Form<SearchFormData>,
+) -> Result<SearchResults, Error> {
+    let playlist = load_playlist().await?;
+    let mut songs = if search.is_empty() {
+        playlist.songs.iter().map(|s| s.name.clone()).collect()
+    } else {
+        match playlist.partial_name_search(search.split_whitespace()) {
+            PartialSearchResult::None => vec![],
+            PartialSearchResult::One(index) => vec![index.name.clone()],
+            PartialSearchResult::Many(names) => names,
+        }
+    };
+
+    songs.insert(0, search);
+
+    Ok(SearchResults { songs, target })
+}
+
+#[derive(Deserialize, Debug)]
+struct QueueCommand {
+    query: String,
+    search: bool,
+}
+
+#[derive(Template)]
+#[template(
+    source = "<span>queued behind {{ distance }} songs!</span>",
+    ext = "html"
+)]
+struct QueueSummary {
+    distance: usize,
+}
+
+async fn queue(
+    backend: web::Data<Backend>,
+    target: Target,
+    web::Json(QueueCommand { query, search }): web::Json<QueueCommand>,
+) -> Result<QueueSummary, Error> {
+    let response =
+        request_from_backend(&backend, &target, MusicCmdKind::Queue { query, search }).await?;
+    let Response::QueueSummary {
+        moved_to, current, ..
+    } = response
+    else {
+        return Err(Error::UnexpectedBackendResponse(format!("{response:?}")));
+    };
+    println!("queueing {search}");
+    Ok(QueueSummary {
+        distance: moved_to.saturating_sub(current),
+    })
+}
+
+async fn load_playlist() -> Result<Arc<Playlist>, Error> {
+    static PLAYLIST: tokio::sync::Mutex<Option<(Arc<Playlist>, SystemTime)>> =
+        tokio::sync::Mutex::const_new(None);
+
+    const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
+
+    let mut guard = PLAYLIST.lock().await;
+
+    return match guard
+        .as_mut()
+        .filter(|(_, time)| time.duration_since(SystemTime::UNIX_EPOCH).unwrap() < ONE_HOUR)
+    {
+        Some((playlist, _)) => Ok(playlist.clone()),
+        None => Ok(guard
+            .insert((Arc::new(init().await?), SystemTime::now()))
+            .0
+            .clone()),
+    };
+
+    async fn init() -> Result<Playlist, Error> {
+        let playlist_request = reqwest::get(
+            "https://raw.githubusercontent.com/mendess/spell-book/master/runes/m/playlist",
+        )
+        .await?;
+
+        let stream = tokio_util::io::StreamReader::new(
+            playlist_request.bytes_stream().map_err(io::Error::other),
+        );
+
+        Ok(Playlist::load_from_reader(stream).await?)
+    }
 }

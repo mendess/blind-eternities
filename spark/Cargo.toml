@@ -9,17 +9,19 @@ edition = "2021"
 anyhow.workspace = true
 arrayvec.workspace = true
 chrono.workspace = true
+clap.workspace = true
+clap_complete.workspace = true
 common = { path = "../common" }
 config.workspace = true
 dirs.workspace = true
 futures.workspace = true
+humantime.workspace = true
 itertools.workspace = true
 once_cell.workspace = true
 open.workspace = true
 pnet.workspace = true
+public-ip.workspace = true
 serde.workspace = true
-clap.workspace = true
-clap_complete.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
@@ -27,10 +29,9 @@ tracing = { workspace = true, features = ["log"] }
 tracing-bunyan-formatter.workspace = true
 tracing-futures.workspace = true
 tracing-log.workspace = true
+url = { workspace = true, features = ["serde"] }
 uuid.workspace = true
 whoami.workspace = true
-url = { workspace = true, features = ["serde"] }
-public-ip.workspace = true
 
 [dependencies.tracing-subscriber]
 workspace = true

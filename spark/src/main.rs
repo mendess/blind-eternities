@@ -4,7 +4,7 @@ mod daemon;
 mod routing;
 mod util;
 
-use std::{io::IsTerminal, os::unix::prelude::ExitStatusExt, process::ExitStatus};
+use std::{io::IsTerminal, os::unix::prelude::ExitStatusExt, process::ExitStatus, time::Duration};
 
 use anyhow::Context;
 use clap::{CommandFactory, Parser, Subcommand};
@@ -74,7 +74,11 @@ enum Backend {
     /// list persistent connections
     Persistents,
     /// add a music auth token
-    CreateMusicSession { hostname: Hostname },
+    CreateMusicSession {
+        hostname: Hostname,
+        #[arg(short, long, value_parser = humantime::parse_duration)]
+        expire_in: Option<Duration>,
+    },
     /// delete a music auth token
     DeleteMusicSession { session: String },
 }

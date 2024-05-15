@@ -10,6 +10,5 @@ pub fn routes() -> actix_web::Scope {
 }
 
 async fn file(path: web::Path<PathBuf>) -> io::Result<NamedFile> {
-    println!("file: {path:?}");
-    NamedFile::open(dbg!(Path::new("planar-bridge/assets").join(&*path)))
+    NamedFile::open(Path::new("planar-bridge/assets").join(&*path))
 }
