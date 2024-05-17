@@ -1,6 +1,7 @@
 use core::fmt;
 use std::str::FromStr;
 
+use chrono::{DateTime, Utc};
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
@@ -71,4 +72,9 @@ impl<'de> Deserialize<'de> for MusicSession {
 
         deserializer.deserialize_str(Visitor)
     }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExpiresAt {
+    pub expires_at: Option<DateTime<Utc>>,
 }

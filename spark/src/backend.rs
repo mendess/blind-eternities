@@ -1,6 +1,10 @@
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
-use common::{domain::Hostname, net::AuthenticatedClient};
+use chrono::Utc;
+use common::{
+    domain::{music_session::ExpiresAt, Hostname},
+    net::AuthenticatedClient,
+};
 
 use crate::config::Config;
 
@@ -41,18 +45,11 @@ async fn create_music_session(
     hostname: Hostname,
     expire_in: Option<Duration>,
 ) -> anyhow::Result<()> {
-    let mut req = client.get(&format!("/admin/music-session/{hostname}"))?;
-    if let Some(expire_in) = expire_in {
-        let now = SystemTime::now() + expire_in;
-        req = req.query(&[
-            "expire_at",
-            &now.duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-                .to_string(),
-        ]);
-    }
-    let token = req
+    let token = client
+        .get(&format!("/admin/music-session/{hostname}"))?
+        .query(&ExpiresAt {
+            expires_at: expire_in.map(|d| Utc::now() + d),
+        })
         .send()
         .await?
         .error_for_status()?

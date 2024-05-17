@@ -61,7 +61,10 @@ pub async fn delete_token<R: Role>(pool: &PgPool, name: &str) -> Result<(), Auth
 
 #[async_recursion::async_recursion]
 #[tracing::instrument(skip_all, fields(token_kind = ?R::KIND, result))]
-pub async fn check_token<R: Role>(conn: &PgPool, token: Uuid) -> Result<R, AuthError> {
+pub async fn check_token<R>(conn: &PgPool, token: Uuid) -> Result<R, AuthError>
+where
+    R: Role,
+{
     let role = match R::KIND {
         Some(role) => role,
         None => return Err(AuthError::UnauthorizedToken),

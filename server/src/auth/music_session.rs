@@ -3,11 +3,12 @@ use std::{
     future::{ready, Future},
     ops::ControlFlow,
     str::FromStr,
+    time::Duration,
 };
 
 use common::domain::Hostname;
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use sqlx::{types::chrono, PgPool};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
@@ -68,13 +69,21 @@ impl FromStr for Constraint {
 }
 
 impl MusicSession {
-    pub async fn create_for_2(db: &PgPool, hostname: &Hostname) -> sqlx::Result<Self> {
+    pub async fn create_for(
+        db: &PgPool,
+        hostname: &Hostname,
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> sqlx::Result<Self> {
+        let expires_at = expires_at
+            .unwrap_or_else(|| chrono::Utc::now() + Duration::from_secs(60 * 60 * 4))
+            .naive_utc();
         let id = handle_constraint_violations(
             || {
                 sqlx::query_scalar!(
                     "INSERT INTO music_sessions (id, expires_at, hostname) VALUES
-                    (substr(md5(random()::text), 0, 7), NOW() + interval '4 hours', $1)
+                    (substr(md5(random()::text), 0, 7), $1, $2)
                     RETURNING id",
+                    expires_at,
                     hostname.as_ref()
                 )
                 .fetch_one(db)
@@ -82,7 +91,9 @@ impl MusicSession {
             |constraint| async move {
                 match constraint {
                     Constraint::UniqueId => Ok(ControlFlow::Continue(())),
-                    Constraint::UniqueHostname => update_existing_token(db, hostname).await,
+                    Constraint::UniqueHostname => {
+                        update_existing_token(db, hostname, expires_at).await
+                    }
                 }
             },
         )
@@ -91,12 +102,14 @@ impl MusicSession {
         async fn update_existing_token(
             db: &PgPool,
             hostname: &Hostname,
+            expires_at: ::chrono::prelude::NaiveDateTime,
         ) -> sqlx::Result<ControlFlow<String>> {
             let updated_id = sqlx::query_scalar!(
                 "UPDATE music_sessions
-                SET expires_at = (NOW() + interval '4 hours')
-                WHERE hostname = $1 AND expires_at > NOW()
+                SET expires_at = $1
+                WHERE hostname = $2 AND expires_at > NOW()
                 RETURNING id",
+                expires_at,
                 hostname.as_ref()
             )
             .fetch_optional(db)
@@ -104,23 +117,25 @@ impl MusicSession {
             Ok(ControlFlow::Break(match updated_id {
                 Some(id) => id,
                 // existing token has expired
-                None => overwrite_with_new_token(db, hostname).await?,
+                None => overwrite_with_new_token(db, hostname, expires_at).await?,
             }))
         }
 
         async fn overwrite_with_new_token(
             db: &PgPool,
             hostname: &Hostname,
+            expires_at: ::chrono::prelude::NaiveDateTime,
         ) -> sqlx::Result<String> {
             handle_constraint_violations(
                 || {
                     sqlx::query_scalar!(
                         "UPDATE music_sessions
                         SET
-                            expires_at = NOW() + interval '4 hours',
+                            expires_at = $1,
                             id = substr(md5(random()::text), 0, 7)
-                        WHERE hostname = $1
+                        WHERE hostname = $2
                         RETURNING id",
+                        expires_at,
                         hostname.as_ref(),
                     )
                     .fetch_one(db)
@@ -134,71 +149,6 @@ impl MusicSession {
             )
             .await
         }
-
-        Ok(Self(id))
-    }
-
-    pub async fn create_for(db: &PgPool, hostname: &Hostname) -> sqlx::Result<Self> {
-        let id = loop {
-            let result = sqlx::query!(
-                "INSERT INTO music_sessions (id, expires_at, hostname) VALUES
-                (substr(md5(random()::text), 0, 7), NOW() + interval '4 hours', $1)
-                RETURNING id",
-                hostname.as_ref()
-            )
-            .fetch_one(db)
-            .await;
-
-            match result {
-                Ok(record) => break record.id,
-                Err(sqlx::Error::Database(error)) => match error.constraint() {
-                    Some("music_session_unique_ids") => continue,
-                    Some("music_sessions_unique_hostnames") => {
-                        let updated_id = sqlx::query_scalar!(
-                            "UPDATE music_sessions
-                            SET expires_at = (NOW() + interval '4 hours')
-                            WHERE hostname = $1 AND expires_at > NOW()
-                            RETURNING id",
-                            hostname.as_ref()
-                        )
-                        .fetch_optional(db)
-                        .await?;
-                        match updated_id {
-                            Some(id) => {
-                                break id;
-                            }
-                            None => {
-                                break loop {
-                                    let result = sqlx::query_scalar!(
-                                        "UPDATE music_sessions
-                                        SET
-                                            expires_at = NOW() + interval '4 hours',
-                                            id = substr(md5(random()::text), 0, 7)
-                                        WHERE hostname = $1
-                                        RETURNING id",
-                                        hostname.as_ref(),
-                                    )
-                                    .fetch_one(db)
-                                    .await;
-                                    match result {
-                                        Ok(id) => break id,
-                                        Err(sqlx::Error::Database(error)) => {
-                                            match error.constraint() {
-                                                Some("music_session_unique_ids") => continue,
-                                                _ => return Err(sqlx::Error::Database(error)),
-                                            }
-                                        }
-                                        Err(e) => return Err(e),
-                                    }
-                                };
-                            }
-                        }
-                    }
-                    _ => return Err(sqlx::Error::Database(error)),
-                },
-                Err(e) => return Err(e),
-            }
-        };
 
         Ok(Self(id))
     }

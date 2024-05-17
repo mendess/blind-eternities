@@ -1,5 +1,5 @@
 use actix_web::{web, HttpResponse, Responder, ResponseError};
-use common::domain::Hostname;
+use common::domain::{music_session::ExpiresAt, Hostname};
 use sqlx::PgPool;
 
 use crate::auth::{self, music_session::MusicSession};
@@ -33,8 +33,9 @@ async fn create_music_session(
     _: auth::Admin,
     db: web::Data<PgPool>,
     hostname: web::Path<Hostname>,
+    web::Query(ExpiresAt { expires_at }): web::Query<ExpiresAt>,
 ) -> Result<impl Responder, MusicSessionError> {
-    let id = MusicSession::create_for(&db, &hostname).await?;
+    let id = MusicSession::create_for(&db, &hostname, expires_at).await?;
     tracing::info!("created id = {id}");
 
     Ok(HttpResponse::Ok().json(id))
