@@ -15,7 +15,8 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
         crate::Backend::CreateMusicSession {
             hostname,
             expire_in,
-        } => create_music_session(client, hostname, expire_in).await?,
+            show_link,
+        } => create_music_session(client, hostname, expire_in, show_link).await?,
         crate::Backend::DeleteMusicSession { session } => {
             delete_music_session(client, session).await?
         }
@@ -44,6 +45,7 @@ async fn create_music_session(
     client: AuthenticatedClient,
     hostname: Hostname,
     expire_in: Option<Duration>,
+    show_link: bool,
 ) -> anyhow::Result<()> {
     let token = client
         .get(&format!("/admin/music-session/{hostname}"))?
@@ -56,7 +58,11 @@ async fn create_music_session(
         .json::<String>()
         .await?;
 
-    println!("session id is: {token}");
+    if show_link {
+        println!("url: https://planar-bridge.mendess.xyz/music?session={token}");
+    } else {
+        println!("session id is: {token}");
+    }
     Ok(())
 }
 

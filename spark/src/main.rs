@@ -78,6 +78,8 @@ enum Backend {
         hostname: Hostname,
         #[arg(short, long, value_parser = humantime::parse_duration)]
         expire_in: Option<Duration>,
+        #[arg(short = 'l', long, value_parser = humantime::parse_duration)]
+        show_link: bool,
     },
     /// delete a music auth token
     DeleteMusicSession { session: String },
