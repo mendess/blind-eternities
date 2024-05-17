@@ -56,7 +56,7 @@ features = ["json"]
 
 [dependencies.mlib]
 workspace = true
-features = ["player"]
+features = ["player", "playlist"]
 optional = true
 
 
