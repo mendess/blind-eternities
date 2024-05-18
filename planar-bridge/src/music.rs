@@ -5,6 +5,7 @@ use std::{
 };
 
 use actix_web::{
+    http::StatusCode,
     web::{self, get, post},
     FromRequest, HttpResponse, ResponseError,
 };
@@ -14,10 +15,6 @@ use futures::{future::LocalBoxFuture, FutureExt, TryStreamExt};
 use mlib::{
     playlist::{PartialSearchResult, Playlist},
     queue::Current,
-};
-use reqwest::{
-    header::{HeaderName, HeaderValue},
-    StatusCode,
 };
 use serde::Deserialize;
 use spark_protocol::{
@@ -96,14 +93,14 @@ async fn request_from_backend(
 }
 
 impl ResponseError for Error {
-    fn status_code(&self) -> reqwest::StatusCode {
+    fn status_code(&self) -> StatusCode {
         match self {
             Self::Io(_) | Self::Reqwest(_) | Self::UnexpectedBackendResponse(_) | Self::Mlib(_) => {
-                reqwest::StatusCode::INTERNAL_SERVER_ERROR
+                StatusCode::INTERNAL_SERVER_ERROR
             }
-            Self::PlayerOrSessionNotFound => reqwest::StatusCode::NOT_FOUND,
-            Self::Unauthorized => reqwest::StatusCode::UNAUTHORIZED,
-            Self::BadRequest => reqwest::StatusCode::BAD_REQUEST,
+            Self::PlayerOrSessionNotFound => StatusCode::NOT_FOUND,
+            Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::BadRequest => StatusCode::BAD_REQUEST,
         }
     }
 }
@@ -203,10 +200,7 @@ async fn ctl(
         Response::Volume { volume } => HttpResponse::build(StatusCode::OK).body(volume.to_string()),
         Response::Current { .. } | Response::QueueSummary { .. } => {
             HttpResponse::build(StatusCode::OK)
-                .insert_header((
-                    HeaderName::from_static("hx-trigger"),
-                    HeaderValue::from_static("new-current"),
-                ))
+                .insert_header(("hx-trigger", "new-current"))
                 .body(())
         }
         Response::Now { .. } => HttpResponse::build(StatusCode::BAD_REQUEST).into(),
