@@ -8,7 +8,7 @@ use mlib::{
         SmartQueueOpts,
     },
     playlist::PartialSearchResult,
-    queue::Queue,
+    queue::{CurrentOptions, Queue},
     Item, Link, Search,
 };
 use spark_protocol::{music::Response as MusicResponse, ErrorResponse};
@@ -109,7 +109,9 @@ pub async fn handle(cmd: spark_protocol::music::MusicCmd) -> spark_protocol::Res
         }
         spark_protocol::music::MusicCmdKind::Current => {
             async {
-                let current = Queue::current(player).await.map_err(forward)?;
+                let current = Queue::current(player, Default::default())
+                    .await
+                    .map_err(forward)?;
                 Ok(MusicResponse::Current { current })
             }
             .await
