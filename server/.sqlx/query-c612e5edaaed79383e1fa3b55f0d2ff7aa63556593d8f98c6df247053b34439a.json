@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO music_sessions (id, expires_at, hostname) VALUES\n                (substr(md5(random()::text), 0, 7), NOW() + interval '4 hours', $1)\n                RETURNING id",
+  "query": "INSERT INTO music_sessions (id, expires_at, hostname) VALUES\n                    (substr(md5(random()::text), 0, 7), $1, $2)\n                    RETURNING id",
   "describe": {
     "columns": [
       {
@@ -11,6 +11,7 @@
     ],
     "parameters": {
       "Left": [
+        "Timestamp",
         "Varchar"
       ]
     },
@@ -18,5 +19,5 @@
       false
     ]
   },
-  "hash": "ec19e77a703f9c42978a6e59bd9a760de1ec6287380bc471230f39c753ddce26"
+  "hash": "c612e5edaaed79383e1fa3b55f0d2ff7aa63556593d8f98c6df247053b34439a"
 }
