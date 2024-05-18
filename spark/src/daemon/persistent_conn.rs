@@ -48,8 +48,8 @@ async fn run(config: &Config, hostname: &Hostname, port: u16) -> anyhow::Result<
     }
     .await
     .context("SYN")?;
+    tracing::info!("receiving commands");
     loop {
-        tracing::info!("receiving command");
         let cmd = match timeout(
             PERSISTENT_CONN_RECV_TIMEOUT,
             read.recv::<spark_protocol::Command>(),
@@ -90,17 +90,12 @@ pub async fn send(
     hostname: Hostname,
     command: Command,
 ) -> anyhow::Result<spark_protocol::Response> {
-    let client = AuthenticatedClient::try_from(&config)?;
-    client
-        .post(&format!("/persistent-connections/send/{}", hostname))?
-        .json(&command)
-        .send()
-        .await
-        .context("sending request to persistent-connections/send")?
-        .error_for_status()?
-        .json::<spark_protocol::Response>()
-        .await
-        .context("deserializing response")
+    send_impl(
+        AuthenticatedClient::try_from(&config)?
+            .post(&format!("/persistent-connections/send/{}", hostname))?
+            .json(&command),
+    )
+    .await
 }
 
 pub async fn send_to_session(
@@ -108,15 +103,34 @@ pub async fn send_to_session(
     session: String,
     command: MusicCmdKind,
 ) -> anyhow::Result<spark_protocol::Response> {
-    let client = AuthenticatedClient::try_from(&config)?;
-    client
-        .post(&format!("/music/{}", session))?
-        .json(&command)
+    send_impl(
+        AuthenticatedClient::try_from(&config)?
+            .post(&format!("/music/{}", session))?
+            .json(&command),
+    )
+    .await
+}
+
+async fn send_impl(request: reqwest::RequestBuilder) -> anyhow::Result<spark_protocol::Response> {
+    let resp = request
         .send()
         .await
-        .context("sending request to persistent-connections/send")?
-        .error_for_status()?
-        .json::<spark_protocol::Response>()
-        .await
-        .context("deserializing response")
+        .context("sending request to persistent-connections/send")?;
+    if resp.status().is_success() {
+        resp.json::<spark_protocol::Response>()
+            .await
+            .context("deserializing response")
+    } else {
+        let error = resp
+            .error_for_status_ref()
+            .expect_err("we checked that this wasn't successful");
+
+        let text = resp
+            .text()
+            .await
+            .context("failed to get body of request when processing remote error")
+            .with_context(|| error.to_string())?;
+
+        Err(anyhow::anyhow!("{text}")).context(error)
+    }
 }

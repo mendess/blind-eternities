@@ -1,4 +1,4 @@
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{http::StatusCode, web, HttpResponse, Responder};
 use common::domain::Hostname;
 
 use crate::{
@@ -31,6 +31,9 @@ async fn send(
     match r {
         Ok(response) => HttpResponse::Ok().json(response),
         Err(ConnectionError::NotFound) => HttpResponse::NotFound().into(),
-        Err(ConnectionError::ConnectionDropped) => HttpResponse::InternalServerError().into(),
+        Err(ConnectionError::ConnectionDropped(Some(reason))) => {
+            HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR).body(reason)
+        }
+        Err(ConnectionError::ConnectionDropped(None)) => HttpResponse::InternalServerError().into(),
     }
 }

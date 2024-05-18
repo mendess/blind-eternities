@@ -32,8 +32,8 @@ pub struct Connections {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConnectionError {
-    #[error("connection dropped")]
-    ConnectionDropped,
+    #[error("connection dropped. reason: {0:?}")]
+    ConnectionDropped(Option<String>),
     #[error("not found")]
     NotFound,
 }
@@ -49,7 +49,7 @@ impl Connections {
         &self,
         machine: &Hostname,
         command: C,
-    ) -> Result<Response, ConnectionError>
+    ) -> Result<spark_protocol::Response, ConnectionError>
     where
         C: Into<Command>,
     {
@@ -70,11 +70,13 @@ impl Connections {
                 channel
                     .send((command, tx))
                     .await
-                    .map_err(|_| ConnectionError::ConnectionDropped)?;
+                    .map_err(|_| ConnectionError::ConnectionDropped(None))?;
                 if log_infos {
                     tracing::info!("waiting for response");
                 }
-                let resp = rx.await.map_err(|_| ConnectionError::ConnectionDropped)?;
+                let resp = rx
+                    .await
+                    .map_err(|e| ConnectionError::ConnectionDropped(Some(e.to_string())))?;
                 if log_infos {
                     tracing::info!(?resp, "received response");
                 }

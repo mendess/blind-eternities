@@ -6,7 +6,7 @@ use common::net::{
 };
 use futures::StreamExt;
 use serde::de::DeserializeOwned;
-use spark_protocol::{Command, Response};
+use spark_protocol::Command;
 use sqlx::PgPool;
 use tokio::{
     io::{AsyncWriteExt, BufReader, BufWriter},
@@ -172,33 +172,37 @@ async fn handle_a_connection(
             if cmd != Command::Heartbeat {
                 tracing::info!(?cmd, "received cmd");
             }
-            send!(write <- &cmd; {
-                e => return Err(e),
-                elapsed => continue,
-            });
-            let response = match timeout(TIMEOUT, read.recv()).await {
-                Ok(Ok(Some(r))) => r,
-                Ok(Ok(None)) => return Err(io::ErrorKind::UnexpectedEof.into()),
-                Ok(Err(e)) => {
-                    if let RecvError::Serde(e) = &e {
-                        let msg = MetaProtocolAck::DeserializationError {
-                            error: e.to_string(),
-                            expected_type: type_name::<Response>().into(),
-                        };
-                        send!(write <- msg; {
-                            e => return Err(e),
-                            elapsed => {}
-                        });
+            let mut timedout = false;
+            let response = match send!(write <- &cmd; { Ok(()), e => Err(e), elapsed => continue })
+            {
+                Ok(()) => match timeout(TIMEOUT, read.recv()).await {
+                    Ok(Ok(Some(r))) => r,
+                    Ok(Ok(None)) => Err(spark_protocol::ErrorResponse::RelayError(
+                        "connection closed by remote spark".into(),
+                    )),
+                    Ok(Err(e)) => Err(spark_protocol::ErrorResponse::RelayError(format!(
+                        "failed to receive the response sent by the remote spark: {e:?}"
+                    ))),
+                    Err(_elapsed) => {
+                        timedout = true;
+                        Err(spark_protocol::ErrorResponse::RelayError(
+                            "the remote spark took too long to respond. Resetting connection"
+                                .into(),
+                        ))
                     }
-                    return Err(e.into());
-                }
-                Err(_elapsed) => continue,
+                },
+                Err(e) => Err(spark_protocol::ErrorResponse::RelayError(format!(
+                    "failed to send command to remote spark: {e:?}"
+                ))),
             };
             tracing::debug!(?response, "received response");
             if let Err(r) = ch.send(response) {
                 tracing::error!(?cmd, response = ?r, "one shot channel closed");
             }
             tracing::debug!("forwarded response");
+            if timedout {
+                return Err(io::Error::other("timedout waiting for the remote spark."));
+            }
         }
         Ok(())
     }
@@ -223,7 +227,7 @@ async fn heartbeat_checker(connections: Arc<Connections>) {
                         .await
                     {
                         Err(ConnectionError::NotFound) | Ok(_) => None,
-                        Err(ConnectionError::ConnectionDropped) => Some((h, gen)),
+                        Err(ConnectionError::ConnectionDropped(_)) => Some((h, gen)),
                     }
                 }
             })

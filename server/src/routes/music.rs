@@ -26,9 +26,9 @@ impl ResponseError for MusicError {
             Self::ConnectionError(persistent_connections::ConnectionError::NotFound) => {
                 StatusCode::NOT_FOUND
             }
-            Self::ConnectionError(persistent_connections::ConnectionError::ConnectionDropped) => {
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
+            Self::ConnectionError(persistent_connections::ConnectionError::ConnectionDropped(
+                _,
+            )) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::SqlxError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

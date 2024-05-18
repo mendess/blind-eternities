@@ -62,7 +62,38 @@ pub struct ResponseDisplay<'s>(&'s Response);
 impl fmt::Display for ResponseDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
-            Err(e) => write!(f, "Error: {e:?}"),
+            Err(e) => {
+                f.write_str("Error: ")?;
+                let msg = match e {
+                    ErrorResponse::DeserializingCommand(msg) => {
+                        writeln!(f, "remote spark failed to deserialize your command")?;
+                        msg
+                    }
+                    ErrorResponse::ForwardedError(msg) => {
+                        writeln!(f, "remote spark failed to execute your command")?;
+                        msg
+                    }
+                    ErrorResponse::RequestFailed(msg) => {
+                        writeln!(f, "remote spark refused to execute your command")?;
+                        msg
+                    }
+                    ErrorResponse::IoError(msg) => {
+                        writeln!(
+                            f,
+                            "remote spark failed to execute your command due to an io error:"
+                        )?;
+                        msg
+                    }
+                    ErrorResponse::RelayError(msg) => {
+                        writeln!(
+                            f,
+                            "the blind-eternities encountered an error while communicating with the remote spark"
+                        )?;
+                        msg
+                    }
+                };
+                write!(f, " -> {msg}")
+            }
             Ok(response) => match response {
                 SuccessfulResponse::Unit => f.write_str("success"),
                 SuccessfulResponse::Version(version) => f.write_str(version),
@@ -113,13 +144,17 @@ impl fmt::Display for ResponseDisplay<'_> {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ErrorResponse {
+    /// The command could not be understood by the remote spark
     DeserializingCommand(String),
-    DeserializingResponse(String),
+    /// The remote spark encountered a generic error and could not continue.
     ForwardedError(String),
+    /// The remote spark refused to process the request
     RequestFailed(String),
-    NetworkError(String),
+    /// The remote spark encountered an io error and could not continue.
     IoError(String),
-    HttpError { status: u16, message: String },
+    /// The relay (blind-eternities) encountered an error when receiving the response from
+    /// the remote spark.
+    RelayError(String),
 }
 
 async fn socket_path() -> io::Result<PathBuf> {
