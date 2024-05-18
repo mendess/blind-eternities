@@ -78,7 +78,7 @@ enum Backend {
         hostname: Hostname,
         #[arg(short, long, value_parser = humantime::parse_duration)]
         expire_in: Option<Duration>,
-        #[arg(short = 'l', long, value_parser = humantime::parse_duration)]
+        #[arg(short = 'l', long)]
         show_link: bool,
     },
     /// delete a music auth token

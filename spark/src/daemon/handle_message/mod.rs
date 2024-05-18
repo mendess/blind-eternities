@@ -36,7 +36,7 @@ pub fn reload() -> Result<impl FnOnce(), ErrorResponse> {
     Ok(move || {
         thread::sleep(Duration::from_secs(1));
         let _guard = RELOADING.lock().unwrap();
-        tracing::info!("realoading spark daemon");
+        tracing::info!(?exe, "realoading spark daemon");
         let e = std::process::Command::new(exe).arg("daemon").exec();
         tracing::error!(?e, "exec self failed");
         if let Some(arg0) = std::env::args().next() {
