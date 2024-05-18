@@ -13,6 +13,7 @@ RUN rm -r ./src && \
     cargo new --quiet --bin server && \
     cargo new --quiet --lib common && \
     cargo new --quiet --lib spark-protocol && \
+    cargo new --quiet --lib planar-bridge && \
     cargo new --bin spark
 
 # cache dependencies
