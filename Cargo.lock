@@ -706,7 +706,7 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 [[package]]
 name = "cli-daemon"
 version = "0.1.1"
-source = "git+https://github.com/mendess/m?branch=oxidise#5b2184c9119225f50c9a6890dc5794c34f4bde75"
+source = "git+https://github.com/mendess/m?rev=cf0f65623a98c0d9a3763dbd494b9f14f85d9c25#cf0f65623a98c0d9a3763dbd494b9f14f85d9c25"
 dependencies = [
  "futures-util",
  "namespaced-tmp",
@@ -1878,8 +1878,8 @@ dependencies = [
 
 [[package]]
 name = "mlib"
-version = "0.6.5"
-source = "git+https://github.com/mendess/m?branch=oxidise#5b2184c9119225f50c9a6890dc5794c34f4bde75"
+version = "0.8.3"
+source = "git+https://github.com/mendess/m?rev=cf0f65623a98c0d9a3763dbd494b9f14f85d9c25#cf0f65623a98c0d9a3763dbd494b9f14f85d9c25"
 dependencies = [
  "arc-swap",
  "cli-daemon",
@@ -1891,10 +1891,12 @@ dependencies = [
  "memchr",
  "namespaced-tmp",
  "once_cell",
+ "pin-project",
  "regex",
  "serde",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tracing",
  "url",
 ]
@@ -2931,6 +2933,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "common",
+ "mlib",
  "namespaced-tmp",
  "serde",
  "serde_json",

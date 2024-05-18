@@ -1,6 +1,6 @@
-use std::{io, str::FromStr, time::Duration};
+use std::{future::Future, io, str::FromStr, time::Duration};
 
-use futures::{FutureExt, Stream, StreamExt};
+use futures::{future::join3, stream, FutureExt, Stream, StreamExt};
 use mlib::{
     players::{
         self,
@@ -8,6 +8,7 @@ use mlib::{
         SmartQueueOpts,
     },
     playlist::PartialSearchResult,
+    queue::Queue,
     Item, Link, Search,
 };
 use spark_protocol::{music::Response as MusicResponse, ErrorResponse};
@@ -108,18 +109,8 @@ pub async fn handle(cmd: spark_protocol::music::MusicCmd) -> spark_protocol::Res
         }
         spark_protocol::music::MusicCmdKind::Current => {
             async {
-                Ok(MusicResponse::Current {
-                    paused: player.is_paused().await.map_err(forward)?,
-                    title: player.media_title().await.map_err(forward)?,
-                    chapter: player.chapter_metadata().await.ok().flatten().map(|m| {
-                        spark_protocol::music::Chapter {
-                            title: m.title,
-                            index: m.index as u32,
-                        }
-                    }),
-                    volume: player.volume().await.map_err(forward)?,
-                    progress: player.percent_position().await.map_err(forward)?,
-                })
+                let current = Queue::current(player).await.map_err(forward)?;
+                Ok(MusicResponse::Current { current })
             }
             .await
         }
@@ -149,6 +140,40 @@ pub async fn handle(cmd: spark_protocol::music::MusicCmd) -> spark_protocol::Res
                     from: summary.from,
                     moved_to: summary.moved_to,
                     current: summary.current,
+                })
+            }
+            .await
+        }
+        spark_protocol::music::MusicCmdKind::Now { amount } => {
+            async {
+                impl<F> RustPls for F {}
+                trait RustPls: Sized {
+                    fn rust_pls<R>(self) -> impl Send + Future<Output = R>
+                    where
+                        Self: Send + Future<Output = R>,
+                    {
+                        self
+                    }
+                }
+                let queue = Queue::load(player, amount.unwrap_or(20))
+                    .await
+                    .map_err(forward)?;
+                let (before, current, after) = join3(
+                    stream::iter(queue.before())
+                        .then(|i| i.item.fetch_item_title().rust_pls())
+                        .collect(),
+                    queue.current_song().item.clone().fetch_item_title(),
+                    stream::iter(queue.after())
+                        .map(|i| i.item.fetch_item_title())
+                        .buffered(8)
+                        .collect(),
+                )
+                .rust_pls()
+                .await;
+                Ok(MusicResponse::Now {
+                    before,
+                    current,
+                    after,
                 })
             }
             .await

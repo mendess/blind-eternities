@@ -81,8 +81,9 @@ features = [
 
 [workspace.dependencies.mlib]
 git = "https://github.com/mendess/m"
-branch = "oxidise"
 default-features = false
+rev = "cf0f65623a98c0d9a3763dbd494b9f14f85d9c25"
+# path = "../m/mlib"
 
 [profile.release]
 debug = 2
