@@ -12,6 +12,7 @@ tracing.workspace = true
 thiserror.workspace = true
 common = { path = "../common" }
 clap = { workspace = true, optional = true }
+mlib = { workspace = true, features = ["queue"] }
 
 [dependencies.namespaced-tmp]
 git = "https://github.com/mendess/namespaced-tmp"

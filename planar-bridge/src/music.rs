@@ -11,7 +11,10 @@ use actix_web::{
 use askama_actix::Template;
 use common::domain::{music_session::MusicSession, Hostname};
 use futures::{future::LocalBoxFuture, FutureExt, TryStreamExt};
-use mlib::playlist::{PartialSearchResult, Playlist};
+use mlib::{
+    playlist::{PartialSearchResult, Playlist},
+    queue::Current,
+};
 use reqwest::{
     header::{HeaderName, HeaderValue},
     StatusCode,
@@ -166,32 +169,17 @@ async fn index(target: Target) -> MainPage {
 #[allow(dead_code)]
 #[template(path = "music/current.html")]
 struct NowPlaying {
-    paused: bool,
-    title: String,
-    chapter: Option<spark_protocol::music::Chapter>,
-    progress: f64,
+    current: Current,
 }
 
 async fn now_playing(backend: web::Data<Backend>, target: Target) -> Result<NowPlaying, Error> {
     let response = request_from_backend(&backend, &target, MusicCmdKind::Current).await?;
 
-    let Response::Current {
-        paused,
-        title,
-        chapter,
-        volume: _,
-        progress,
-    } = response
-    else {
+    let Response::Current { current } = response else {
         tracing::error!(?response, "unexpected backend response");
         return Err(Error::UnexpectedBackendResponse(format!("{response:?}")));
     };
-    Ok(NowPlaying {
-        paused,
-        title,
-        chapter,
-        progress,
-    })
+    Ok(NowPlaying { current })
 }
 
 #[derive(Template)]
@@ -221,6 +209,7 @@ async fn ctl(
                 ))
                 .body(())
         }
+        Response::Now { .. } => HttpResponse::build(StatusCode::BAD_REQUEST).into(),
     };
 
     Ok(res)
@@ -228,11 +217,11 @@ async fn ctl(
 
 async fn volume(backend: web::Data<Backend>, target: Target) -> Result<String, Error> {
     let response = request_from_backend(&backend, &target, MusicCmdKind::Current).await?;
-    let Response::Current { volume, .. } = response else {
+    let Response::Current { current } = response else {
         return Err(Error::UnexpectedBackendResponse(format!("{response:?}")));
     };
 
-    Ok(volume.to_string())
+    Ok(current.volume.to_string())
 }
 
 #[derive(Template)]

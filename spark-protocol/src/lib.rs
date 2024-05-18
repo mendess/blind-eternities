@@ -98,7 +98,7 @@ impl fmt::Display for ResponseDisplay<'_> {
                 SuccessfulResponse::Unit => f.write_str("success"),
                 SuccessfulResponse::Version(version) => f.write_str(version),
                 SuccessfulResponse::MusicResponse(music_resp) => {
-                    use music::{Chapter, Response::*};
+                    use music::Response::*;
                     match music_resp {
                         Title { title } => write!(f, "Now playing: {title}"),
                         PlayState { paused } => {
@@ -106,14 +106,18 @@ impl fmt::Display for ResponseDisplay<'_> {
                         }
                         Volume { volume } => write!(f, "volume: {volume}%"),
                         Current {
-                            paused,
-                            title,
-                            chapter,
-                            volume,
-                            progress,
+                            current:
+                                mlib::queue::Current {
+                                    title,
+                                    chapter,
+                                    playing,
+                                    volume,
+                                    progress,
+                                    ..
+                                },
                         } => {
                             match chapter {
-                                Some(Chapter { title, index }) => writeln!(
+                                Some((index, title)) => writeln!(
                                     f,
                                     "Now Playing:\nVideo: {title} Song: {index} - {title}"
                                 )?,
@@ -122,9 +126,9 @@ impl fmt::Display for ResponseDisplay<'_> {
                             writeln!(
                                 f,
                                 "{} at {volume}% volume",
-                                if *paused { "paused" } else { "playing" }
+                                if *playing { "playing" } else { "paused" }
                             )?;
-                            write!(f, "Progress: {progress:.2} %")
+                            write!(f, "Progress: {:.2} %", progress.unwrap_or_default())
                         }
                         QueueSummary {
                             from,
@@ -134,6 +138,20 @@ impl fmt::Display for ResponseDisplay<'_> {
                             writeln!(f, "Queued to position {from}.")?;
                             writeln!(f, "--> moved to {moved_to}.")?;
                             writeln!(f, "Currently playing {current}")
+                        }
+                        Now {
+                            before,
+                            current,
+                            after,
+                        } => {
+                            for b in before {
+                                writeln!(f, "   {b}")?;
+                            }
+                            writeln!(f, "-> {current}")?;
+                            for b in after {
+                                writeln!(f, "   {b}")?;
+                            }
+                            Ok(())
                         }
                     }
                 }

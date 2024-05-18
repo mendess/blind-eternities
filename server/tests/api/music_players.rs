@@ -1,7 +1,9 @@
+use std::time::Duration;
+
 use blind_eternities::auth::music_session::MusicSession;
 use common::domain::Hostname;
-use serde::Serialize;
-use spark_protocol::music::{self, MusicCmdKind};
+use fake::{Fake, Faker};
+use spark_protocol::music::{self, Current, MusicCmdKind};
 use spark_protocol::SuccessfulResponse;
 
 use crate::helpers::{fake_hostname, Simulation, TestApp};
@@ -208,11 +210,18 @@ async fn requesting_current_is_delivered() {
             expect_to_receive: MusicCmdKind::Current,
             respond_with: Ok(SuccessfulResponse::MusicResponse(
                 music::Response::Current {
-                    paused: false,
-                    title: "title".into(),
-                    chapter: None,
-                    volume: 100.,
-                    progress: 53.,
+                    current: Current {
+                        title: Faker.fake(),
+                        chapter: Faker.fake(),
+                        playing: Faker.fake(),
+                        volume: Faker.fake(),
+                        progress: Faker.fake(),
+                        playback_time: None,
+                        duration: Duration::from_secs(Faker.fake()),
+                        categories: Faker.fake(),
+                        index: Faker.fake(),
+                        next: Faker.fake(),
+                    },
                 },
             )),
         })
@@ -221,7 +230,9 @@ async fn requesting_current_is_delivered() {
     let response = timeout!(app.send_session_cmd(&session, MusicCmdKind::Current));
 
     let last = response.map(|e| match e {
-        SuccessfulResponse::MusicResponse(music::Response::Current { title, .. }) => title,
+        SuccessfulResponse::MusicResponse(music::Response::Current {
+            current: Current { title, .. },
+        }) => title,
         _ => panic!("unexpected response variant: {e:?}"),
     });
 
@@ -249,12 +260,6 @@ async fn requesting_to_queue_a_song_is_delivered() {
             respond_with: Ok(SuccessfulResponse::Unit),
         })
         .await;
-
-    #[derive(Serialize)]
-    struct QueueRequest {
-        query: String,
-        search: bool,
-    }
 
     let response = timeout!(app.send_session_cmd(&session, command_to_send));
 

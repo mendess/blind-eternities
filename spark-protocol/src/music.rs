@@ -35,6 +35,9 @@ pub enum MusicCmdKind {
         #[cfg_attr(feature = "clap", clap(short, long))]
         search: bool,
     },
+    Now {
+        amount: Option<usize>,
+    },
 }
 
 impl From<MusicCmdKind> for super::Command {
@@ -44,33 +47,6 @@ impl From<MusicCmdKind> for super::Command {
             index: None,
             username: None,
         })
-    }
-}
-
-impl MusicCmdKind {
-    pub fn to_route(&self) -> &str {
-        match self {
-            MusicCmdKind::Frwd => "frwd",
-            MusicCmdKind::Back => "back",
-            MusicCmdKind::CyclePause => "cycle-pause",
-            MusicCmdKind::ChangeVolume { .. } => "change-volume",
-            MusicCmdKind::Current => "current",
-            MusicCmdKind::Queue { .. } => "queue",
-        }
-    }
-
-    pub fn to_query_string<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&[(&str, &str)]) -> R,
-    {
-        match self {
-            MusicCmdKind::ChangeVolume { amount } => f(&[("a", &amount.to_string())]),
-            MusicCmdKind::Queue { query, search } => f(&[("q", query), ("s", &search.to_string())]),
-            MusicCmdKind::Frwd
-            | MusicCmdKind::Back
-            | MusicCmdKind::Current
-            | MusicCmdKind::CyclePause => f(&[]),
-        }
     }
 }
 
@@ -86,21 +62,19 @@ pub enum Response {
         volume: f64,
     },
     Current {
-        paused: bool,
-        title: String,
-        chapter: Option<Chapter>,
-        volume: f64,
-        progress: f64,
+        #[serde(flatten)]
+        current: Current,
     },
     QueueSummary {
         from: usize,
         moved_to: usize,
         current: usize,
     },
+    Now {
+        before: Vec<String>,
+        current: String,
+        after: Vec<String>,
+    },
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct Chapter {
-    pub title: String,
-    pub index: u32,
-}
+pub use mlib::queue::Current;

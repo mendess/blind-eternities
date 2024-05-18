@@ -61,7 +61,7 @@ impl ServerBuilder {
     pub async fn serve<F, Fut>(self, handler: F) -> io::Result<impl Future<Output = ()>>
     where
         F: Fn(Command) -> Fut + Clone + Send + 'static,
-        Fut: Future<Output = Result<SuccessfulResponse, ErrorResponse>> + Send + 'static,
+        Fut: Future<Output = Result<SuccessfulResponse, ErrorResponse>> + Send,
     {
         async fn create_socket<P: AsRef<Path> + Debug>(p: P) -> io::Result<UnixListener> {
             if let Err(e) = fs::remove_file(&p).await {
