@@ -172,7 +172,7 @@ async fn handle_a_connection(
             if cmd != Command::Heartbeat {
                 tracing::info!(?cmd, "received cmd");
             }
-            let mut timedout = false;
+            let mut fatal_error = None;
             let response = match send!(write <- &cmd; { Ok(()), e => Err(e), elapsed => continue })
             {
                 Ok(()) => match timeout(TIMEOUT, read.recv()).await {
@@ -184,24 +184,27 @@ async fn handle_a_connection(
                         "failed to receive the response sent by the remote spark: {e:?}"
                     ))),
                     Err(_elapsed) => {
-                        timedout = true;
+                        fatal_error = Some("timedout waiting for the remote spark.");
                         Err(spark_protocol::ErrorResponse::RelayError(
                             "the remote spark took too long to respond. Resetting connection"
                                 .into(),
                         ))
                     }
                 },
-                Err(e) => Err(spark_protocol::ErrorResponse::RelayError(format!(
-                    "failed to send command to remote spark: {e:?}"
-                ))),
+                Err(e) => {
+                    fatal_error = Some("connection dropped");
+                    Err(spark_protocol::ErrorResponse::RelayError(format!(
+                        "failed to send command to remote spark: {e:?}"
+                    )))
+                }
             };
             tracing::debug!(?response, "received response");
             if let Err(r) = ch.send(response) {
                 tracing::error!(?cmd, response = ?r, "one shot channel closed");
             }
             tracing::debug!("forwarded response");
-            if timedout {
-                return Err(io::Error::other("timedout waiting for the remote spark."));
+            if let Some(fatal_error) = fatal_error {
+                return Err(io::Error::other(fatal_error));
             }
         }
         Ok(())
