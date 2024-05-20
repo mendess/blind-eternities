@@ -49,7 +49,9 @@ async fn main() -> io::Result<()> {
             .app_data(client.clone())
     });
 
-    tokio::spawn(common::telemetry::metrics::start_metrics_endpoint()?);
+    tokio::spawn(common::telemetry::metrics::start_metrics_endpoint(
+        "planar_bridge",
+    )?);
 
     println!("running on http://localhost:{}/music", config.port);
     server.bind(("0.0.0.0", config.port))?.run().await

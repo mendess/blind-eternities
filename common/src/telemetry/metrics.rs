@@ -29,13 +29,13 @@ pub fn new_request(route: &str, method: &Method) {
         .inc();
 }
 
-pub async fn metrics_handler() -> String {
+pub async fn metrics_handler(prefix: &str) -> String {
     let encoder = prometheus::TextEncoder::new();
 
     let mut buffer = Vec::new();
     let mut metrics = prometheus::gather();
     for m in &mut metrics {
-        let name = format!("blind_eternities_{}", m.get_name());
+        let name = format!("{prefix}_{}", m.get_name());
         m.set_name(name);
     }
     if let Err(e) = encoder.encode(&metrics, &mut buffer) {
@@ -51,9 +51,11 @@ pub async fn metrics_handler() -> String {
     }
 }
 
-pub fn start_metrics_endpoint() -> io::Result<impl Future<Output = io::Result<()>>> {
+pub fn start_metrics_endpoint(
+    prefix: &'static str,
+) -> io::Result<impl Future<Output = io::Result<()>>> {
     Ok(
-        HttpServer::new(|| App::new().route("/metrics", web::get().to(metrics_handler)))
+        HttpServer::new(|| App::new().route("/metrics", web::get().to(|| metrics_handler(prefix))))
             .listen(TcpListener::bind("0.0.0.0:9000")?)?
             .run()
             .into_future(),

@@ -26,7 +26,9 @@ pub fn run(
         ),
     );
     if run_config.enable_metrics {
-        tokio::spawn(common::telemetry::metrics::start_metrics_endpoint()?);
+        tokio::spawn(common::telemetry::metrics::start_metrics_endpoint(
+            "blind_eternities",
+        )?);
     }
     let db = web::Data::from(db);
     let server = HttpServer::new(move || {
