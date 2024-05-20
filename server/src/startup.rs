@@ -1,12 +1,11 @@
 use std::{net as std_net, sync::Arc};
 
-use actix_service::Service;
 use actix_web::{dev::Server, web, App, HttpServer};
 use sqlx::PgPool;
 use tokio::net as tokio_net;
 use tracing_actix_web::TracingLogger;
 
-use crate::{metrics, routes::*};
+use crate::routes::*;
 
 pub struct RunConfig {
     pub override_num_workers: Option<usize>,
@@ -27,19 +26,13 @@ pub fn run(
         ),
     );
     if run_config.enable_metrics {
-        tokio::spawn(metrics::start_metrics_endpoint()?);
+        tokio::spawn(common::telemetry::metrics::start_metrics_endpoint()?);
     }
     let db = web::Data::from(db);
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
-            .wrap_fn(|req, srv| {
-                metrics::new_request(
-                    req.match_pattern().as_deref().unwrap_or("UNMATCHED"),
-                    req.method(),
-                );
-                srv.call(req)
-            })
+            .wrap(common::telemetry::metrics::RequestMetrics)
             .service(admin::routes())
             .service(machine_status::routes())
             .service(persistent_connections::routes())

@@ -8,18 +8,19 @@ actix-files.workspace = true
 actix-web.workspace = true
 askama.workspace = true
 askama_actix.workspace = true
-common = { path = "../common" }
+common = { path = "../common", features = ["metrics"] }
 config.workspace = true
 futures.workspace = true
 mappable-rc.workspace = true
 mlib = { workspace = true, features = ["playlist"] }
+prometheus.workspace = true
 reqwest = { workspace = true, features = ["stream"] }
 serde.workspace = true
 spark-protocol = { path = "../spark-protocol" }
 thiserror.workspace = true
-tracing-subscriber.workspace = true
-tracing.workspace = true
 tokio-util.workspace = true
 tokio.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
 url = { workspace = true, features = ["serde"] }
 uuid.workspace = true

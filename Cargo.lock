@@ -721,6 +721,7 @@ checksum = "0b6a852b24ab71dffc585bcb46eaf7959d175cb865a7152e35b348d1b2960422"
 name = "common"
 version = "0.1.0"
 dependencies = [
+ "actix-web",
  "async-trait",
  "chrono",
  "either",
@@ -728,6 +729,7 @@ dependencies = [
  "itertools 0.13.0",
  "once_cell",
  "petgraph",
+ "prometheus",
  "proptest",
  "rand",
  "regex",
@@ -2336,6 +2338,7 @@ dependencies = [
  "futures",
  "mappable-rc",
  "mlib",
+ "prometheus",
  "reqwest",
  "serde",
  "spark-protocol",

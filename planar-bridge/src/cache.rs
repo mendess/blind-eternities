@@ -9,6 +9,8 @@ use std::{
 use mappable_rc::Marc;
 use tokio::sync::Mutex;
 
+use crate::metrics;
+
 struct CacheEntry {
     t: Marc<dyn Any + Send + Sync>,
     created_at: SystemTime,
@@ -55,8 +57,10 @@ where
             .get(&(tid, key.to_string()))
             .and_then(|entry| entry.get())
         {
+            metrics::cache_hit();
             return Ok(t);
         }
+        metrics::cache_miss();
     }
     let new_t = Marc::new(default().await?);
     let mut cache = cache().lock().await;

@@ -12,7 +12,7 @@ actix-web.workspace = true
 anyhow.workspace = true
 async-recursion.workspace = true
 chrono.workspace = true
-common = { path = "../common", features = ["sqlx"] }
+common = { path = "../common", features = ["sqlx", "metrics"] }
 config.workspace = true
 futures.workspace = true
 itertools.workspace = true

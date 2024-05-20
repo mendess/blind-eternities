@@ -8,7 +8,7 @@ use mlib::{
         SmartQueueOpts,
     },
     playlist::PartialSearchResult,
-    queue::{CurrentOptions, Queue},
+    queue::Queue,
     Item, Link, Search,
 };
 use spark_protocol::{music::Response as MusicResponse, ErrorResponse};

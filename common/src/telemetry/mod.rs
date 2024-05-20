@@ -1,3 +1,6 @@
+#[cfg(feature = "metrics")]
+pub mod metrics;
+
 use tracing::{dispatcher::set_global_default, Subscriber};
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_log::LogTracer;

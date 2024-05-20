@@ -1,5 +1,6 @@
 mod assets;
 mod cache;
+mod metrics;
 mod music;
 
 use std::io;
@@ -42,10 +43,13 @@ async fn main() -> io::Result<()> {
 
     let server = HttpServer::new(move || {
         App::new()
+            .wrap(common::telemetry::metrics::RequestMetrics)
             .service(music::routes())
             .service(assets::routes())
             .app_data(client.clone())
     });
+
+    tokio::spawn(common::telemetry::metrics::start_metrics_endpoint()?);
 
     println!("running on http://localhost:{}/music", config.port);
     server.bind(("0.0.0.0", config.port))?.run().await
