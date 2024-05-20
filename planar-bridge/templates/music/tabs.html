@@ -1,0 +1,52 @@
+{% let query_string = target.to_query_string() %}
+{% let unselected_css = "hover:border-blue-400 hover:text-blue-400 transition-colors duration-400" %}
+{% let now_css %}
+{% let queue_css %}
+{% match tab %}
+  {% when Tab::Now %}
+    {% let now_css = "bottom-left-glow" %}
+    {% let queue_css = unselected_css %}
+  {% when Tab::Queue %}
+    {% let now_css = unselected_css %}
+    {% let queue_css = "bottom-right-glow" %}
+{% endmatch %}
+<div class="mx-auto w-1/2 pb-4 flex justify-center">
+    <button
+      class="flex-1 border {{ now_css }}"
+      hx-get="/music/tabs/now?{{ query_string }}">
+      Now
+    </button>
+    <button
+      class="flex-1 border {{ queue_css }}"
+      hx-get="/music/tabs/queue?{{ query_string }}">
+      Queue
+    </button>
+</div>
+
+{% match tab %}
+  {% when Tab::Now %}
+      <div class="flex flex-col items-center">
+        <ul
+          class="justify-center text-surface dark:text-white"
+          id="search-results"
+          hx-get="/music/now?{{ query_string }}"
+          hx-trigger="load, every 10s"
+          hx-target="this"
+        >
+          <div class="lds-ripple"><div></div><div></div></div>
+        </ul>
+      </div>
+  {% when Tab::Queue %}
+      <div class="flex flex-col items-center">
+        <input class="m-4 px-4 py-2 border rounded-md focus:outline-none focus:border-blue-500"
+               style="color:black"
+               type="search" name="search" placeholder="queue a song"
+               hx-post="/music/search?{{ query_string }}"
+               hx-trigger="load, input changed delay:100ms, search"
+               hx-target="#search-results">
+        <p id="queuing" class="htmx-indicator">queueing...</p>
+        <ul class="justify-center text-surface dark:text-white" id="search-results">
+          <div class="lds-ripple"><div></div><div></div></div>
+        </ul>
+      </div>
+{% endmatch %}

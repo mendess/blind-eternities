@@ -1,0 +1,15 @@
+{% for (i, song) in now.0.iter().enumerate() %}
+{% let shade = now.0.len() - i + 2 %}
+<li class="flex-1 border-b-2 border-neutral-100 py-2 text-gray-{{ shade }}00 dark:border-white/10">
+  {{ song }}
+</li>
+{% endfor %}
+<li class="flex-1 border-b-2 border-neutral-100 py-2 text-blue-200 dark:border-white/10">
+  {{ now.1 }}
+</li>
+{% for (i, song) in now.2.iter().take(10).enumerate() %}
+{% let shade = i %}
+<li class="flex-1 border-b-2 border-neutral-100 py-2 text-gray-{{ shade }}00 dark:border-white/10">
+  {{ song }}
+</li>
+{% endfor %}

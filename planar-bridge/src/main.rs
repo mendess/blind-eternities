@@ -1,4 +1,5 @@
 mod assets;
+mod cache;
 mod music;
 
 use std::io;

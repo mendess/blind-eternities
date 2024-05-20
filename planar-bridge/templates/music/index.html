@@ -14,7 +14,7 @@
     <div>
       <div>
         <div hx-get="/music/current?{{ query_string }}"
-             hx-trigger="load,every 0.5s,new-current"
+             hx-trigger="load, every 0.5s, new-current"
              class="flex-col items-center justify-center">
           <div class="lds-ripple"><div></div><div></div></div>
         </div>
@@ -35,7 +35,7 @@
         <div hx-post="/music/ctl?{{ query_string }}"
              hx-vars='{"command": "CyclePause"}'
              hx-ext='json-enc'
-            class="cursor-pointer amplitude-play-pause w-24 h-24 rounded-full bg-white border border-play-pause-light-border shadow-xl flex items-center justify-center dark:bg-play-pause-dark-background dark:border-play-pause-dark-border amplitude-paused disable-dbl-tap-zoom">
+             class="cursor-pointer amplitude-play-pause w-24 h-24 rounded-full bg-white border border-play-pause-light-border shadow-xl flex items-center justify-center dark:bg-play-pause-dark-background dark:border-play-pause-dark-border amplitude-paused disable-dbl-tap-zoom">
           {% let paused = false %}
           {% include "playpause.html" %}
         </div>
@@ -52,15 +52,17 @@
         </div>
       </div>
       {% include "volume-control.html" %}
-      <div class="flex flex-col items-center">
-        <input class="m-4 px-4 py-2 border rounded-md focus:outline-none focus:border-blue-500"
-               style="color:black"
-               type="search" name="search" placeholder="queue a song"
-               hx-post="/music/search?{{ query_string }}"
-               hx-trigger="load, input changed delay:100ms, search"
-               hx-target="#search-results">
-        <p id="queuing" class="htmx-indicator">queueing...</p>
-        <ul class="justify-center text-surface dark:text-white" id="search-results"></ul>
+
+      <hr class="mx-auto h-px w-3/4 my-8 bg-gray-200 border-0 dark:bg-gray-700">
+
+      {# replace all these includes with this technique #}
+      <div
+          class="w-3/4 mx-auto"
+          id="tabs"
+          hx-get="/music/tabs/now?{{ query_string }}"
+          hx-trigger="load delay:100ms"
+          hx-target="#tabs"
+          hx-swap="innerHTML">
       </div>
     </div>
   </body>

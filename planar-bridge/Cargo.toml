@@ -11,6 +11,7 @@ askama_actix.workspace = true
 common = { path = "../common" }
 config.workspace = true
 futures.workspace = true
+mappable-rc.workspace = true
 mlib = { workspace = true, features = ["playlist"] }
 reqwest = { workspace = true, features = ["stream"] }
 serde.workspace = true
