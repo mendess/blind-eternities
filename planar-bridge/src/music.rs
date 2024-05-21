@@ -20,7 +20,7 @@ use spark_protocol::{
 };
 use uuid::Uuid;
 
-use crate::{cache, Backend};
+use crate::{cache, metrics, Backend};
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/music")
@@ -59,6 +59,7 @@ async fn request_from_backend(
     target: &Target,
     cmd: MusicCmdKind,
 ) -> Result<spark_protocol::music::Response, Error> {
+    metrics::music_backend_request(&cmd);
     let request = match target {
         Target::Host { hostname, auth } => client
             .post(&format!("/persistent-connections/send/{hostname}"))
@@ -172,22 +173,9 @@ struct NowPlaying {
 }
 
 async fn now_playing(backend: web::Data<Backend>, target: Target) -> Result<NowPlaying, Error> {
-    let current = cache::get_or_init(
-        &target.to_query_string(),
-        || async {
-            let response = request_from_backend(&backend, &target, MusicCmdKind::Current).await?;
-
-            let Response::Current { current } = response else {
-                tracing::error!(?response, "unexpected backend response");
-                return Err(Error::UnexpectedBackendResponse(format!("{response:?}")));
-            };
-
-            Ok(current)
-        },
-        Duration::from_millis(500),
-    )
-    .await?;
-    Ok(NowPlaying { current })
+    Ok(NowPlaying {
+        current: get_current(backend, &target).await?,
+    })
 }
 
 #[derive(Template)]
@@ -221,12 +209,7 @@ async fn ctl(
 }
 
 async fn volume(backend: web::Data<Backend>, target: Target) -> Result<String, Error> {
-    let response = request_from_backend(&backend, &target, MusicCmdKind::Current).await?;
-    let Response::Current { current } = response else {
-        return Err(Error::UnexpectedBackendResponse(format!("{response:?}")));
-    };
-
-    Ok(current.volume.to_string())
+    Ok(get_current(backend, &target).await?.volume.to_string())
 }
 
 enum Tab {
@@ -309,6 +292,24 @@ async fn search(
     songs.insert(0, search);
 
     Ok(SearchResults { songs, target })
+}
+
+async fn get_current(backend: web::Data<Backend>, target: &Target) -> Result<Marc<Current>, Error> {
+    cache::get_or_init(
+        &target.to_query_string(),
+        || async {
+            let response = request_from_backend(&backend, target, MusicCmdKind::Current).await?;
+
+            let Response::Current { current } = response else {
+                tracing::error!(?response, "unexpected backend response");
+                return Err(Error::UnexpectedBackendResponse(format!("{response:?}")));
+            };
+
+            Ok(current)
+        },
+        Duration::from_millis(1),
+    )
+    .await
 }
 
 async fn load_playlist() -> Result<Marc<Playlist>, Error> {
