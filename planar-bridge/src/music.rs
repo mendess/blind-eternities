@@ -307,7 +307,7 @@ async fn get_current(backend: web::Data<Backend>, target: &Target) -> Result<Mar
 
             Ok(current)
         },
-        Duration::from_millis(1),
+        Duration::from_secs(1),
     )
     .await
 }
