@@ -29,6 +29,15 @@ impl CacheEntry {
     fn get<T>(&self) -> Option<Marc<T>> {
         (self.created_at.elapsed().unwrap_or_default() < self.duration)
             .then(|| Marc::map(self.t.clone(), |t| t.downcast_ref().unwrap()))
+            .or_else(|| {
+                tracing::info!(
+                    created_at = ?self.created_at,
+                    duration = ?self.duration,
+                    ty = std::any::type_name::<T>(),
+                    "cache expired "
+                );
+                None
+            })
     }
 }
 
@@ -50,6 +59,7 @@ where
     Fut: Future<Output = Result<T, E>>,
     T: Send + Sync + 'static,
 {
+    tracing::info!(ty = std::any::type_name::<T>(), key, "looking up in cache");
     let tid = TypeId::of::<T>();
     {
         let cache = cache().lock().await;
