@@ -30,7 +30,7 @@ impl CacheEntry {
         (self.created_at.elapsed().unwrap_or_default() < self.duration)
             .then(|| Marc::map(self.t.clone(), |t| t.downcast_ref().unwrap()))
             .or_else(|| {
-                tracing::info!(
+                tracing::trace!(
                     created_at = ?self.created_at,
                     duration = ?self.duration,
                     ty = std::any::type_name::<T>(),
@@ -59,7 +59,7 @@ where
     Fut: Future<Output = Result<T, E>>,
     T: Send + Sync + 'static,
 {
-    tracing::info!(ty = std::any::type_name::<T>(), key, "looking up in cache");
+    tracing::trace!(ty = std::any::type_name::<T>(), key, "looking up in cache");
     let tid = TypeId::of::<T>();
     {
         let cache = cache().lock().await;
