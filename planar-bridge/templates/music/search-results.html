@@ -4,6 +4,7 @@
   <button
     class="fade-me-out"
     hx-post="/music/queue?{{ target.to_query_string() }}"
+    hx-target="this"
     hx-swap="outerHTML"
     hx-vars='{"query": {{ song|fmt("{:?}") }}, "search": {{ user_input_idx == id }} }'
     hx-ext='json-enc'
