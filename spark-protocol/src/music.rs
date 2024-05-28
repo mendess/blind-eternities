@@ -19,7 +19,7 @@ impl From<MusicCmd> for super::Command {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "clap", derive(clap::Subcommand))]
 pub enum MusicCmdKind {
     Frwd,

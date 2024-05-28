@@ -1,4 +1,6 @@
-use std::{io, time::Duration};
+mod request_coalescing;
+
+use std::{io, sync::Arc, time::Duration};
 
 use actix_web::{
     http::StatusCode,
@@ -21,6 +23,8 @@ use spark_protocol::{
 use uuid::Uuid;
 
 use crate::{cache, metrics, Backend};
+
+use self::request_coalescing::{request_coalesced, SharedError};
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/music")
@@ -107,7 +111,7 @@ impl ResponseError for Error {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum Target {
     Host { hostname: Hostname, auth: Uuid },
     Session { session: MusicSession },
@@ -169,12 +173,15 @@ async fn index(target: Target) -> MainPage {
 #[allow(dead_code)]
 #[template(path = "music/current.html")]
 struct NowPlaying {
-    current: Marc<Current>,
+    current: Current,
 }
 
-async fn now_playing(backend: web::Data<Backend>, target: Target) -> Result<NowPlaying, Error> {
+async fn now_playing(
+    backend: web::Data<Backend>,
+    target: Target,
+) -> Result<NowPlaying, SharedError> {
     Ok(NowPlaying {
-        current: get_current(backend, &target).await?,
+        current: get_current(backend, target).await?,
     })
 }
 
@@ -208,8 +215,8 @@ async fn ctl(
     Ok(res)
 }
 
-async fn volume(backend: web::Data<Backend>, target: Target) -> Result<String, Error> {
-    Ok(get_current(backend, &target).await?.volume.to_string())
+async fn volume(backend: web::Data<Backend>, target: Target) -> Result<String, SharedError> {
+    Ok(get_current(backend, target).await?.volume.to_string())
 }
 
 enum Tab {
@@ -294,22 +301,16 @@ async fn search(
     Ok(SearchResults { songs, target })
 }
 
-async fn get_current(backend: web::Data<Backend>, target: &Target) -> Result<Marc<Current>, Error> {
-    cache::get_or_init(
-        &target.to_query_string(),
-        || async {
-            let response = request_from_backend(&backend, target, MusicCmdKind::Current).await?;
-
-            let Response::Current { current } = response else {
-                tracing::error!(?response, "unexpected backend response");
-                return Err(Error::UnexpectedBackendResponse(format!("{response:?}")));
-            };
-
-            Ok(current)
-        },
-        Duration::from_secs(1),
-    )
-    .await
+async fn get_current(backend: web::Data<Backend>, target: Target) -> Result<Current, SharedError> {
+    let response = request_coalesced(&backend, target, MusicCmdKind::Current).await;
+    match response {
+        Ok(Response::Current { current }) => Ok(current.clone()),
+        Ok(_) => {
+            tracing::error!(?response, "unexpected backend response");
+            Err(Arc::new(Error::UnexpectedBackendResponse(format!("{response:?}"))).into())
+        }
+        Err(e) => Err(e),
+    }
 }
 
 async fn load_playlist() -> Result<Marc<Playlist>, Error> {
