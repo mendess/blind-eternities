@@ -173,7 +173,7 @@ async fn index(target: Target) -> MainPage {
 #[allow(dead_code)]
 #[template(path = "music/current.html")]
 struct NowPlaying {
-    current: Current,
+    current: Marc<Current>,
 }
 
 async fn now_playing(
@@ -301,16 +301,26 @@ async fn search(
     Ok(SearchResults { songs, target })
 }
 
-async fn get_current(backend: web::Data<Backend>, target: Target) -> Result<Current, SharedError> {
-    let response = request_coalesced(&backend, target, MusicCmdKind::Current).await;
-    match response {
-        Ok(Response::Current { current }) => Ok(current.clone()),
-        Ok(_) => {
-            tracing::error!(?response, "unexpected backend response");
-            Err(Arc::new(Error::UnexpectedBackendResponse(format!("{response:?}"))).into())
-        }
-        Err(e) => Err(e),
-    }
+async fn get_current(
+    backend: web::Data<Backend>,
+    target: Target,
+) -> Result<Marc<Current>, SharedError> {
+    cache::get_or_init(
+        &target.to_query_string(),
+        || async {
+            let response = request_coalesced(&backend, target, MusicCmdKind::Current).await;
+            match response {
+                Ok(Response::Current { current }) => Ok(current.clone()),
+                Ok(_) => {
+                    tracing::error!(?response, "unexpected backend response");
+                    Err(Arc::new(Error::UnexpectedBackendResponse(format!("{response:?}"))).into())
+                }
+                Err(e) => Err(e),
+            }
+        },
+        Duration::from_secs(1),
+    )
+    .await
 }
 
 async fn load_playlist() -> Result<Marc<Playlist>, Error> {

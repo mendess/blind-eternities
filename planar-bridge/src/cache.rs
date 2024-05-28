@@ -43,9 +43,9 @@ impl CacheEntry {
 
 type Cache = HashMap<(TypeId, String), CacheEntry>;
 
-static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
-
 fn cache() -> &'static Mutex<Cache> {
+    static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
+
     CACHE.get_or_init(Default::default)
 }
 
