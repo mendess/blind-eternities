@@ -46,24 +46,14 @@ pub async fn wait_for_next_title(player: &players::PlayerLink) -> Result<String,
 }
 
 pub async fn handle(cmd: spark_protocol::music::MusicCmd) -> spark_protocol::Response {
-    // memory hard
-    let player: players::PlayerLink;
     let player = match cmd.index {
-        Some(i) => {
-            player = players::PlayerLink::of(i);
-            &player
-        }
+        Some(i) => &players::PlayerLink::of(i),
         None => players::PlayerLink::current(),
     };
-    let player_slot: players::PlayerLink;
     let player = match cmd.username {
-        Some(u) => {
-            player_slot = player.linked_to(u);
-            &player_slot
-        }
+        Some(u) => &player.linked_to(u),
         None => player,
     };
-    // ----
 
     // TODO: Io(NotFound) should be translated to "no players running for user {username}"
     let response: Result<MusicResponse, ErrorResponse> = match cmd.command {
