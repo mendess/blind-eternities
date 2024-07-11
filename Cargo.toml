@@ -83,7 +83,7 @@ features = [
 [workspace.dependencies.mlib]
 git = "https://github.com/mendess/m"
 default-features = false
-rev = "b40f609a03467a06a358678df43ae19dea3ae600"
+rev = "24e37bad2bffcfaa32a3d0bec01d2bcddcc036d6"
 # path = "../m/mlib"
 
 [profile.release]
