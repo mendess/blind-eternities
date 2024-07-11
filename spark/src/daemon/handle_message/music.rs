@@ -108,19 +108,19 @@ pub async fn handle(cmd: spark_protocol::music::MusicCmd) -> spark_protocol::Res
         }
         spark_protocol::music::MusicCmdKind::Queue { query, search } => {
             async {
-                let item = if search {
-                    Item::Search(Search::new(query))
-                } else {
-                    match Link::from_str(&query) {
-                        Ok(l) => Item::Link(l),
-                        Err(_) => {
-                            let mut playlist =
-                                mlib::playlist::Playlist::load().await.map_err(forward)?;
-                            let song = handle_search_result(
-                                playlist.partial_name_search_mut(query.split_whitespace()),
-                            )
-                            .map_err(forward)?;
-                            Item::Link(song.delete().link.into())
+                let item = match Link::from_str(&query) {
+                    Ok(l) => Item::Link(l),
+                    Err(_) => {
+                        let mut playlist =
+                            mlib::playlist::Playlist::load().await.map_err(forward)?;
+                        let song = handle_search_result(
+                            playlist.partial_name_search_mut(query.split_whitespace()),
+                        )
+                        .map_err(forward)?;
+                        match song {
+                            Some(song) => Item::Link(song.delete().link.into()),
+                            None if search => Item::Search(Search::new(query)),
+                            None => return Err(forward("song not in playlist")),
                         }
                     }
                 };
@@ -174,11 +174,11 @@ pub async fn handle(cmd: spark_protocol::music::MusicCmd) -> spark_protocol::Res
     response.map(Into::into)
 }
 
-fn handle_search_result<T>(r: PartialSearchResult<T>) -> Result<T, String> {
+fn handle_search_result<T>(r: PartialSearchResult<T>) -> Result<Option<T>, String> {
     use std::fmt::Write;
     match r {
-        PartialSearchResult::One(t) => Ok(t),
-        PartialSearchResult::None => Err(String::from("song not in playlist")),
+        PartialSearchResult::One(t) => Ok(Some(t)),
+        PartialSearchResult::None => Ok(None),
         PartialSearchResult::Many(too_many_matches) => {
             let mut buf = String::from("too many matches:\n");
 
