@@ -14,12 +14,12 @@
     <button
       class="flex-1 border {{ now_css }}"
       hx-get="/music/tabs/now?{{ query_string }}">
-      Now
+      Up Next
     </button>
     <button
       class="flex-1 border {{ queue_css }}"
       hx-get="/music/tabs/queue?{{ query_string }}">
-      Queue
+      Request a Song
     </button>
 </div>
 
@@ -40,7 +40,7 @@
       <div class="flex flex-col items-center">
         <input class="m-4 px-4 py-2 border rounded-md focus:outline-none focus:border-blue-500"
                style="color:black"
-               type="search" name="search" placeholder="queue a song"
+               type="search" name="search" placeholder="song name or url"
                hx-post="/music/search?{{ query_string }}"
                hx-trigger="load, input changed delay:100ms, search"
                hx-target="#search-results">
