@@ -1,6 +1,8 @@
 #[cfg(feature = "metrics")]
 pub mod metrics;
 
+use std::io;
+
 use tracing::{dispatcher::set_global_default, Subscriber};
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_log::LogTracer;
@@ -33,7 +35,10 @@ pub fn get_subscriber_no_bunny(env_filter: String) -> impl Subscriber + Sync + S
     let env_filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter));
 
-    let fmt = fmt::layer().event_format(fmt::format()).pretty();
+    let fmt = fmt::layer()
+        .with_writer(io::stderr)
+        .event_format(fmt::format())
+        .pretty();
 
     Registry::default().with(env_filter).with(fmt)
 }
