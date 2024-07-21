@@ -34,6 +34,7 @@ impl ResponseError for MusicError {
     }
 }
 
+#[tracing::instrument(skip(db, connections))]
 async fn message_music_player(
     db: web::Data<PgPool>,
     connections: web::Data<Connections>,

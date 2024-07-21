@@ -12,6 +12,7 @@ pub fn routes() -> actix_web::Scope {
         .route("/send/{hostname}", web::post().to(send))
 }
 
+#[tracing::instrument(skip_all)]
 async fn list_persistent_connections(
     _: auth::Admin,
     connections: web::Data<Connections>,
@@ -20,6 +21,7 @@ async fn list_persistent_connections(
     HttpResponse::Ok().json(connected.into_iter().map(|(h, _)| h).collect::<Vec<_>>())
 }
 
+#[tracing::instrument(skip(connections), name = "persistent_connections_send")]
 async fn send(
     _: auth::Admin,
     connections: web::Data<Connections>,

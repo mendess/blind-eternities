@@ -45,13 +45,14 @@ impl Connections {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn request<C>(
         &self,
         machine: &Hostname,
         command: C,
     ) -> Result<spark_protocol::Response, ConnectionError>
     where
-        C: Into<Command>,
+        C: Into<Command> + std::fmt::Debug,
     {
         let command = command.into();
         let channel = self
@@ -108,6 +109,7 @@ impl Connections {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn connected_hosts(&self) -> Vec<(Hostname, Generation)> {
         self.connected_hosts
             .lock()

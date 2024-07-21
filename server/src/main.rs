@@ -2,16 +2,15 @@ use std::net as std_net;
 
 use anyhow::Context;
 use blind_eternities::configuration::{get_configuration, Settings};
-use common::telemetry::{get_subscriber, init_subscriber};
+use common::telemetry::{get_subscriber, init_subscriber, with_tracing};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use tokio::net as tokio_net;
 
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
-    init_subscriber(get_subscriber(
+    init_subscriber(with_tracing(
+        get_subscriber("blind-eternities".into(), "info".into(), std::io::stdout),
         "blind-eternities".into(),
-        "info".into(),
-        std::io::stdout,
     ));
 
     let conf = get_configuration().expect("Failed to read configuration");

@@ -6,12 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait.workspace = true
 actix-web = { workspace = true, optional = true }
+async-trait.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 either.workspace = true
 itertools.workspace = true
 once_cell.workspace = true
+opentelemetry.workspace = true
+opentelemetry-otlp.workspace = true
+opentelemetry_sdk = { workspace = true, features = ["rt-tokio"] }
 petgraph.workspace = true
 prometheus = { workspace = true, optional = true }
 rand.workspace = true
@@ -22,6 +25,7 @@ thiserror.workspace = true
 tokio.workspace = true
 tracing-bunyan-formatter.workspace = true
 tracing-log.workspace = true
+tracing-opentelemetry.workspace = true
 tracing.workspace = true
 url.workspace = true
 uuid.workspace = true
