@@ -1,25 +1,23 @@
 use std::collections::hash_map::Entry;
 
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
 };
 
-use actix_web::{web, HttpResponse, ResponseError};
 use anyhow::Context;
+use axum::{extract::State, response::IntoResponse, routing, Json, Router};
 use chrono::Utc;
 use common::domain::machine_status::{self, IpConnection, MachineStatusFull};
 use futures::stream::{StreamExt, TryStreamExt};
+use http::StatusCode;
 use sqlx::PgPool;
 
 use crate::auth;
 
-pub fn routes() -> actix_web::Scope {
-    web::scope("/machine").service(
-        web::resource("/status")
-            .route(web::get().to(get))
-            .route(web::post().to(post)),
-    )
+pub fn routes() -> Router<super::RouterState> {
+    Router::new().route("/status", routing::get(get).post(post))
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -28,7 +26,11 @@ pub enum MachineStatusError {
     UnexpectedError(#[from] anyhow::Error),
 }
 
-impl ResponseError for MachineStatusError {}
+impl IntoResponse for MachineStatusError {
+    fn into_response(self) -> axum::response::Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+    }
+}
 
 #[tracing::instrument(
     name = "Logging a machine status",
@@ -40,15 +42,10 @@ impl ResponseError for MachineStatusError {}
 )]
 pub async fn post(
     _: auth::Admin,
-    status: web::Json<machine_status::MachineStatus>,
-    conn: web::Data<PgPool>,
-) -> Result<HttpResponse, MachineStatusError> {
-    let status = status.into_inner();
-    let mut transaction = conn
-        .get_ref()
-        .begin()
-        .await
-        .context("Failed to create transaction")?;
+    conn: State<Arc<PgPool>>,
+    Json(status): Json<machine_status::MachineStatus>,
+) -> Result<impl IntoResponse, MachineStatusError> {
+    let mut transaction = conn.begin().await.context("Failed to create transaction")?;
 
     sqlx::query!(
         r#"INSERT INTO machine_status (hostname, external_ip, last_heartbeat, ssh_port, default_user)
@@ -91,14 +88,14 @@ pub async fn post(
         .commit()
         .await
         .context("Failed to commit transaction")?;
-    Ok(HttpResponse::Ok().finish())
+    Ok(StatusCode::OK)
 }
 
 #[tracing::instrument(name = "list machine status", skip(conn))]
 pub async fn get(
     _: auth::Admin,
-    conn: web::Data<PgPool>,
-) -> Result<HttpResponse, MachineStatusError> {
+    conn: State<Arc<PgPool>>,
+) -> Result<impl IntoResponse, MachineStatusError> {
     let status = sqlx::query!(
         r#"SELECT
             ms.hostname as "hostname!",
@@ -112,7 +109,7 @@ pub async fn get(
          FROM machine_status ms
          LEFT JOIN ip_connection ip ON ms.hostname = ip.hostname"#
     )
-    .fetch(conn.get_ref())
+    .fetch(&**conn)
     .map(|e| e.context("failed to execute query"))
     .try_fold(
         HashMap::<String, MachineStatusFull>::new(),
@@ -159,5 +156,5 @@ pub async fn get(
     )
     .await?;
 
-    Ok(HttpResponse::Ok().json(status))
+    Ok((StatusCode::OK, Json(status)))
 }

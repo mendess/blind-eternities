@@ -1,6 +1,6 @@
 pub mod persistent_conn;
 
-use std::{net::TcpListener, sync::OnceLock};
+use std::{future::IntoFuture, sync::OnceLock};
 
 use blind_eternities::{
     auth,
@@ -14,6 +14,7 @@ use common::{
 use fake::{Fake, StringFaker};
 use reqwest::StatusCode;
 use sqlx::{pool::PoolOptions, Connection, Executor, PgConnection, PgPool};
+use tokio::net::TcpListener;
 use uuid::Uuid;
 
 use crate::{assert_status, timeout};
@@ -48,8 +49,10 @@ impl TestApp {
         init_tracing();
 
         tracing::debug!("creating socket");
-        let listener = TcpListener::bind(("localhost", 0)).expect("Failed to bind random port");
-        let persistent_conns_listener = tokio::net::TcpListener::bind(("localhost", 0))
+        let listener = TcpListener::bind(("localhost", 0))
+            .await
+            .expect("Failed to bind random port");
+        let persistent_conns_listener = TcpListener::bind(("localhost", 0))
             .await
             .expect("Failed to bind random port");
         let port = listener.local_addr().unwrap().port();
@@ -74,17 +77,9 @@ impl TestApp {
         let connection = configure_database(&conf.db).await;
 
         tracing::debug!("starting server");
-        let server = startup::run(
-            listener,
-            persistent_conns_listener,
-            connection.clone(),
-            startup::RunConfig {
-                override_num_workers: Some(1),
-                enable_metrics: false,
-            },
-        )
-        .expect("Failed to bind address");
-        tokio::spawn(server);
+        let server = startup::run(listener, persistent_conns_listener, connection.clone())
+            .expect("Failed to bind address");
+        tokio::spawn(server.into_future());
         let app = TestApp {
             address: format!("http://localhost:{}", port),
             persistent_conn_port,
@@ -158,7 +153,7 @@ impl TestApp {
             .send()
             .await
             .expect("success");
-        assert_status!(StatusCode::OK, resp.status());
+        assert_status!(resp.status(), StatusCode::OK);
         resp.json().await.expect("deserialized successfully")
     }
 

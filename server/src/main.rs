@@ -1,12 +1,10 @@
-use std::net as std_net;
-
 use anyhow::Context;
 use blind_eternities::configuration::{get_configuration, Settings};
 use common::telemetry::{get_subscriber, init_subscriber};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use tokio::net as tokio_net;
+use tokio::net::TcpListener;
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_subscriber(get_subscriber(
         "blind-eternities".into(),
@@ -26,16 +24,23 @@ async fn main() -> anyhow::Result<()> {
             .expect("Failed to connect to Postgres")
     };
 
+    match common::telemetry::metrics::start_metrics_endpoint("blind_eternities") {
+        Ok(fut) => {
+            tokio::spawn(fut);
+        }
+        Err(error) => {
+            tracing::warn!(?error, "failed to start metrics endpoint");
+        }
+    }
+
     blind_eternities::startup::run(
-        std_net::TcpListener::bind(("0.0.0.0", conf.port)).context("binding http socket")?,
-        tokio_net::TcpListener::bind(("0.0.0.0", conf.persistent_conn_port))
+        TcpListener::bind(("0.0.0.0", conf.port))
+            .await
+            .context("binding http socket")?,
+        TcpListener::bind(("0.0.0.0", conf.persistent_conn_port))
             .await
             .context("binding persistent connections port")?,
         connection,
-        blind_eternities::startup::RunConfig {
-            override_num_workers: None,
-            enable_metrics: true,
-        },
     )?
     .await
     .context("running blind_eternities")?;

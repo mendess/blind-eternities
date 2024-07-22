@@ -5,10 +5,9 @@ version = "0.3.0"
 default-run = "blind-eternities"
 
 [dependencies]
-actix-http.workspace = true
-actix-service.workspace = true
-actix-web-httpauth.workspace = true
-actix-web.workspace = true
+axum.workspace = true
+axum-prometheus.workspace = true
+http.workspace = true
 anyhow.workspace = true
 async-recursion.workspace = true
 chrono.workspace = true
@@ -23,19 +22,18 @@ spark-protocol = { path = "../spark-protocol" }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing = { workspace = true, features = ["log"] }
-tracing-actix-web.workspace = true
 tracing-bunyan-formatter.workspace = true
 tracing-futures.workspace = true
 tracing-log.workspace = true
 uuid.workspace = true
 sqlx.workspace = true
+tower-http = { workspace = true, features = ["trace"] }
 
 [dependencies.tracing-subscriber]
 workspace = true
 features = ["registry", "env-filter"]
 
 [dev-dependencies]
-actix-rt.workspace = true
 tokio.workspace = true
 serde_json.workspace = true
 proptest.workspace = true

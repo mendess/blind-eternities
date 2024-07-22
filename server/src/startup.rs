@@ -1,57 +1,37 @@
-use std::{net as std_net, sync::Arc};
-
-use actix_web::{dev::Server, web, App, HttpServer};
+use crate::routes;
+use axum::middleware::from_fn;
+use common::telemetry::metrics::RequestMetrics;
 use sqlx::PgPool;
-use tokio::net as tokio_net;
-use tracing_actix_web::TracingLogger;
-
-use crate::routes::*;
-
-pub struct RunConfig {
-    pub override_num_workers: Option<usize>,
-    pub enable_metrics: bool,
-}
+use std::{
+    future::{self, Future, IntoFuture},
+    io,
+    sync::Arc,
+};
+use tokio::net::TcpListener;
+use tower_http::trace::TraceLayer;
 
 pub fn run(
-    server_listener: std_net::TcpListener,
-    persistent_conns_listener: tokio_net::TcpListener,
+    server_listener: TcpListener,
+    persistent_conns_listener: TcpListener,
     db: PgPool,
-    run_config: RunConfig,
-) -> std::io::Result<Server> {
+) -> io::Result<impl Future<Output = io::Result<()>>> {
     let db = Arc::new(db);
-    let connections = web::Data::from(
-        crate::persistent_connections::start_persistent_connections_daemon(
-            persistent_conns_listener,
-            db.clone(),
-        ),
+    let connections = crate::persistent_connections::start_persistent_connections_daemon(
+        persistent_conns_listener,
+        db.clone(),
     );
-    if run_config.enable_metrics {
-        match common::telemetry::metrics::start_metrics_endpoint("blind_eternities") {
-            Ok(fut) => {
-                tokio::spawn(fut);
-            }
-            Err(error) => {
-                tracing::warn!(?error, "failed to start metrics endpoint");
-            }
+
+    Ok(axum::serve(
+        server_listener,
+        routes::router(connections, db)
+            .layer(from_fn(RequestMetrics::as_fn))
+            .layer(TraceLayer::new_for_http()),
+    )
+    .with_graceful_shutdown(async {
+        if let Err(e) = tokio::signal::ctrl_c().await {
+            tracing::error!(error = ?e, "failed to setup shutdown signal");
+            future::pending().await
         }
-    }
-    let db = web::Data::from(db);
-    let server = HttpServer::new(move || {
-        App::new()
-            .wrap(TracingLogger::default())
-            .wrap(common::telemetry::metrics::RequestMetrics)
-            .service(admin::routes())
-            .service(machine_status::routes())
-            .service(persistent_connections::routes())
-            .service(music::routes())
-            .app_data(db.clone())
-            .app_data(connections.clone())
     })
-    .listen(server_listener)?;
-    let server = if let Some(workers) = run_config.override_num_workers {
-        server.workers(workers)
-    } else {
-        server
-    };
-    Ok(server.run())
+    .into_future())
 }

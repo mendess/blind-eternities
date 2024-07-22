@@ -1,39 +1,52 @@
-use actix_web::{http::StatusCode, web, HttpResponse, Responder};
+use std::sync::Arc;
+
+use axum::{
+    extract::{Path, State},
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
+};
 use common::domain::Hostname;
+use http::StatusCode;
 
 use crate::{
     auth,
     persistent_connections::{ConnectionError, Connections},
 };
 
-pub fn routes() -> actix_web::Scope {
-    web::scope("/persistent-connections")
-        .route("", web::get().to(list_persistent_connections))
-        .route("/send/{hostname}", web::post().to(send))
+pub fn routes() -> Router<super::RouterState> {
+    Router::new()
+        .route("/", get(list_persistent_connections))
+        .route("/send/:hostname", post(send))
 }
 
 async fn list_persistent_connections(
     _: auth::Admin,
-    connections: web::Data<Connections>,
-) -> impl Responder {
+    connections: State<Arc<Connections>>,
+) -> impl IntoResponse {
     let connected = connections.connected_hosts().await;
-    HttpResponse::Ok().json(connected.into_iter().map(|(h, _)| h).collect::<Vec<_>>())
+    (
+        StatusCode::OK,
+        Json(connected.into_iter().map(|(h, _)| h).collect::<Vec<_>>()),
+    )
 }
 
 async fn send(
     _: auth::Admin,
-    connections: web::Data<Connections>,
-    web::Json(command): web::Json<spark_protocol::Command>,
-    hostname: web::Path<Hostname>,
-) -> impl Responder {
+    connections: State<Arc<Connections>>,
+    hostname: Path<Hostname>,
+    Json(command): Json<spark_protocol::Command>,
+) -> impl IntoResponse {
     let r = connections.request(&hostname, command).await;
     tracing::debug!(response = ?r, "responding");
     match r {
-        Ok(response) => HttpResponse::Ok().json(response),
-        Err(ConnectionError::NotFound) => HttpResponse::NotFound().into(),
+        Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+        Err(ConnectionError::NotFound) => StatusCode::NOT_FOUND.into_response(),
         Err(ConnectionError::ConnectionDropped(Some(reason))) => {
-            HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR).body(reason)
+            (StatusCode::INTERNAL_SERVER_ERROR, reason).into_response()
         }
-        Err(ConnectionError::ConnectionDropped(None)) => HttpResponse::InternalServerError().into(),
+        Err(ConnectionError::ConnectionDropped(None)) => {
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
     }
 }

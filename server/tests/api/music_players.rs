@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anyhow::Context;
 use blind_eternities::auth::music_session::MusicSession;
 use common::domain::Hostname;
 use fake::{Fake, Faker};
@@ -16,6 +17,7 @@ impl TestApp {
             .await
             .unwrap()
             .error_for_status()
+            .context("request to create session errored")
             .unwrap()
             .json()
             .await
@@ -78,7 +80,7 @@ impl TestApp {
 /// Result<(), String>
 /// ```
 
-#[actix_rt::test]
+#[tokio::test]
 async fn requesting_to_skip_a_song_is_delivered() {
     let app = TestApp::spawn().await;
 
@@ -108,7 +110,7 @@ async fn requesting_to_skip_a_song_is_delivered() {
     assert_eq!(Ok(title.into()), last);
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn requesting_to_skip_back_a_song_is_delivered() {
     let app = TestApp::spawn().await;
 
@@ -138,7 +140,7 @@ async fn requesting_to_skip_back_a_song_is_delivered() {
     assert_eq!(Ok(title.into()), last);
 }
 
-#[actix_web::test]
+#[tokio::test]
 async fn requesting_to_cycle_pause_is_delivered() {
     let app = TestApp::spawn().await;
 
@@ -167,7 +169,7 @@ async fn requesting_to_cycle_pause_is_delivered() {
     assert_eq!(Ok(true), last);
 }
 
-#[actix_web::test]
+#[tokio::test]
 async fn requesting_to_change_volume_is_delivered() {
     let app = TestApp::spawn().await;
 
@@ -197,7 +199,7 @@ async fn requesting_to_change_volume_is_delivered() {
     assert_eq!(Ok(2.0), last);
 }
 
-#[actix_web::test]
+#[tokio::test]
 async fn requesting_current_is_delivered() {
     let app = TestApp::spawn().await;
 
@@ -211,7 +213,7 @@ async fn requesting_current_is_delivered() {
             respond_with: Ok(SuccessfulResponse::MusicResponse(
                 music::Response::Current {
                     current: Current {
-                        title: Faker.fake(),
+                        title: "title".into(),
                         chapter: Faker.fake(),
                         playing: Faker.fake(),
                         volume: Faker.fake(),
@@ -238,10 +240,10 @@ async fn requesting_current_is_delivered() {
 
     device.await.expect("device task failed");
 
-    assert_eq!(Ok("title".into()), last);
+    assert_eq!(last, Ok("title".into()));
 }
 
-#[actix_web::test]
+#[tokio::test]
 async fn requesting_to_queue_a_song_is_delivered() {
     let app = TestApp::spawn().await;
 
@@ -268,7 +270,7 @@ async fn requesting_to_queue_a_song_is_delivered() {
     assert_eq!(Ok(SuccessfulResponse::Unit), response);
 }
 
-#[actix_web::test]
+#[tokio::test]
 async fn creating_two_tokens_to_the_same_hostname_returns_the_same_token() {
     let app = TestApp::spawn().await;
 

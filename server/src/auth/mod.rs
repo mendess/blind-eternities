@@ -1,12 +1,8 @@
 pub mod music_session;
 
-use std::future::ready;
-
-use actix_http::StatusCode;
-use actix_web::{web, FromRequest, ResponseError};
-use actix_web_httpauth::extractors::bearer::BearerAuth;
 use anyhow::Context as _;
-use futures::{future::LocalBoxFuture, FutureExt, TryFutureExt};
+use axum::{extract::FromRequestParts, http::request::Parts, response::IntoResponse};
+use http::StatusCode;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -20,13 +16,15 @@ pub enum AuthError {
     UnexpectedError(#[from] anyhow::Error),
 }
 
-impl ResponseError for AuthError {
-    fn status_code(&self) -> StatusCode {
-        match self {
+impl IntoResponse for AuthError {
+    fn into_response(self) -> axum::response::Response {
+        let code = match self {
             Self::InvalidToken => StatusCode::BAD_REQUEST,
             Self::UnauthorizedToken => StatusCode::UNAUTHORIZED,
             Self::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        }
+        };
+
+        (code, self.to_string()).into_response()
     }
 }
 
@@ -140,25 +138,29 @@ impl<T> Role for T where T: priv_role::Role {}
 
 macro_rules! gen_role_extractor {
     ($role:ident) => {
-        impl FromRequest for $role {
-            type Error = AuthError;
-            type Future = LocalBoxFuture<'static, Result<Self, Self::Error>>;
-            fn from_request(
-                req: &actix_web::HttpRequest,
-                payload: &mut actix_http::Payload,
-            ) -> Self::Future {
-                let bearer_future = BearerAuth::from_request(req, payload)
-                    .map_err(|_| AuthError::UnauthorizedToken)
-                    .and_then(|bearer| {
-                        ready(Uuid::parse_str(bearer.token()).map_err(|_| AuthError::InvalidToken))
-                    });
+        #[axum::async_trait]
+        impl<S> FromRequestParts<S> for $role
+        where
+            S: Send + Sync + AsRef<PgPool>,
+        {
+            type Rejection = AuthError;
 
-                let conn = req
-                    .app_data::<web::Data<PgPool>>()
-                    .expect("pg pool not configured")
-                    .clone();
+            async fn from_request_parts(
+                req: &mut Parts,
+                state: &S,
+            ) -> Result<Self, Self::Rejection> {
+                let bearer = req
+                    .headers
+                    .get(axum::http::header::AUTHORIZATION)
+                    .ok_or(AuthError::UnauthorizedToken)?
+                    .to_str()
+                    .map_err(|_| AuthError::InvalidToken)?
+                    .strip_prefix("Bearer ")
+                    .ok_or(AuthError::InvalidToken)?
+                    .parse()
+                    .map_err(|_| AuthError::InvalidToken)?;
 
-                async move { check_token::<$role>(&conn, bearer_future.await?).await }.boxed_local()
+                check_token(state.as_ref(), bearer).await
             }
         }
     };

@@ -3,7 +3,7 @@ use reqwest::StatusCode;
 
 use crate::helpers::{fake_hostname, TestApp};
 
-#[actix_rt::test]
+#[tokio::test]
 async fn auth_is_required() {
     let app = TestApp::spawn().await;
     let response = app
@@ -15,7 +15,7 @@ async fn auth_is_required() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn non_existent_token_is_regected() {
     let app = TestApp::spawn().await;
     let response = app
@@ -28,7 +28,7 @@ async fn non_existent_token_is_regected() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn invalid_format_token_is_rejected() {
     let app = TestApp::spawn().await;
     let response = app
@@ -41,7 +41,7 @@ async fn invalid_format_token_is_rejected() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn music_auth_cant_access_admin_routes() {
     let app = TestApp::spawn().await.downgrade_to::<auth::Music>().await;
 
@@ -54,7 +54,7 @@ async fn music_auth_cant_access_admin_routes() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn admin_auth_can_access_music_routes() {
     let app = TestApp::spawn().await;
 

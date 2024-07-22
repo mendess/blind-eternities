@@ -6,7 +6,7 @@ use spark_protocol::{Command, SuccessfulResponse};
 use crate::helpers::{fake_hostname, Simulation, TestApp};
 use crate::{assert_status, timeout};
 
-#[actix_rt::test]
+#[tokio::test]
 async fn requesting_version_works() {
     let app = TestApp::spawn().await;
 
@@ -31,7 +31,7 @@ async fn requesting_version_works() {
     assert_eq!(response, expected_response);
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn list_connections_works() {
     let app = TestApp::spawn().await;
 
@@ -64,7 +64,7 @@ async fn list_connections_works() {
     assert_eq!(vec![hostname], list)
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn list_connections_is_empty_after_device_quits() {
     let app = TestApp::spawn().await;
 
@@ -92,9 +92,9 @@ async fn list_connections_is_empty_after_device_quits() {
         .await
         .unwrap();
 
-    assert_status!(StatusCode::OK, response.status());
+    assert_status!(response.status(), StatusCode::OK);
 
     let list = response.json::<Vec<Hostname>>().await.unwrap();
 
-    assert!(list.is_empty());
+    assert!(list.is_empty(), "list: {list:?}");
 }

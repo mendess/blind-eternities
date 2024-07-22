@@ -11,6 +11,10 @@ use actix_web::{
     http::Method,
     web, App, HttpServer,
 };
+use axum::{
+    extract::{MatchedPath, Request},
+    middleware::Next,
+};
 use prometheus::{register_int_counter_vec, Encoder, IntCounterVec};
 
 pub fn new_request(route: &str, method: &Method) {
@@ -62,7 +66,29 @@ pub fn start_metrics_endpoint(
     )
 }
 
+#[derive(Clone, Copy, Default, Debug)]
 pub struct RequestMetrics;
+
+impl RequestMetrics {
+    pub async fn as_fn(matched: MatchedPath, req: Request, next: Next) -> axum::response::Response {
+        new_request(
+            matched.as_str(),
+            &match *req.method() {
+                http::Method::GET => actix_web::http::Method::GET,
+                http::Method::PUT => actix_web::http::Method::PUT,
+                http::Method::POST => actix_web::http::Method::POST,
+                http::Method::PATCH => actix_web::http::Method::PATCH,
+                http::Method::DELETE => actix_web::http::Method::DELETE,
+                http::Method::CONNECT => actix_web::http::Method::CONNECT,
+                http::Method::TRACE => actix_web::http::Method::TRACE,
+                http::Method::HEAD => actix_web::http::Method::HEAD,
+                http::Method::OPTIONS => actix_web::http::Method::OPTIONS,
+                _ => todo!(),
+            },
+        );
+        next.run(req).await
+    }
+}
 
 impl<S, B> Transform<S, ServiceRequest> for RequestMetrics
 where

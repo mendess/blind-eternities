@@ -1,6 +1,6 @@
 use crate::helpers::TestApp;
 
-#[actix_rt::test]
+#[tokio::test]
 async fn health_check_works() {
     let test_app = TestApp::spawn().await;
     let response = test_app

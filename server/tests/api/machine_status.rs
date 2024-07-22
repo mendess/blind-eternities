@@ -34,7 +34,7 @@ impl TestApp {
     }
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn machine_status() {
     let app = TestApp::spawn().await;
     let body = well_formed_json();
@@ -52,7 +52,7 @@ async fn machine_status() {
     assert_eq!(saved.external_ip, body["external_ip"].as_str().unwrap());
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn machine_status_returns_400_when_data_is_missing() {
     let app = TestApp::spawn().await;
 
@@ -74,15 +74,15 @@ async fn machine_status_returns_400_when_data_is_missing() {
     for (invalid_body, error_msg) in test_cases {
         let response = app.post_machine_status(invalid_body).await;
         assert_eq!(
-            StatusCode::BAD_REQUEST,
             response.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
             "The API did not fail with 400 Bad Request when the payload was {}",
             error_msg
         );
     }
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn machine_status_returns_400_when_hostname_is_malformed() {
     let app = TestApp::spawn().await;
     let base_json = well_formed_json();
@@ -108,15 +108,15 @@ async fn machine_status_returns_400_when_hostname_is_malformed() {
     for (invalid_body, error_msg) in test_cases {
         let response = app.post_machine_status(invalid_body).await;
         assert_eq!(
-            StatusCode::BAD_REQUEST,
             response.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
             "The API did not fail with 400 Bad Request when the payload {}",
-            error_msg
+            error_msg,
         );
     }
 }
 
-#[actix_rt::test]
+#[tokio::test]
 async fn machine_status_returns_posted_status() {
     // setup
     let app = TestApp::spawn().await;

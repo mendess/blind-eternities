@@ -1,28 +1,32 @@
-use actix_http::StatusCode;
-use actix_web::{web, HttpResponse, ResponseError};
-use spark_protocol::music::MusicCmdKind;
-use sqlx::PgPool;
-
-use crate::{
-    auth::music_session::MusicSession,
-    persistent_connections::{self, Connections},
+use axum::{
+    extract::{Path, State},
+    response::IntoResponse,
+    routing::post,
+    Json, Router,
 };
+use http::StatusCode;
+use spark_protocol::music::MusicCmdKind;
 
-pub fn routes() -> actix_web::Scope {
-    web::scope("/music").route("/{id}", web::post().to(message_music_player))
+use crate::{auth::music_session::MusicSession, persistent_connections};
+
+pub fn routes() -> Router<super::RouterState> {
+    Router::new().route("/:id", post(message_music_player))
 }
 
 #[derive(Debug, thiserror::Error)]
 enum MusicError {
+    #[error("unauthorized")]
+    Unauthorized,
     #[error(transparent)]
     ConnectionError(#[from] persistent_connections::ConnectionError),
     #[error(transparent)]
     SqlxError(#[from] sqlx::Error),
 }
 
-impl ResponseError for MusicError {
-    fn status_code(&self) -> StatusCode {
-        match self {
+impl IntoResponse for MusicError {
+    fn into_response(self) -> axum::response::Response {
+        let code = match self {
+            Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::ConnectionError(persistent_connections::ConnectionError::NotFound) => {
                 StatusCode::NOT_FOUND
             }
@@ -30,21 +34,22 @@ impl ResponseError for MusicError {
                 _,
             )) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::SqlxError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        }
+        };
+
+        (code, self.to_string()).into_response()
     }
 }
 
 async fn message_music_player(
-    db: web::Data<PgPool>,
-    connections: web::Data<Connections>,
-    id: web::Path<MusicSession>,
-    command: web::Json<MusicCmdKind>,
-) -> Result<HttpResponse, MusicError> {
+    State(super::RouterState { connections, db }): State<super::RouterState>,
+    Path(id): Path<MusicSession>,
+    Json(command): Json<MusicCmdKind>,
+) -> Result<impl IntoResponse, MusicError> {
     let Some(hostname) = id.hostname(&db).await? else {
-        return Ok(HttpResponse::Unauthorized().into());
+        return Err(MusicError::Unauthorized);
     };
 
-    let response = connections.request(&hostname, command.into_inner()).await?;
+    let response = connections.request(&hostname, command).await?;
 
-    Ok(HttpResponse::Ok().json(response))
+    Ok((StatusCode::OK, Json(response)))
 }
