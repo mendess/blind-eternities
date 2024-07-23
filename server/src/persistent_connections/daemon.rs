@@ -1,4 +1,7 @@
-use std::{any::type_name, convert::Infallible, future::Future, io, sync::Arc, time::Duration};
+use std::{
+    any::type_name, convert::Infallible, future::Future, io, ops::ControlFlow, sync::Arc,
+    time::Duration,
+};
 
 use common::net::{
     MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, RecvError, WriteJsonLinesExt,
@@ -172,19 +175,23 @@ async fn handle_a_connection(
             if cmd != Command::Heartbeat {
                 tracing::info!(?cmd, "received cmd");
             }
-            let mut fatal_error = None;
+            let mut control_flow = ControlFlow::Continue(());
             let response = match send!(write <- &cmd; { Ok(()), e => Err(e), elapsed => continue })
             {
-                Ok(()) => match timeout(TIMEOUT, read.recv()).await {
+                Ok(()) => match dbg!(timeout(TIMEOUT, read.recv()).await) {
                     Ok(Ok(Some(r))) => r,
-                    Ok(Ok(None)) => Err(spark_protocol::ErrorResponse::RelayError(
-                        "connection closed by remote spark".into(),
-                    )),
+                    Ok(Ok(None)) => {
+                        control_flow = ControlFlow::Break(Ok(()));
+                        Err(spark_protocol::ErrorResponse::RelayError(
+                            "connection closed by remote spark".into(),
+                        ))
+                    }
                     Ok(Err(e)) => Err(spark_protocol::ErrorResponse::RelayError(format!(
                         "failed to receive the response sent by the remote spark: {e:?}"
                     ))),
                     Err(_elapsed) => {
-                        fatal_error = Some("timedout waiting for the remote spark.");
+                        control_flow =
+                            ControlFlow::Break(Err("timedout waiting for the remote spark."));
                         Err(spark_protocol::ErrorResponse::RelayError(
                             "the remote spark took too long to respond. Resetting connection"
                                 .into(),
@@ -192,7 +199,7 @@ async fn handle_a_connection(
                     }
                 },
                 Err(e) => {
-                    fatal_error = Some("connection dropped");
+                    control_flow = ControlFlow::Break(Err("connection dropped"));
                     Err(spark_protocol::ErrorResponse::RelayError(format!(
                         "failed to send command to remote spark: {e:?}"
                     )))
@@ -203,8 +210,10 @@ async fn handle_a_connection(
                 tracing::error!(?cmd, response = ?r, "one shot channel closed");
             }
             tracing::debug!("forwarded response");
-            if let Some(fatal_error) = fatal_error {
-                return Err(io::Error::other(fatal_error));
+            match control_flow {
+                ControlFlow::Continue(_) => {}
+                ControlFlow::Break(Err(fatal_error)) => return Err(io::Error::other(fatal_error)),
+                ControlFlow::Break(Ok(())) => break,
             }
         }
         Ok(())
