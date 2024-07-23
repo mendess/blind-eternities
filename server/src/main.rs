@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
             .expect("Failed to connect to Postgres")
     };
 
-    match common::telemetry::metrics::start_metrics_endpoint("blind_eternities") {
+    match common::telemetry::metrics::start_metrics_endpoint("blind_eternities").await {
         Ok(fut) => {
             tokio::spawn(fut);
         }

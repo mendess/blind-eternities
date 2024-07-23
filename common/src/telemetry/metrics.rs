@@ -1,21 +1,18 @@
 use std::{
-    future::{ready, Future, IntoFuture, Ready},
+    future::{Future, IntoFuture},
     io,
-    net::TcpListener,
     sync::OnceLock,
 };
 
-use actix_web::{
-    body::MessageBody,
-    dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    http::Method,
-    web, App, HttpServer,
-};
 use axum::{
     extract::{MatchedPath, Request},
     middleware::Next,
+    routing::get,
+    Router,
 };
+use http::Method;
 use prometheus::{register_int_counter_vec, Encoder, IntCounterVec};
+use tokio::net::TcpListener;
 
 pub fn new_request(route: &str, method: &Method) {
     static METRICS: OnceLock<IntCounterVec> = OnceLock::new();
@@ -55,15 +52,14 @@ pub async fn metrics_handler(prefix: &str) -> String {
     }
 }
 
-pub fn start_metrics_endpoint(
+pub async fn start_metrics_endpoint(
     prefix: &'static str,
 ) -> io::Result<impl Future<Output = io::Result<()>>> {
-    Ok(
-        HttpServer::new(|| App::new().route("/metrics", web::get().to(|| metrics_handler(prefix))))
-            .listen(TcpListener::bind("0.0.0.0:9000")?)?
-            .run()
-            .into_future(),
+    Ok(axum::serve(
+        TcpListener::bind("0.0.0.0:9000").await?,
+        Router::new().route("/metrics", get(|| metrics_handler(prefix))),
     )
+    .into_future())
 }
 
 #[derive(Clone, Copy, Default, Debug)]
@@ -71,64 +67,7 @@ pub struct RequestMetrics;
 
 impl RequestMetrics {
     pub async fn as_fn(matched: MatchedPath, req: Request, next: Next) -> axum::response::Response {
-        new_request(
-            matched.as_str(),
-            &match *req.method() {
-                http::Method::GET => actix_web::http::Method::GET,
-                http::Method::PUT => actix_web::http::Method::PUT,
-                http::Method::POST => actix_web::http::Method::POST,
-                http::Method::PATCH => actix_web::http::Method::PATCH,
-                http::Method::DELETE => actix_web::http::Method::DELETE,
-                http::Method::CONNECT => actix_web::http::Method::CONNECT,
-                http::Method::TRACE => actix_web::http::Method::TRACE,
-                http::Method::HEAD => actix_web::http::Method::HEAD,
-                http::Method::OPTIONS => actix_web::http::Method::OPTIONS,
-                _ => todo!(),
-            },
-        );
+        new_request(matched.as_str(), req.method());
         next.run(req).await
-    }
-}
-
-impl<S, B> Transform<S, ServiceRequest> for RequestMetrics
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
-    B: MessageBody,
-{
-    type Response = ServiceResponse<B>;
-    type Error = actix_web::Error;
-    type Transform = RequestMetricsMiddleware<S>;
-    type InitError = ();
-    type Future = Ready<Result<Self::Transform, Self::InitError>>;
-
-    fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(RequestMetricsMiddleware(service)))
-    }
-}
-
-pub struct RequestMetricsMiddleware<S>(S);
-
-impl<S, B> Service<ServiceRequest> for RequestMetricsMiddleware<S>
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
-    B: MessageBody,
-{
-    type Future = S::Future;
-    type Error = S::Error;
-    type Response = S::Response;
-
-    fn call(&self, req: ServiceRequest) -> Self::Future {
-        new_request(
-            req.match_pattern().as_deref().unwrap_or("UNMATCHED"),
-            req.method(),
-        );
-        self.0.call(req)
-    }
-
-    fn poll_ready(
-        &self,
-        ctx: &mut core::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        self.0.poll_ready(ctx)
     }
 }

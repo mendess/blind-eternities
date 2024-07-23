@@ -5,29 +5,29 @@ version = "0.3.0"
 default-run = "blind-eternities"
 
 [dependencies]
-axum.workspace = true
-axum-prometheus.workspace = true
-http.workspace = true
 anyhow.workspace = true
 async-recursion.workspace = true
+axum-prometheus.workspace = true
+axum.workspace = true
 chrono.workspace = true
 common = { path = "../common", features = ["sqlx", "metrics"] }
 config.workspace = true
 futures.workspace = true
+http.workspace = true
 itertools.workspace = true
 prometheus.workspace = true
 regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
 spark-protocol = { path = "../spark-protocol" }
+sqlx.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tower-http = { workspace = true, features = ["trace"] }
 tracing = { workspace = true, features = ["log"] }
 tracing-bunyan-formatter.workspace = true
 tracing-futures.workspace = true
 tracing-log.workspace = true
 uuid.workspace = true
-sqlx.workspace = true
-tower-http = { workspace = true, features = ["trace"] }
 
 [dependencies.tracing-subscriber]
 workspace = true

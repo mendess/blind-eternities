@@ -1,17 +1,18 @@
-mod assets;
 mod cache;
 mod metrics;
 mod music;
 
 use std::io;
 
-use actix_web::{web::Data, App, HttpServer};
+use axum::{middleware::from_fn, Router};
 use common::{
     net::auth_client::Client,
     telemetry::{get_subscriber_no_bunny, init_subscriber},
 };
 use config::File;
 use serde::{Deserialize, Serialize};
+use tokio::net::TcpListener;
+use tower_http::services::ServeDir;
 use url::Url;
 
 #[derive(Serialize, Deserialize)]
@@ -34,25 +35,28 @@ fn load_config() -> Result<Config, config::ConfigError> {
 
 type Backend = common::net::auth_client::Client;
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() -> io::Result<()> {
     init_subscriber(get_subscriber_no_bunny("info".to_string()));
 
     let config = load_config().map_err(io::Error::other)?;
-    let client = Data::new(Client::new(config.backend_url).map_err(io::Error::other)?);
+    let client = Client::new(config.backend_url).map_err(io::Error::other)?;
 
-    let server = HttpServer::new(move || {
-        App::new()
-            .wrap(common::telemetry::metrics::RequestMetrics)
-            .service(music::routes())
-            .service(assets::routes())
-            .app_data(client.clone())
-    });
+    let router = Router::new()
+        .nest("/music", music::routes())
+        .nest_service("/assets", ServeDir::new("planar-bridge/assets"))
+        .layer(from_fn(common::telemetry::metrics::RequestMetrics::as_fn))
+        .with_state(client);
 
-    tokio::spawn(common::telemetry::metrics::start_metrics_endpoint(
-        "planar_bridge",
-    )?);
+    match common::telemetry::metrics::start_metrics_endpoint("planar_bridge").await {
+        Ok(fut) => {
+            tokio::spawn(fut);
+        }
+        Err(error) => {
+            tracing::warn!(?error, "failed to start metrics endpoint");
+        }
+    }
 
     println!("running on http://localhost:{}/music", config.port);
-    server.bind(("0.0.0.0", config.port))?.run().await
+    axum::serve(TcpListener::bind(("0.0.0.0", config.port)).await?, router).await
 }

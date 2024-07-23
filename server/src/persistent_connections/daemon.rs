@@ -178,7 +178,7 @@ async fn handle_a_connection(
             let mut control_flow = ControlFlow::Continue(());
             let response = match send!(write <- &cmd; { Ok(()), e => Err(e), elapsed => continue })
             {
-                Ok(()) => match dbg!(timeout(TIMEOUT, read.recv()).await) {
+                Ok(()) => match timeout(TIMEOUT, read.recv()).await {
                     Ok(Ok(Some(r))) => r,
                     Ok(Ok(None)) => {
                         control_flow = ControlFlow::Break(Ok(()));

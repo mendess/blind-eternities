@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+use axum::response::IntoResponse;
 use spark_protocol::music::MusicCmdKind;
 use tokio::sync::{
     watch::{self, Receiver},
@@ -29,9 +30,9 @@ impl From<Arc<super::Error>> for SharedError {
     }
 }
 
-impl actix_web::ResponseError for SharedError {
-    fn status_code(&self) -> actix_web::http::StatusCode {
-        self.0.status_code()
+impl IntoResponse for SharedError {
+    fn into_response(self) -> axum::response::Response {
+        (self.0.status_code(), self.to_string()).into_response()
     }
 }
 

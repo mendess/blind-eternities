@@ -2,14 +2,17 @@ mod request_coalescing;
 
 use std::{io, sync::Arc, time::Duration};
 
-use actix_web::{
-    http::StatusCode,
-    web::{self, get, post},
-    FromRequest, HttpResponse, ResponseError,
+use askama_axum::Template;
+use axum::{
+    async_trait,
+    extract::{FromRequestParts, Path, Query, State},
+    response::{AppendHeaders, IntoResponse},
+    routing::{get, post},
+    Form, Json, Router,
 };
-use askama_actix::Template;
 use common::domain::{music_session::MusicSession, Hostname};
-use futures::{future::LocalBoxFuture, FutureExt, TryStreamExt};
+use futures::TryStreamExt;
+use http::{header, HeaderMap, StatusCode};
 use mappable_rc::Marc;
 use mlib::{
     playlist::{PartialSearchResult, Playlist},
@@ -26,16 +29,16 @@ use crate::{cache, metrics, Backend};
 
 use self::request_coalescing::{request_coalesced, SharedError};
 
-pub fn routes() -> actix_web::Scope {
-    web::scope("/music")
-        .route("", get().to(index))
-        .route("/current", get().to(now_playing))
-        .route("/volume", get().to(volume))
-        .route("/ctl", post().to(ctl))
-        .route("/tabs/{mode}", get().to(tabs))
-        .route("/now", get().to(now))
-        .route("/search", post().to(search))
-        .route("/queue", post().to(queue))
+pub fn routes() -> Router<Backend> {
+    Router::new()
+        .route("/", get(index))
+        .route("/current", get(now_playing))
+        .route("/volume", get(volume))
+        .route("/ctl", post(ctl))
+        .route("/tabs/:mode", get(tabs))
+        .route("/now", get(now))
+        .route("/search", post(search))
+        .route("/queue", post(queue))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -56,6 +59,25 @@ enum Error {
     BadRequest,
     #[error("not found")]
     NotFound,
+}
+
+impl Error {
+    pub fn status_code(&self) -> StatusCode {
+        match self {
+            Self::Io(_) | Self::Reqwest(_) | Self::UnexpectedBackendResponse(_) | Self::Mlib(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+            Self::PlayerOrSessionNotFound | Self::NotFound => StatusCode::NOT_FOUND,
+            Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::BadRequest => StatusCode::BAD_REQUEST,
+        }
+    }
+}
+
+impl IntoResponse for Error {
+    fn into_response(self) -> axum::response::Response {
+        (self.status_code(), self.to_string()).into_response()
+    }
 }
 
 async fn request_from_backend(
@@ -83,7 +105,7 @@ async fn request_from_backend(
     };
     let response = request.send().await?;
 
-    if response.status() == reqwest::StatusCode::NOT_FOUND {
+    if response.status() == StatusCode::NOT_FOUND {
         return Err(Error::PlayerOrSessionNotFound);
     }
 
@@ -98,32 +120,23 @@ async fn request_from_backend(
     }
 }
 
-impl ResponseError for Error {
-    fn status_code(&self) -> StatusCode {
-        match self {
-            Self::Io(_) | Self::Reqwest(_) | Self::UnexpectedBackendResponse(_) | Self::Mlib(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
-            Self::PlayerOrSessionNotFound | Self::NotFound => StatusCode::NOT_FOUND,
-            Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::BadRequest => StatusCode::BAD_REQUEST,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum Target {
     Host { hostname: Hostname, auth: Uuid },
     Session { session: MusicSession },
 }
 
-impl FromRequest for Target {
-    type Future = LocalBoxFuture<'static, Result<Self, Self::Error>>;
-    type Error = Error;
-    fn from_request(
-        req: &actix_web::HttpRequest,
-        payload: &mut actix_web::dev::Payload,
-    ) -> Self::Future {
+#[async_trait]
+impl<S> FromRequestParts<S> for Target
+where
+    S: Send + Sync,
+{
+    type Rejection = Error;
+
+    async fn from_request_parts(
+        parts: &mut http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum Target {
@@ -131,22 +144,22 @@ impl FromRequest for Target {
             Session { session: MusicSession },
         }
 
-        let target_parser = web::Query::<Target>::from_request(req, payload);
-        let req = req.clone();
-        async move {
-            let target = target_parser.await.map_err(|_| Error::BadRequest)?;
+        let Query(target) = Query::<Target>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| Error::BadRequest)?;
+        let header_map = match HeaderMap::from_request_parts(parts, state).await {
+            Ok(m) => m,
+            Err(e) => match e {}, // infalible
+        };
 
-            match target.into_inner() {
-                Target::Host { hostname } => req
-                    .headers()
-                    .get("authorization")
-                    .and_then(|h| h.to_str().ok().and_then(|h| h.parse().ok()))
-                    .map(|auth| Self::Host { hostname, auth })
-                    .ok_or_else(|| Error::Unauthorized),
-                Target::Session { session } => Ok(Self::Session { session }),
-            }
+        match target {
+            Target::Host { hostname } => header_map
+                .get(header::AUTHORIZATION)
+                .and_then(|a| a.to_str().ok()?.parse().ok())
+                .map(|auth| Self::Host { hostname, auth })
+                .ok_or(Error::Unauthorized),
+            Target::Session { session } => Ok(Self::Session { session }),
         }
-        .boxed_local()
     }
 }
 
@@ -176,10 +189,7 @@ struct NowPlaying {
     current: Marc<Current>,
 }
 
-async fn now_playing(
-    backend: web::Data<Backend>,
-    target: Target,
-) -> Result<NowPlaying, SharedError> {
+async fn now_playing(backend: State<Backend>, target: Target) -> Result<NowPlaying, SharedError> {
     Ok(NowPlaying {
         current: get_current(backend, target).await?,
     })
@@ -192,30 +202,30 @@ struct PlayPause {
 }
 
 async fn ctl(
-    backend: web::Data<Backend>,
+    backend: State<Backend>,
     target: Target,
-    cmd: web::Json<MusicCmd>,
-) -> Result<actix_web::HttpResponse, Error> {
+    Json(cmd): Json<MusicCmd>,
+) -> Result<impl IntoResponse, Error> {
     tracing::info!(?cmd, "ctl");
-    let response = request_from_backend(&backend, &target, cmd.into_inner().command).await?;
+    let response = request_from_backend(&backend, &target, cmd.command).await?;
     let res = match response {
         Response::PlayState { paused } => {
-            HttpResponse::build(StatusCode::OK).body(PlayPause { paused }.render().unwrap())
+            (StatusCode::OK, PlayPause { paused }.render().unwrap()).into_response()
         }
-        Response::Title { title } => HttpResponse::build(StatusCode::OK).body(title),
-        Response::Volume { volume } => HttpResponse::build(StatusCode::OK).body(volume.to_string()),
-        Response::Current { .. } | Response::QueueSummary { .. } => {
-            HttpResponse::build(StatusCode::OK)
-                .insert_header(("hx-trigger", "new-current"))
-                .body(())
-        }
-        Response::Now { .. } => HttpResponse::build(StatusCode::BAD_REQUEST).into(),
+        Response::Title { title } => (StatusCode::OK, title).into_response(),
+        Response::Volume { volume } => (StatusCode::OK, volume.to_string()).into_response(),
+        Response::Current { .. } | Response::QueueSummary { .. } => (
+            StatusCode::OK,
+            AppendHeaders([("hx-trigger", "new-current")]),
+        )
+            .into_response(),
+        Response::Now { .. } => StatusCode::BAD_REQUEST.into_response(),
     };
 
     Ok(res)
 }
 
-async fn volume(backend: web::Data<Backend>, target: Target) -> Result<String, SharedError> {
+async fn volume(backend: State<Backend>, target: Target) -> Result<String, SharedError> {
     Ok(get_current(backend, target).await?.volume.to_string())
 }
 
@@ -231,7 +241,7 @@ struct Tabs {
     tab: Tab,
 }
 
-async fn tabs(target: Target, kind: web::Path<String>) -> Result<Tabs, Error> {
+async fn tabs(target: Target, kind: Path<String>) -> Result<Tabs, Error> {
     let tab = match kind.as_str() {
         "now" => Tab::Now,
         "queue" => Tab::Queue,
@@ -246,7 +256,7 @@ struct Now {
     now: Marc<(Vec<String>, String, Vec<String>)>,
 }
 
-async fn now(backend: web::Data<Backend>, target: Target) -> Result<Now, Error> {
+async fn now(backend: State<Backend>, target: Target) -> Result<Now, Error> {
     let now = cache::get_or_init(
         &target.to_query_string(),
         || async {
@@ -283,7 +293,7 @@ struct SearchFormData {
 
 async fn search(
     target: Target,
-    web::Form(SearchFormData { search }): web::Form<SearchFormData>,
+    Form(SearchFormData { search }): Form<SearchFormData>,
 ) -> Result<SearchResults, Error> {
     let playlist = load_playlist().await?;
     let mut songs = if search.is_empty() {
@@ -302,7 +312,7 @@ async fn search(
 }
 
 async fn get_current(
-    backend: web::Data<Backend>,
+    backend: State<Backend>,
     target: Target,
 ) -> Result<Marc<Current>, SharedError> {
     cache::get_or_init(
@@ -358,9 +368,9 @@ struct QueueSummary {
 }
 
 async fn queue(
-    backend: web::Data<Backend>,
+    backend: State<Backend>,
     target: Target,
-    web::Json(QueueCommand { query, search }): web::Json<QueueCommand>,
+    Json(QueueCommand { query, search }): Json<QueueCommand>,
 ) -> Result<QueueSummary, Error> {
     let response =
         request_from_backend(&backend, &target, MusicCmdKind::Queue { query, search }).await?;
