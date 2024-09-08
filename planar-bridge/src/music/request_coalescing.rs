@@ -55,7 +55,7 @@ pub async fn request_coalesced(
     let request_coalescer = REQUEST_COALESCER.get_or_init(Default::default);
     let (mut channel, id) = 'wait: {
         let mut inflight = request_coalescer.inflight.lock().await;
-        let ((target, cmd), channel, id) = match inflight.entry((target, cmd)) {
+        let ((target, cmd), channel, id) = match inflight.entry((target.clone(), cmd.clone())) {
             Entry::Occupied(receiver) => break 'wait receiver.get().clone(),
             Entry::Vacant(slot) => {
                 let (tx, rx) = watch::channel(None);
@@ -66,23 +66,29 @@ pub async fn request_coalesced(
             }
         };
         drop(inflight);
-        tracing::info!(?id, "requesting from backend");
-        let result = super::request_from_backend(client, &target, cmd.clone())
-            .await
-            .map_err(Arc::new)
-            .map_err(Into::into);
+        let client = client.clone();
+        // we spawn here to avoid having this be canceled. When it's canceled we might not remove
+        // from the hashmap or we might not send to the channel. Causing the waiting code to crash
+        // on the expect.
+        let handle = tokio::spawn(async move {
+            tracing::info!(?id, "requesting from backend");
+            let result = super::request_from_backend(&client, &target, cmd.clone())
+                .await
+                .map_err(Arc::new)
+                .map_err(Into::into);
 
-        tracing::info!(?id, "sending result");
-        let r = channel.send(Some(result.clone()));
-        tracing::info!(?id, "success? {}", r.is_ok());
-        request_coalescer
-            .inflight
-            .lock()
-            .await
-            .remove(&(target, cmd));
-
-        tracing::info!(?id, "dropping channel");
-        return result;
+            tracing::info!(?id, "sending result");
+            let r = channel.send(Some(result.clone()));
+            tracing::info!(?id, "success? {}", r.is_ok());
+            request_coalescer
+                .inflight
+                .lock()
+                .await
+                .remove(&(target, cmd));
+            tracing::info!(?id, "dropping channel");
+            result
+        });
+        return handle.await.unwrap();
     };
 
     tracing::info!(?id, "waiting");
