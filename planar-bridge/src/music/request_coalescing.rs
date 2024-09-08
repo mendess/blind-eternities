@@ -45,6 +45,7 @@ struct RequestCoalescer {
 
 static REQUEST_COALESCER: OnceLock<RequestCoalescer> = OnceLock::new();
 
+#[tracing::instrument(skip(client))]
 pub async fn request_coalesced(
     client: &Backend,
     target: Target,
@@ -63,20 +64,26 @@ pub async fn request_coalesced(
             }
         };
         drop(inflight);
+        tracing::info!("requesting from backend");
         let result = super::request_from_backend(client, &target, cmd.clone())
             .await
             .map_err(Arc::new)
             .map_err(Into::into);
 
-        let _ = channel.send(Some(result.clone()));
+        tracing::info!("sending result");
+        let r = channel.send(Some(result.clone()));
+        tracing::info!("success? {}", r.is_ok());
         request_coalescer
             .inflight
             .lock()
             .await
             .remove(&(target, cmd));
 
+        tracing::info!("dropping channel");
         return result;
     };
+
+    tracing::info!("waiting");
 
     let result = channel
         .wait_for(Option::is_some)
