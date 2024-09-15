@@ -18,6 +18,9 @@ itertools.workspace = true
 prometheus.workspace = true
 regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde-querystring.workspace = true
+serde_json.workspace = true
+socketioxide = { workspace = true, features = ["extensions"] }
 spark-protocol = { path = "../spark-protocol" }
 sqlx.workspace = true
 thiserror.workspace = true

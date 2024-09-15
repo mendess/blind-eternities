@@ -21,9 +21,12 @@ pub fn run(
         db.clone(),
     );
 
+    let (layer, io) = crate::persistent_connections::ws::socket_io_routes();
+
     Ok(axum::serve(
         server_listener,
-        routes::router(connections, db)
+        routes::router(connections, db, io)
+            .layer(layer)
             .layer(from_fn(RequestMetrics::as_fn))
             .layer(TraceLayer::new_for_http()),
     )

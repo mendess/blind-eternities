@@ -41,7 +41,9 @@ impl IntoResponse for MusicError {
 }
 
 async fn message_music_player(
-    State(super::RouterState { connections, db }): State<super::RouterState>,
+    State(super::RouterState {
+        connections, db, ..
+    }): State<super::RouterState>,
     Path(id): Path<MusicSession>,
     Json(command): Json<MusicCmdKind>,
 ) -> Result<impl IntoResponse, MusicError> {
