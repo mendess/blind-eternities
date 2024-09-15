@@ -66,8 +66,14 @@ pub async fn start_metrics_endpoint(
 pub struct RequestMetrics;
 
 impl RequestMetrics {
-    pub async fn as_fn(matched: MatchedPath, req: Request, next: Next) -> axum::response::Response {
-        new_request(matched.as_str(), req.method());
+    pub async fn as_fn(
+        matched: Option<MatchedPath>,
+        req: Request,
+        next: Next,
+    ) -> axum::response::Response {
+        if let Some(matched) = matched {
+            new_request(matched.as_str(), req.method());
+        }
         next.run(req).await
     }
 }
