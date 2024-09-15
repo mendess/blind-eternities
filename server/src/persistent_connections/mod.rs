@@ -1,5 +1,6 @@
 pub mod connections;
 mod daemon;
+pub mod ws;
 
 use sqlx::PgPool;
 use std::sync::Arc;
