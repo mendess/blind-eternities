@@ -21,6 +21,7 @@ once_cell.workspace = true
 open.workspace = true
 pnet.workspace = true
 public-ip.workspace = true
+rust_socketio = { workspace = true, features = ["async"], optional = true }
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
@@ -62,4 +63,5 @@ optional = true
 
 [features]
 default = []
-music-ctl = ["mlib"]
+music-ctl = ["dep:mlib"]
+ws = ["dep:rust_socketio"]

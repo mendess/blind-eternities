@@ -26,7 +26,12 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
 
 async fn display_persistent_connections(client: AuthenticatedClient) -> anyhow::Result<()> {
     let conns: Vec<Hostname> = client
-        .get("/persistent-connections")?
+        .get(
+            #[cfg(feature = "ws")]
+            "/persistent-connections/ws",
+            #[cfg(not(feature = "ws"))]
+            "/persistent-connections",
+        )?
         .send()
         .await?
         .error_for_status()?

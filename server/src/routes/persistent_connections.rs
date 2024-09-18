@@ -8,7 +8,9 @@ use axum::{
 };
 use common::{domain::Hostname, ws};
 use http::StatusCode;
-use socketioxide::{extract::SocketRef, AckError, AdapterError, SocketError};
+use socketioxide::{
+    ack::AckResponse, extract::SocketRef, AckError, AdapterError, SendError, SocketError,
+};
 
 use crate::{
     auth,
@@ -69,15 +71,25 @@ async fn ws_send(
         Some(ns) => ns,
         None => return StatusCode::NOT_FOUND.into_response(),
     };
-    let response = socket
-        .emit_with_ack::<_, spark_protocol::Response>(ws::COMMAND, command)
-        .unwrap()
-        .await;
+    let emit_future =
+        socket.emit_with_ack::<_, [spark_protocol::Response; 1]>(ws::COMMAND, command);
+    let response = match emit_future {
+        Ok(future) => future.await,
+        Err(SendError::Socket(SocketError::Closed(_))) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, "socket closed").into_response()
+        }
+        Err(SendError::Socket(SocketError::InternalChannelFull(_))) => {
+            return StatusCode::TOO_MANY_REQUESTS.into_response()
+        }
+        Err(SendError::Serialize(e)) => {
+            panic!("should never fail to serialize a command: {e:?}")
+        }
+    };
 
     tracing::info!(?response, "received response");
 
     match response {
-        Ok(response) => (StatusCode::OK, Json(response.data)).into_response(),
+        Ok(AckResponse { data: [data], .. }) => (StatusCode::OK, Json(data)).into_response(),
         Err(AckError::Timeout) => StatusCode::GATEWAY_TIMEOUT.into_response(),
         Err(AckError::Serde(e)) => {
             (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()

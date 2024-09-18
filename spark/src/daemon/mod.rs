@@ -3,9 +3,14 @@
 mod handle_message;
 pub(crate) mod ipc;
 pub(crate) mod machine_status;
+#[cfg(not(feature = "ws"))]
 pub(crate) mod persistent_conn;
+#[cfg(feature = "ws")]
+pub(crate) mod ws_persistent_conn;
+#[cfg(feature = "ws")]
+pub(crate) use ws_persistent_conn as persistent_conn;
 
-use futures::future::join3;
+use futures::future;
 
 use crate::config::Config;
 use std::sync::Arc;
@@ -18,10 +23,13 @@ pub async fn run_all(config: Config) -> anyhow::Result<()> {
             std::future::pending().await
         }
     };
+    #[cfg(feature = "ws")]
+    let persistent_conn = persistent_conn::start(config.clone());
+    #[cfg(not(feature = "ws"))]
     let persistent_conn = persistent_conn::start(config.clone());
     let ipc = ipc::start(config.clone()).await?;
     let machine_status = machine_status::start(config.clone())?;
-    let background_tasks = join3(persistent_conn, ipc, machine_status);
+    let background_tasks = future::join3(persistent_conn, ipc, machine_status);
 
     tokio::select! {
         () = ctrl_c => {

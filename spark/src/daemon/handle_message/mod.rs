@@ -3,9 +3,9 @@ pub mod music;
 
 use std::{os::unix::prelude::CommandExt, sync::Mutex, thread, time::Duration};
 
-use spark_protocol::{Command, ErrorResponse, SuccessfulResponse};
+use spark_protocol::{Command, ErrorResponse, Response, SuccessfulResponse};
 
-pub async fn rxtx(cmd: Command) -> Result<SuccessfulResponse, ErrorResponse> {
+pub async fn rxtx(cmd: Command) -> Response {
     match cmd {
         Command::Heartbeat => Ok(SuccessfulResponse::Unit),
         Command::Reload => {
