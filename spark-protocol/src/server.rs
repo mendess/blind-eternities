@@ -14,7 +14,7 @@ use tokio::{
     net::{self, UnixListener, UnixStream},
 };
 
-use super::{ErrorResponse, SuccessfulResponse};
+use super::ErrorResponse;
 
 struct Client {
     reader: BufReader<net::unix::OwnedReadHalf>,
@@ -28,7 +28,7 @@ impl Client {
     }
 
     #[inline(always)]
-    async fn send(&mut self, r: Result<SuccessfulResponse, ErrorResponse>) -> io::Result<()> {
+    async fn send(&mut self, r: crate::Response) -> io::Result<()> {
         self.writer.send(&r).await
     }
 }
@@ -61,7 +61,7 @@ impl ServerBuilder {
     pub async fn serve<F, Fut>(self, handler: F) -> io::Result<impl Future<Output = ()>>
     where
         F: Fn(Command) -> Fut + Clone + Send + 'static,
-        Fut: Future<Output = Result<SuccessfulResponse, ErrorResponse>> + Send,
+        Fut: Future<Output = crate::Response> + Send,
     {
         async fn create_socket<P: AsRef<Path> + Debug>(p: P) -> io::Result<UnixListener> {
             if let Err(e) = fs::remove_file(&p).await {
@@ -125,7 +125,7 @@ impl ServerBuilder {
 pub async fn server<F, Fut>(handler: F) -> io::Result<impl Future<Output = ()>>
 where
     F: Fn(Command) -> Fut + Clone + Send + 'static,
-    Fut: Future<Output = Result<SuccessfulResponse, ErrorResponse>> + Send + 'static,
+    Fut: Future<Output = crate::Response> + Send + 'static,
 {
     ServerBuilder::new().serve(handler).await
 }

@@ -92,7 +92,7 @@ pub async fn send(
 ) -> anyhow::Result<spark_protocol::Response> {
     send_impl(
         AuthenticatedClient::try_from(&config)?
-            .post(&format!("/persistent-connections/send/{}", hostname))?
+            .post(&format!("/persistent-connections/send/{hostname}"))?
             .json(&command),
     )
     .await
