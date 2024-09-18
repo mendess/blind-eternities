@@ -63,8 +63,10 @@ fn ipc_socket_path() -> PathBuf {
     }
 }
 
-pub fn load_configuration() -> anyhow::Result<Config> {
-    let config_path = if let Ok(p) = std::env::var("SPARK__CONFIG_FILE") {
+pub fn load_configuration<P: Into<PathBuf>>(path: Option<P>) -> anyhow::Result<Config> {
+    let config_path = if let Some(p) = path {
+        p.into()
+    } else if let Ok(p) = std::env::var("SPARK__CONFIG_FILE") {
         PathBuf::from(p)
     } else {
         config_dir()

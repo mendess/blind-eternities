@@ -4,7 +4,10 @@ mod daemon;
 mod routing;
 mod util;
 
-use std::{io::IsTerminal, os::unix::prelude::ExitStatusExt, process::ExitStatus, time::Duration};
+use std::{
+    io::IsTerminal, os::unix::prelude::ExitStatusExt, path::PathBuf, process::ExitStatus,
+    time::Duration,
+};
 
 use anyhow::Context;
 use clap::{CommandFactory, Parser, Subcommand};
@@ -20,6 +23,8 @@ struct Args {
     /// Enable verbose logging
     #[arg(short = 'v', long = "verbose")]
     verbose: bool,
+    #[arg(short, long)]
+    config: Option<PathBuf>,
     #[command(subcommand)]
     cmd: Cmd,
 }
@@ -87,7 +92,7 @@ enum Backend {
 
 async fn app(args: Args) -> anyhow::Result<ExitStatus> {
     tracing::debug!("loading configuration");
-    let config = config::load_configuration().context("loading configuration")?;
+    let config = config::load_configuration(args.config).context("loading configuration")?;
 
     tracing::debug!(?args.cmd);
 
