@@ -99,7 +99,7 @@ async fn request_from_backend(
                 },
             )),
         Target::Session { session } => client
-            .post(&format!("/music/{session}"))
+            .post(&format!("/music/ws/{session}"))
             .expect("url should always parse")
             .json(&cmd),
     };

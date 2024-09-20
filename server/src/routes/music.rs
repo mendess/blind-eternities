@@ -7,10 +7,15 @@ use axum::{
 use http::StatusCode;
 use spark_protocol::music::MusicCmdKind;
 
-use crate::{auth::music_session::MusicSession, persistent_connections};
+use crate::{
+    auth::{self, music_session::MusicSession},
+    persistent_connections,
+};
 
 pub fn routes() -> Router<super::RouterState> {
-    Router::new().route("/:id", post(message_music_player))
+    Router::new()
+        .route("/ws/:id", post(ws_message_music_player))
+        .route("/:id", post(message_music_player))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -54,4 +59,25 @@ async fn message_music_player(
     let response = connections.request(&hostname, command).await?;
 
     Ok((StatusCode::OK, Json(response)))
+}
+
+async fn ws_message_music_player(
+    State(super::RouterState { socket_io, db, .. }): State<super::RouterState>,
+    Path(id): Path<MusicSession>,
+    Json(command): Json<MusicCmdKind>,
+) -> impl IntoResponse {
+    let hostname = match id.hostname(&db).await {
+        Ok(Some(h)) => h,
+        Ok(None) => return StatusCode::UNAUTHORIZED.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    super::persistent_connections::ws_send(
+        auth::Admin {},
+        State(socket_io),
+        Path(hostname),
+        Json(command.into()),
+    )
+    .await
+    .into_response()
 }

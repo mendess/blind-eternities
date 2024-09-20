@@ -52,7 +52,7 @@ async fn ws_list_persistent_connections(
     )
 }
 
-async fn ws_send(
+pub async fn ws_send(
     _: auth::Admin,
     State(io): State<SocketIo>,
     hostname: Path<Hostname>,
