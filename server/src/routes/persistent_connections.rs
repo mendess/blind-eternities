@@ -90,7 +90,10 @@ pub async fn ws_send(
 
     match response {
         Ok(AckResponse { data: [data], .. }) => (StatusCode::OK, Json(data)).into_response(),
-        Err(AckError::Timeout) => StatusCode::GATEWAY_TIMEOUT.into_response(),
+        Err(AckError::Timeout) => {
+            let _ = socket.disconnect();
+            StatusCode::GATEWAY_TIMEOUT.into_response()
+        }
         Err(AckError::Serde(e)) => {
             (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
         }
