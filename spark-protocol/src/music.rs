@@ -8,8 +8,10 @@ pub struct MusicCmd {
     #[cfg_attr(feature = "clap", command(subcommand))]
     pub command: MusicCmdKind,
     #[cfg_attr(feature = "clap", arg(short, long))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<PlayerIdx>,
     #[cfg_attr(feature = "clap", arg(short, long))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
 }
 
@@ -36,6 +38,7 @@ pub enum MusicCmdKind {
         search: bool,
     },
     Now {
+        #[serde(skip_serializing_if = "Option::is_none")]
         amount: Option<usize>,
     },
 }
