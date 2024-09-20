@@ -2,8 +2,8 @@ use crate::{config::Config, util::get_current_status};
 use common::net::{auth_client::UrlParseError, AuthenticatedClient};
 use reqwest::StatusCode;
 use std::{future::Future, sync::Arc, time::Duration};
-use tokio::time::sleep;
-use tracing::{debug, error, info_span};
+use tokio::time::{sleep, timeout};
+use tracing::{debug, error, info_span, warn};
 
 pub fn start(config: Arc<Config>) -> Result<impl Future<Output = ()>, UrlParseError> {
     let client = AuthenticatedClient::try_from(&*config)?;
@@ -13,16 +13,20 @@ pub fn start(config: Arc<Config>) -> Result<impl Future<Output = ()>, UrlParseEr
             match get_current_status(&config).await {
                 Ok(status) => {
                     debug!("posting machine status: {:#?}", status);
-                    let result = client
-                        .post("/machine/status")
-                        .expect("building a request")
-                        .json(&status)
-                        .send()
-                        .await;
+                    let result = timeout(
+                        Duration::from_secs(10),
+                        client
+                            .post("/machine/status")
+                            .expect("building a request")
+                            .json(&status)
+                            .send(),
+                    )
+                    .await;
                     match result {
-                        Ok(r) if r.status() == StatusCode::OK => debug!("Post succeeded"),
-                        Ok(r) => error!("Post request failed: {}", r.status()),
-                        Err(e) => error!("Network request failed: {:?}", e),
+                        Ok(Ok(r)) if r.status() == StatusCode::OK => debug!("Post succeeded"),
+                        Ok(Ok(r)) => error!("Post request failed: {}", r.status()),
+                        Ok(Err(e)) => error!("Network request failed: {:?}", e),
+                        Err(_elapsed) => warn!("request timed out"),
                     }
                 }
                 Err(e) => error!("Failed to obtain a machine status: {:?}", e),
