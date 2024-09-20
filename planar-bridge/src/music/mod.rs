@@ -88,7 +88,7 @@ async fn request_from_backend(
     metrics::music_backend_request(&cmd);
     let request = match target {
         Target::Host { hostname, auth } => client
-            .post(&format!("/persistent-connections/send/{hostname}"))
+            .post(&format!("/persistent-connections/ws/send/{hostname}"))
             .expect("url should always parse")
             .bearer_auth(auth)
             .json(&spark_protocol::Command::Music(
