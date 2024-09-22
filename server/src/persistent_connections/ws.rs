@@ -9,6 +9,8 @@ use socketioxide::{
 };
 use sqlx::PgPool;
 
+use crate::persistent_connections::connections::Generation;
+
 pub type SocketIo = socketioxide::SocketIo<socketioxide::adapter::LocalAdapter>;
 
 pub type SHostname = Arc<Hostname>;
@@ -27,6 +29,7 @@ async fn hostname_middleware(s: SocketRef) -> Result<(), &'static str> {
     {
         tracing::info!("hostname connected {hostname}");
         s.extensions.insert(hostname);
+        s.extensions.insert(Generation::next());
         Ok(())
     } else {
         Err("hostname missing")

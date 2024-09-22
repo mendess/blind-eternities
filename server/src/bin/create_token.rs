@@ -21,11 +21,13 @@ async fn _main() -> i32 {
     let conf = get_configuration().expect("Failed to read configuration");
     let conn_string = conf.db.connection_string();
 
+    println!("connecting to db: {conn_string}");
     let connection = PgPool::connect(&conn_string)
         .await
         .expect("Failed to connect to Postgres");
 
     let r = if delete {
+        println!("deleting: {hostname}");
         sqlx::query("DELETE FROM api_tokens WHERE hostname = $1 RETURNING token")
             .bind(&hostname)
             .fetch_one(&connection)
@@ -34,6 +36,7 @@ async fn _main() -> i32 {
     } else {
         let uuid = Uuid::new_v4();
 
+        println!("inserting new token: {hostname}");
         auth::insert_token::<auth::Admin>(&connection, uuid, &hostname)
             .await
             .map(|_| uuid)

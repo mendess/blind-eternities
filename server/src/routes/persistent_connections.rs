@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use axum::{
     extract::{Path, State},
@@ -15,6 +15,7 @@ use socketioxide::{
 use crate::{
     auth,
     persistent_connections::{
+        connections::Generation,
         ws::{SHostname, SocketIo},
         ConnectionError, Connections,
     },
@@ -67,12 +68,19 @@ pub async fn ws_send(
             .get::<SHostname>()
             .is_some_and(|h| *h == *hostname)
     };
-    let socket = match sockets.into_iter().find(by_hostname) {
+    let generation = |s: &SocketRef| s.extensions.get::<Generation>().unwrap();
+    let socket = match sockets
+        .into_iter()
+        .filter(by_hostname)
+        .max_by_key(generation)
+    {
         Some(ns) => ns,
         None => return StatusCode::NOT_FOUND.into_response(),
     };
-    let emit_future =
-        socket.emit_with_ack::<_, [spark_protocol::Response; 1]>(ws::COMMAND, command);
+    tracing::info!(?command, "sending message to ws");
+    let emit_future = socket
+        .timeout(Duration::from_secs(60))
+        .emit_with_ack::<_, [spark_protocol::Response; 1]>(ws::COMMAND, command);
     let response = match emit_future {
         Ok(future) => future.await,
         Err(SendError::Socket(SocketError::Closed(_))) => {
@@ -90,10 +98,7 @@ pub async fn ws_send(
 
     match response {
         Ok(AckResponse { data: [data], .. }) => (StatusCode::OK, Json(data)).into_response(),
-        Err(AckError::Timeout) => {
-            let _ = socket.disconnect();
-            StatusCode::GATEWAY_TIMEOUT.into_response()
-        }
+        Err(AckError::Timeout) => StatusCode::GATEWAY_TIMEOUT.into_response(),
         Err(AckError::Serde(e)) => {
             (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
         }

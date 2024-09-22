@@ -1,7 +1,7 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt::Debug,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use common::domain::Hostname;
@@ -14,12 +14,12 @@ pub(super) type Request = (Command, oneshot::Sender<Response>);
 
 pub type Response = Result<spark_protocol::SuccessfulResponse, ErrorResponse>;
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
-pub struct Generation(usize);
+#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord, Hash)]
+pub struct Generation(u64);
 
 impl Generation {
-    fn new() -> Self {
-        static GENERATION: AtomicUsize = AtomicUsize::new(0);
+    pub fn next() -> Self {
+        static GENERATION: AtomicU64 = AtomicU64::new(0);
 
         Self(GENERATION.fetch_add(1, Ordering::SeqCst))
     }
@@ -92,7 +92,7 @@ impl Connections {
     #[tracing::instrument(skip(self))]
     pub(super) async fn insert(&self, machine: Hostname) -> (Generation, mpsc::Receiver<Request>) {
         let (tx, rx) = mpsc::channel::<Request>(100);
-        let gen = Generation::new();
+        let gen = Generation::next();
         self.connected_hosts.lock().await.insert(machine, (gen, tx));
         metrics::persistent_connected();
         (gen, rx)
