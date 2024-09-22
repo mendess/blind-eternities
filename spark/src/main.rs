@@ -56,6 +56,8 @@ enum Cmd {
     /// Query the backend
     #[command(subcommand)]
     Backend(Backend),
+    /// Print version
+    Version,
     /// Generate Compleations
     AutoComplete { shell: clap_complete::Shell },
 }
@@ -135,6 +137,10 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
         Cmd::Backend(cmd) => backend::handle(cmd, config)
             .await
             .map(|_| ExitStatus::from_raw(0)),
+        Cmd::Version => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
+            Ok(ExitStatus::from_raw(0))
+        }
         Cmd::AutoComplete { shell } => {
             clap_complete::generate(shell, &mut Args::command(), "spark", &mut std::io::stdout());
             Ok(ExitStatus::from_raw(0))
