@@ -7,6 +7,7 @@ use rust_socketio::{
     asynchronous::{Client, ClientBuilder},
     AckId, Payload,
 };
+use serde_json::json;
 use spark_protocol::music::MusicCmdKind;
 
 use crate::config::Config;
@@ -38,8 +39,9 @@ async fn handler(payload: Payload, socket: Client, ack: AckId) {
     }
 }
 
-async fn run(config: &Config, hostname: &Hostname) -> anyhow::Result<()> {
+async fn run(config: &Config, hostname: &Hostname, token: uuid::Uuid) -> anyhow::Result<()> {
     let socket = ClientBuilder::new(format!("{}?h={}", config.backend_domain, hostname))
+        .auth(json! {{ "token": token.to_string() }})
         .namespace(ws::NS)
         .on_with_ack(ws::COMMAND, |payload, socket, ack| {
             handler(payload, socket, ack).boxed()
@@ -60,7 +62,7 @@ pub(super) async fn start(config: Arc<Config>) -> whoami::Result<()> {
     let hostname = Hostname::from_this_host()?;
     loop {
         tracing::info!("starting ws persistent connection");
-        if let Err(e) = run(&config, &hostname).await {
+        if let Err(e) = run(&config, &hostname, config.token).await {
             tracing::error!(?e, "persistent ws connection dropped");
         }
         tokio::time::sleep(Duration::from_secs(1)).await;

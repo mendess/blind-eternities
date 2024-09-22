@@ -20,12 +20,12 @@ regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde-querystring.workspace = true
 serde_json.workspace = true
-socketioxide = { workspace = true, features = ["extensions"] }
+socketioxide = { workspace = true, features = ["extensions", "state"] }
 spark-protocol = { path = "../spark-protocol" }
 sqlx.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-tower-http = { workspace = true, features = ["trace"] }
+tower-http = { workspace = true, features = ["trace", "auth"] }
 tracing = { workspace = true, features = ["log"] }
 tracing-bunyan-formatter.workspace = true
 tracing-futures.workspace = true

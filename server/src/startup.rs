@@ -21,7 +21,7 @@ pub fn run(
         db.clone(),
     );
 
-    let (layer, io) = crate::persistent_connections::ws::socket_io_routes();
+    let (layer, io) = crate::persistent_connections::ws::socket_io_routes(db.clone());
 
     Ok(axum::serve(
         server_listener,

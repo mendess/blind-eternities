@@ -1,18 +1,20 @@
 use std::sync::Arc;
 
 use common::{domain::Hostname, ws};
+use serde::Deserialize;
 use socketioxide::{
-    extract::{Extension, SocketRef},
+    extract::{Data, Extension, SocketRef, State},
     handler::ConnectHandler,
     socket::DisconnectReason,
 };
+use sqlx::PgPool;
 
 pub type SocketIo = socketioxide::SocketIo<socketioxide::adapter::LocalAdapter>;
 
 pub type SHostname = Arc<Hostname>;
 
-fn hostname_middleware(s: SocketRef) -> Result<(), &'static str> {
-    tracing::info!("hostname middleware called");
+#[tracing::instrument(skip_all)]
+async fn hostname_middleware(s: SocketRef) -> Result<(), &'static str> {
     #[derive(serde::Deserialize)]
     struct Q {
         #[serde(alias = "h")]
@@ -23,6 +25,7 @@ fn hostname_middleware(s: SocketRef) -> Result<(), &'static str> {
             serde_querystring::from_str(q, serde_querystring::ParseMode::UrlEncoded).ok()
         })
     {
+        tracing::info!("hostname connected {hostname}");
         s.extensions.insert(hostname);
         Ok(())
     } else {
@@ -30,6 +33,22 @@ fn hostname_middleware(s: SocketRef) -> Result<(), &'static str> {
     }
 }
 
+#[derive(Deserialize)]
+struct Auth {
+    token: uuid::Uuid,
+}
+
+#[tracing::instrument(skip_all, fields(auth = ?auth.token))]
+async fn auth_middleware(
+    auth: Data<Auth>,
+    State(db): State<Arc<PgPool>>,
+) -> Result<(), crate::auth::AuthError> {
+    let r = crate::auth::check_token::<crate::auth::Admin>(&db, auth.token).await;
+    tracing::info!("authenticated? {}", r.is_ok());
+    Ok(())
+}
+
+#[tracing::instrument(skip_all)]
 fn on_connect(socket: SocketRef, hostname: Extension<SHostname>) {
     tracing::info!(hostname = %*hostname, sid = %socket.id, "socket connected");
 
@@ -46,8 +65,13 @@ fn on_connect(socket: SocketRef, hostname: Extension<SHostname>) {
     );
 }
 
-pub fn socket_io_routes() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
-    let (layer, io) = socketioxide::SocketIo::new_layer();
-    io.ns(ws::NS, on_connect.with(hostname_middleware));
+pub fn socket_io_routes(db: Arc<PgPool>) -> (socketioxide::layer::SocketIoLayer, SocketIo) {
+    let (layer, io) = socketioxide::SocketIo::builder()
+        .with_state(db)
+        .build_layer();
+    io.ns(
+        ws::NS,
+        on_connect.with(hostname_middleware).with(auth_middleware),
+    );
     (layer, io)
 }
