@@ -226,7 +226,7 @@ async fn ctl(
 }
 
 async fn volume(backend: State<Backend>, target: Target) -> Result<String, SharedError> {
-    Ok(get_current(backend, target).await?.volume.to_string())
+    Ok(format!("{:.0}", get_current(backend, target).await?.volume))
 }
 
 enum Tab {
