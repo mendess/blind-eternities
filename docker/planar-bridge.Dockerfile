@@ -1,6 +1,6 @@
 # inspiration: https://dev.to/rogertorres/first-steps-with-docker-rust-30oi
 
-FROM rust:1.77.0-buster as build
+FROM rust:1.84.0-bookworm as build
 
 # create an empty shell project
 RUN USER=root cargo new --bin blind-eternities
@@ -37,7 +37,7 @@ RUN find ./planar-bridge -name '*rs' -exec touch '{}' \;
 RUN cargo build -p planar-bridge --release --bin planar-bridge
 
 # executing image
-FROM debian:buster-slim
+FROM debian:bookworm-slim
 
 COPY --from=build /blind-eternities/target/release/planar-bridge bridge
 COPY ./planar-bridge/assets ./planar-bridge/assets

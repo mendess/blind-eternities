@@ -1,6 +1,6 @@
 # inspiration: https://dev.to/rogertorres/first-steps-with-docker-rust-30oi
 
-FROM rust:1.77.0-buster as build
+FROM rust:1.84.0-bookworm as build
 
 # create an empty shell project
 RUN USER=root cargo new --bin blind-eternities
@@ -39,7 +39,7 @@ RUN cargo build -p blind-eternities --release --bin blind-eternities
 RUN cargo build -p blind-eternities --release --bin create_token
 
 # executing image
-FROM debian:buster-slim
+FROM debian:bookworm-slim
 
 COPY --from=build /blind-eternities/target/release/blind-eternities .
 COPY --from=build /blind-eternities/target/release/create_token .
