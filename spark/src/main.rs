@@ -19,6 +19,7 @@ use spark_protocol::{Command, ResponseExt};
 
 /// A spark to travel the blind eternities!
 #[derive(Parser, Debug)]
+#[command(version, about)]
 struct Args {
     /// Enable verbose logging
     #[arg(short = 'v', long = "verbose")]
@@ -82,6 +83,7 @@ enum Backend {
     Persistents,
     /// add a music auth token
     CreateMusicSession {
+        #[arg(default_value_t = Hostname::from_this_host().unwrap())]
         hostname: Hostname,
         #[arg(short, long, value_parser = humantime::parse_duration)]
         expire_in: Option<Duration>,
@@ -138,6 +140,7 @@ async fn app(args: Args) -> anyhow::Result<ExitStatus> {
             .await
             .map(|_| ExitStatus::from_raw(0)),
         Cmd::Version => {
+            tracing::warn!("version subcommand is deprecated and will be removed");
             println!("{}", env!("CARGO_PKG_VERSION"));
             Ok(ExitStatus::from_raw(0))
         }
