@@ -33,6 +33,7 @@ pub fn routes() -> Router<Backend> {
     Router::new()
         .route("/", get(index))
         .route("/current", get(now_playing))
+        .route("/current/playpause", get(play_pause_button))
         .route("/volume", get(volume))
         .route("/ctl", post(ctl))
         .route("/tabs/:mode", get(tabs))
@@ -47,7 +48,7 @@ enum Error {
     Io(#[from] io::Error),
     #[error("reqwest: {0}")]
     Reqwest(#[from] reqwest::Error),
-    #[error("unexpected response")]
+    #[error("unexpected response: {0}")]
     UnexpectedBackendResponse(String),
     #[error("mlib error")]
     Mlib(#[from] mlib::Error),
@@ -115,7 +116,9 @@ async fn request_from_backend(
         .await?
     {
         Ok(SuccessfulResponse::MusicResponse(r)) => Ok(r),
-        Ok(r) => Err(Error::UnexpectedBackendResponse(format!("{r:?}"))),
+        Ok(r) => Err(Error::UnexpectedBackendResponse(format!(
+            "not a music response: {r:?}"
+        ))),
         Err(e) => Err(Error::UnexpectedBackendResponse(format!("{e:?}"))),
     }
 }
@@ -186,19 +189,31 @@ async fn index(target: Target) -> MainPage {
 #[allow(dead_code)]
 #[template(path = "music/current.html")]
 struct NowPlaying {
+    target: Target,
     current: Marc<Current>,
 }
 
 async fn now_playing(backend: State<Backend>, target: Target) -> Result<NowPlaying, SharedError> {
     Ok(NowPlaying {
-        current: get_current(backend, target).await?,
+        current: get_current(backend, target.clone()).await?,
+        target,
+    })
+}
+
+async fn play_pause_button(
+    backend: State<Backend>,
+    target: Target,
+) -> Result<PlayPause, SharedError> {
+    let current = get_current(backend, target).await?;
+    Ok(PlayPause {
+        playing: current.playing,
     })
 }
 
 #[derive(Template)]
 #[template(path = "music/playpause.html")]
 struct PlayPause {
-    paused: bool,
+    playing: bool,
 }
 
 async fn ctl(
@@ -209,9 +224,11 @@ async fn ctl(
     tracing::info!(?cmd, "ctl");
     let response = request_from_backend(&backend, &target, cmd.command).await?;
     let res = match response {
-        Response::PlayState { paused } => {
-            (StatusCode::OK, PlayPause { paused }.render().unwrap()).into_response()
-        }
+        Response::PlayState { paused: _ } => (
+            StatusCode::OK,
+            AppendHeaders([("hx-trigger", "new-current")]),
+        )
+            .into_response(),
         Response::Title { title } => (StatusCode::OK, title).into_response(),
         Response::Volume { volume } => (StatusCode::OK, volume.to_string()).into_response(),
         Response::Current { .. } | Response::QueueSummary { .. } => (
@@ -360,7 +377,7 @@ struct QueueCommand {
 
 #[derive(Template)]
 #[template(
-    source = "<span>queued behind {{ distance }} songs!</span>",
+    source = "<span>queued behind {{ distance }} {% if distance == 1 %} song! {% else %} songs! {% endif %}</span>",
     ext = "html"
 )]
 struct QueueSummary {

@@ -1,7 +1,7 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt,
-    sync::{atomic::AtomicUsize, Arc, OnceLock},
+    sync::{Arc, OnceLock},
 };
 
 use axum::response::IntoResponse;
@@ -40,7 +40,7 @@ type ResponseReceiver = Receiver<Option<Result<spark_protocol::music::Response, 
 
 #[derive(Default)]
 struct RequestCoalescer {
-    inflight: Mutex<HashMap<(Target, MusicCmdKind), (ResponseReceiver, usize)>>,
+    inflight: Mutex<HashMap<(Target, MusicCmdKind), ResponseReceiver>>,
 }
 
 static REQUEST_COALESCER: OnceLock<RequestCoalescer> = OnceLock::new();
@@ -51,18 +51,16 @@ pub async fn request_coalesced(
     target: Target,
     cmd: MusicCmdKind,
 ) -> Result<spark_protocol::music::Response, SharedError> {
-    static CH_ID: AtomicUsize = AtomicUsize::new(0);
     let request_coalescer = REQUEST_COALESCER.get_or_init(Default::default);
-    let (mut channel, id) = 'wait: {
+    let mut channel = 'wait: {
         let mut inflight = request_coalescer.inflight.lock().await;
-        let ((target, cmd), channel, id) = match inflight.entry((target.clone(), cmd.clone())) {
+        let ((target, cmd), channel) = match inflight.entry((target.clone(), cmd.clone())) {
             Entry::Occupied(receiver) => break 'wait receiver.get().clone(),
             Entry::Vacant(slot) => {
                 let (tx, rx) = watch::channel(None);
                 let key = slot.key().clone();
-                let id = CH_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                slot.insert((rx, id));
-                (key, tx, id)
+                slot.insert(rx);
+                (key, tx)
             }
         };
         drop(inflight);
@@ -71,27 +69,21 @@ pub async fn request_coalesced(
         // from the hashmap or we might not send to the channel. Causing the waiting code to crash
         // on the expect.
         let handle = tokio::spawn(async move {
-            tracing::info!(?id, "requesting from backend");
             let result = super::request_from_backend(&client, &target, cmd.clone())
                 .await
                 .map_err(Arc::new)
                 .map_err(Into::into);
 
-            tracing::info!(?id, "sending result");
-            let r = channel.send(Some(result.clone()));
-            tracing::info!(?id, "success? {}", r.is_ok());
+            let _ = channel.send(Some(result.clone()));
             request_coalescer
                 .inflight
                 .lock()
                 .await
                 .remove(&(target, cmd));
-            tracing::info!(?id, "dropping channel");
             result
         });
         return handle.await.unwrap();
     };
-
-    tracing::info!(?id, "waiting");
 
     let result = channel
         .wait_for(Option::is_some)

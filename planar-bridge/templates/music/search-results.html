@@ -10,7 +10,11 @@
     hx-ext='json-enc'
     hx-indicator='#queuing'
   >
+  {% if user_input_idx == id %}
+    search youtube for: "{{ song }}"
+  {% else %}
     {{ song }}
+  {% endif %}
   </button>
 </li>
 {% endfor %}

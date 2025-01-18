@@ -51,15 +51,20 @@
 .disable-dbl-tap-zoom {
   touch-action: manipulation;
 }
-.glow {
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5),
-                0 0 20px rgba(255, 255, 255, 0.5),
-                0 0 30px rgba(255, 0, 255, 0.7),
-                0 0 40px rgba(255, 0, 255, 0.7);
-                /* 0 0 50px rgba(255, 0, 255, 0.7), */
-                /* 0 0 60px rgba(255, 0, 255, 0.7), */
-                /* 0 0 70px rgba(255, 0, 255, 0.7); */
+
+.top-glow:focus {
+  outline: none;
+  box-shadow: -6px  0    20px rgba(0, 123, 255, 0.5),
+               5px  0    20px rgba(0, 123, 255, 0.5),
+               0px -12px 13px rgba(0, 123, 255, 0.5);
 }
+
+.top-glow:hover:not(:focus) {
+  box-shadow: -5px  0   5px rgba(0, 123, 255, 0.5),
+               5px  0   5px rgba(0, 123, 255, 0.5),
+               0px -5px 5px rgba(0, 123, 255, 0.5);
+}
+
 .bottom-left-glow {
     position: relative;
 }

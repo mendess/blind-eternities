@@ -17,6 +17,7 @@ use url::Url;
 
 #[derive(Serialize, Deserialize)]
 struct Config {
+    log_level: Option<String>,
     port: u16,
     backend_url: Url,
 }
@@ -37,9 +38,12 @@ type Backend = common::net::auth_client::Client;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    init_subscriber(get_subscriber_no_bunny("info".to_string()));
-
     let config = load_config().map_err(io::Error::other)?;
+
+    init_subscriber(get_subscriber_no_bunny(
+        config.log_level.unwrap_or_else(|| "info".to_string()),
+    ));
+
     let client = Client::new(config.backend_url).map_err(io::Error::other)?;
 
     let router = Router::new()

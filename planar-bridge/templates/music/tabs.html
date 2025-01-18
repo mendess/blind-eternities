@@ -10,7 +10,7 @@
     {% let now_css = unselected_css %}
     {% let queue_css = "bottom-right-glow" %}
 {% endmatch %}
-<div class="mx-auto w-1/2 pb-4 flex justify-center">
+<div class="mx-auto lg:w-1/2 pb-4 flex justify-center">
     <button
       class="flex-1 border {{ now_css }}"
       hx-get="/music/tabs/now?{{ query_string }}">
@@ -38,9 +38,11 @@
       </div>
   {% when Tab::Queue %}
       <div class="flex flex-col items-center">
-        <input class="m-4 px-4 py-2 border rounded-md focus:outline-none focus:border-blue-500"
-               style="color:black"
-               type="search" name="search" placeholder="song name or url"
+        <input class="m-4 px-4 py-2 border rounded-md border-black border-b-white top-glow"
+               style="background:black"
+               type="search"
+               name="search"
+               placeholder="song name or youtube link"
                hx-post="/music/search?{{ query_string }}"
                hx-trigger="load, input changed delay:100ms, search"
                hx-target="#search-results">
