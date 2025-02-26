@@ -1,5 +1,5 @@
 use anyhow::Context;
-use blind_eternities::configuration::{get_configuration, Settings};
+use blind_eternities::configuration::{Settings, get_configuration};
 use common::telemetry::{get_subscriber, init_subscriber};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use tokio::net::TcpListener;

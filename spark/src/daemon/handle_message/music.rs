@@ -1,17 +1,16 @@
 use std::{future::Future, io, str::FromStr, time::Duration};
 
-use futures::{future::join3, stream, FutureExt, Stream, StreamExt};
+use futures::{FutureExt, Stream, StreamExt, future::join3, stream};
 use mlib::{
+    Item, Link, Search,
     players::{
-        self,
+        self, SmartQueueOpts,
         event::{OwnedLibMpvEvent, PlayerEvent},
-        SmartQueueOpts,
     },
     playlist::PartialSearchResult,
     queue::Queue,
-    Item, Link, Search,
 };
-use spark_protocol::{music::Response as MusicResponse, ErrorResponse};
+use spark_protocol::{ErrorResponse, music::Response as MusicResponse};
 use tokio::time::timeout;
 
 fn forward<E: std::fmt::Debug>(e: E) -> ErrorResponse {

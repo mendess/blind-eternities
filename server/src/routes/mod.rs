@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use axum::{extract::FromRef, Router};
+use axum::{Router, extract::FromRef};
 use sqlx::PgPool;
 
-use crate::persistent_connections::{ws::SocketIo, Connections};
+use crate::persistent_connections::{Connections, ws::SocketIo};
 
 pub mod admin;
 pub mod machine_status;

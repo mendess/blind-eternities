@@ -4,8 +4,8 @@ use anyhow::Context;
 use common::{domain::Hostname, net::AuthenticatedClient, ws};
 use futures::FutureExt;
 use rust_socketio::{
-    asynchronous::{Client, ClientBuilder},
     AckId, Payload,
+    asynchronous::{Client, ClientBuilder},
 };
 use serde_json::json;
 use spark_protocol::music::MusicCmdKind;

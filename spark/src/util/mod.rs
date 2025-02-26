@@ -3,10 +3,11 @@ pub mod destination;
 use std::{mem::take, net::IpAddr, pin::pin, str::FromStr};
 
 use anyhow::Context;
-use common::domain::{machine_status::IpConnection, Hostname, MacAddr, MachineStatus};
+use common::domain::{Hostname, MacAddr, MachineStatus, machine_status::IpConnection};
 use futures::{
-    future::{select, Either},
-    stream, StreamExt, TryStreamExt,
+    StreamExt, TryStreamExt,
+    future::{Either, select},
+    stream,
 };
 use pnet::datalink;
 use tokio::process::Command;

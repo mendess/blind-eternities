@@ -13,7 +13,7 @@ use common::{
 };
 use fake::{Fake, StringFaker};
 use reqwest::StatusCode;
-use sqlx::{pool::PoolOptions, Connection, Executor, PgConnection, PgPool};
+use sqlx::{Connection, Executor, PgConnection, PgPool, pool::PoolOptions};
 use tokio::net::TcpListener;
 use uuid::Uuid;
 

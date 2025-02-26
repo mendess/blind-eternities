@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use chrono::Utc;
 use common::{
-    domain::{music_session::ExpiresAt, Hostname},
+    domain::{Hostname, music_session::ExpiresAt},
     net::AuthenticatedClient,
 };
 

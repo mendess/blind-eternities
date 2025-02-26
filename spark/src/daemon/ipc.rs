@@ -1,6 +1,6 @@
 use crate::config::Config;
 use anyhow::Context;
-use spark_protocol::{client::ClientBuilder, server::ServerBuilder, Command};
+use spark_protocol::{Command, client::ClientBuilder, server::ServerBuilder};
 use std::{future::Future, io, sync::Arc};
 
 use super::handle_message;

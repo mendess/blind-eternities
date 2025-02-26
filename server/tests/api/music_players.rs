@@ -4,10 +4,10 @@ use anyhow::Context;
 use blind_eternities::auth::music_session::MusicSession;
 use common::domain::Hostname;
 use fake::{Fake, Faker};
-use spark_protocol::music::{self, Current, MusicCmdKind};
 use spark_protocol::SuccessfulResponse;
+use spark_protocol::music::{self, Current, MusicCmdKind};
 
-use crate::helpers::{fake_hostname, Simulation, TestApp};
+use crate::helpers::{Simulation, TestApp, fake_hostname};
 use crate::timeout;
 
 impl TestApp {

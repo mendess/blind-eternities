@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use prometheus::{register_int_gauge, IntGauge};
+use prometheus::{IntGauge, register_int_gauge};
 
 pub fn live_persistent_connection_sockets() -> &'static IntGauge {
     static METRICS: OnceLock<IntGauge> = OnceLock::new();

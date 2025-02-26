@@ -1,5 +1,5 @@
 use crate::{config::Config, util::get_current_status};
-use common::net::{auth_client::UrlParseError, AuthenticatedClient};
+use common::net::{AuthenticatedClient, auth_client::UrlParseError};
 use reqwest::StatusCode;
 use std::{future::Future, sync::Arc, time::Duration};
 use tokio::time::{sleep, timeout};

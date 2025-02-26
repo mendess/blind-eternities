@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
-use axum::{extract::State, response::IntoResponse, routing, Json, Router};
+use axum::{Json, Router, extract::State, response::IntoResponse, routing};
 use chrono::Utc;
 use common::domain::machine_status::{self, IpConnection, MachineStatusFull};
 use futures::stream::{StreamExt, TryStreamExt};

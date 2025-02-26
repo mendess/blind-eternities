@@ -1,6 +1,6 @@
 use std::{
     fmt,
-    future::{ready, Future},
+    future::{Future, ready},
     ops::ControlFlow,
     str::FromStr,
     time::Duration,
@@ -8,7 +8,7 @@ use std::{
 
 use common::domain::Hostname;
 use serde::{Deserialize, Serialize};
-use sqlx::{types::chrono, PgPool};
+use sqlx::{PgPool, types::chrono};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]

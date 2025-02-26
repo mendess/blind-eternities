@@ -4,15 +4,14 @@ use std::{io, sync::Arc, time::Duration};
 
 use askama_axum::Template;
 use axum::{
-    async_trait,
+    Form, Json, Router, async_trait,
     extract::{FromRequestParts, Path, Query, State},
     response::{AppendHeaders, IntoResponse},
     routing::{get, post},
-    Form, Json, Router,
 };
-use common::domain::{music_session::MusicSession, Hostname};
+use common::domain::{Hostname, music_session::MusicSession};
 use futures::TryStreamExt;
-use http::{header, HeaderMap, StatusCode};
+use http::{HeaderMap, StatusCode, header};
 use mappable_rc::Marc;
 use mlib::{
     playlist::{PartialSearchResult, Playlist},
@@ -20,14 +19,14 @@ use mlib::{
 };
 use serde::Deserialize;
 use spark_protocol::{
-    music::{MusicCmd, MusicCmdKind, Response},
     SuccessfulResponse,
+    music::{MusicCmd, MusicCmdKind, Response},
 };
 use uuid::Uuid;
 
-use crate::{cache, metrics, Backend};
+use crate::{Backend, cache, metrics};
 
-use self::request_coalescing::{request_coalesced, SharedError};
+use self::request_coalescing::{SharedError, request_coalesced};
 
 pub fn routes() -> Router<Backend> {
     Router::new()

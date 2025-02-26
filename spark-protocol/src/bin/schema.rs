@@ -4,8 +4,8 @@ use std::time::Duration;
 use mlib::queue::Current;
 use serde::Serialize;
 use spark_protocol::{
-    music::{self, MusicCmdKind},
     Command, ErrorResponse, SuccessfulResponse,
+    music::{self, MusicCmdKind},
 };
 
 fn display<T>(i: impl IntoIterator<Item = T>)

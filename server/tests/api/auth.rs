@@ -1,7 +1,7 @@
 use blind_eternities::auth;
 use reqwest::StatusCode;
 
-use crate::helpers::{fake_hostname, TestApp};
+use crate::helpers::{TestApp, fake_hostname};
 
 #[tokio::test]
 async fn auth_is_required() {

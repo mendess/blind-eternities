@@ -3,7 +3,7 @@ use common::net::PERSISTENT_CONN_RECV_TIMEOUT;
 use reqwest::StatusCode;
 use spark_protocol::{Command, SuccessfulResponse};
 
-use crate::helpers::{fake_hostname, Simulation, TestApp};
+use crate::helpers::{Simulation, TestApp, fake_hostname};
 use crate::{assert_status, timeout};
 
 #[tokio::test]

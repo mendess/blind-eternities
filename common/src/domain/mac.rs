@@ -1,7 +1,7 @@
 use itertools::{EitherOrBoth, Itertools};
 use serde::{
-    de::{self, Visitor},
     Deserialize, Serialize,
+    de::{self, Visitor},
 };
 #[cfg(feature = "sqlx")]
 use sqlx::{Database, Decode};
@@ -96,7 +96,7 @@ impl<'de> Visitor<'de> for MacVisitor {
                     *b = match u8::from_str_radix(s, 16) {
                         Ok(b) => b,
                         Err(_) => {
-                            return Err(E::invalid_type(de::Unexpected::Other(s), &"byte (0-255)"))
+                            return Err(E::invalid_type(de::Unexpected::Other(s), &"byte (0-255)"));
                         }
                     };
                 }

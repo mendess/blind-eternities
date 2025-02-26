@@ -1,8 +1,8 @@
 use axum::{
+    Json, Router,
     extract::{Path, State},
     response::IntoResponse,
     routing::post,
-    Json, Router,
 };
 use http::StatusCode;
 use spark_protocol::music::MusicCmdKind;

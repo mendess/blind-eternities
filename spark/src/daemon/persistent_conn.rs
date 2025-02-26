@@ -1,15 +1,15 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use common::{
     domain::Hostname,
     net::{
-        AuthenticatedClient, MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, TalkJsonLinesExt,
-        WriteJsonLinesExt, PERSISTENT_CONN_RECV_TIMEOUT,
+        AuthenticatedClient, MetaProtocolAck, MetaProtocolSyn, PERSISTENT_CONN_RECV_TIMEOUT,
+        ReadJsonLinesExt, TalkJsonLinesExt, WriteJsonLinesExt,
     },
 };
 use futures::FutureExt;
-use spark_protocol::{music::MusicCmdKind, Command};
+use spark_protocol::{Command, music::MusicCmdKind};
 use tokio::{io::BufReader, net::TcpStream, time::timeout};
 
 use crate::{

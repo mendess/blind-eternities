@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt::{self, Display},
     io,
     iter::FromIterator,
@@ -7,12 +7,12 @@ use std::{
 };
 
 use chrono::{Duration, Utc};
-use petgraph::{algo::astar::astar, graph::NodeIndex, Graph};
+use petgraph::{Graph, algo::astar::astar, graph::NodeIndex};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use crate::domain::{
-    machine_status::{MachineStatusFull, Port},
     Hostname, MachineStatus,
+    machine_status::{MachineStatusFull, Port},
 };
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -314,7 +314,7 @@ mod test {
         machine_status::{IpConnection, MachineStatus},
     };
     use chrono::Utc;
-    use fake::{faker::internet::en::IP, Fake};
+    use fake::{Fake, faker::internet::en::IP};
 
     fn mock_machine_status() -> MachineStatusFull {
         MachineStatusFull {

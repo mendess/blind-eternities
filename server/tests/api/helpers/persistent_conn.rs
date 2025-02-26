@@ -13,8 +13,8 @@ use super::TestApp;
 use tokio::{
     io::{BufReader, BufWriter},
     net::{
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
         TcpStream,
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
     },
 };
 

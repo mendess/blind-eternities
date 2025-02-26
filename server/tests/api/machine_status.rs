@@ -1,8 +1,8 @@
-use crate::helpers::{fake_hostname, TestApp};
+use crate::helpers::{TestApp, fake_hostname};
 use chrono::{DateTime, Utc};
 use fake::{
-    faker::internet::en::{MACAddress, IP},
     Fake,
+    faker::internet::en::{IP, MACAddress},
 };
 use reqwest::StatusCode;
 use serde_json::json;

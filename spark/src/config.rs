@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Context;
 use common::net::{
-    auth_client::UrlParseError, defaults::default_persistent_conn_port, AuthenticatedClient,
+    AuthenticatedClient, auth_client::UrlParseError, defaults::default_persistent_conn_port,
 };
 use dirs::config_dir;
 use url::Url;

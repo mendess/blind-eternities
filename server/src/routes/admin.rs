@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use axum::{
+    Json, Router,
     extract::{Path, Query, State},
     response::IntoResponse,
     routing::get,
-    Json, Router,
 };
-use common::domain::{music_session::ExpiresAt, Hostname};
+use common::domain::{Hostname, music_session::ExpiresAt};
 use http::StatusCode;
 use sqlx::PgPool;
 

@@ -10,7 +10,7 @@ use std::{
 
 pub use auth_client::AuthenticatedClient;
 use either::Either;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
 use crate::domain::Hostname;

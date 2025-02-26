@@ -1,4 +1,4 @@
-use crate::{socket_path, Command};
+use crate::{Command, socket_path};
 use common::net::{ReadJsonLinesExt, RecvError, WriteJsonLinesExt};
 use std::{
     fmt::Debug,

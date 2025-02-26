@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use prometheus::{register_int_counter, register_int_counter_vec, IntCounter, IntCounterVec};
+use prometheus::{IntCounter, IntCounterVec, register_int_counter, register_int_counter_vec};
 
 pub fn cache_hit() {
     static METRICS: OnceLock<IntCounter> = OnceLock::new();

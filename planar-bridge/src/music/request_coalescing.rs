@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt,
     sync::{Arc, OnceLock},
 };
@@ -7,8 +7,8 @@ use std::{
 use axum::response::IntoResponse;
 use spark_protocol::music::MusicCmdKind;
 use tokio::sync::{
-    watch::{self, Receiver},
     Mutex,
+    watch::{self, Receiver},
 };
 
 use crate::Backend;

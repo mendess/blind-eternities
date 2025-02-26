@@ -15,7 +15,7 @@ use chrono::Utc;
 use clap::{ArgAction, Parser};
 use common::{
     algorithms::net_graph::{NetGraph, SimpleNode},
-    domain::{machine_status::MachineStatusFull, Hostname},
+    domain::{Hostname, machine_status::MachineStatusFull},
     net::AuthenticatedClient,
 };
 use itertools::Itertools;

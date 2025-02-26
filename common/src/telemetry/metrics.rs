@@ -5,13 +5,13 @@ use std::{
 };
 
 use axum::{
+    Router,
     extract::{MatchedPath, Request},
     middleware::Next,
     routing::get,
-    Router,
 };
 use http::Method;
-use prometheus::{register_int_counter_vec, Encoder, IntCounterVec};
+use prometheus::{Encoder, IntCounterVec, register_int_counter_vec};
 use tokio::net::TcpListener;
 
 pub fn new_request(route: &str, method: &Method) {

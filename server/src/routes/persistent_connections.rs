@@ -1,23 +1,23 @@
 use std::{sync::Arc, time::Duration};
 
 use axum::{
+    Json, Router,
     extract::{Path, State},
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
 };
 use common::{domain::Hostname, ws};
 use http::StatusCode;
 use socketioxide::{
-    ack::AckResponse, extract::SocketRef, AckError, AdapterError, SendError, SocketError,
+    AckError, AdapterError, SendError, SocketError, ack::AckResponse, extract::SocketRef,
 };
 
 use crate::{
     auth,
     persistent_connections::{
+        ConnectionError, Connections,
         connections::Generation,
         ws::{SHostname, SocketIo},
-        ConnectionError, Connections,
     },
 };
 
@@ -84,10 +84,10 @@ pub async fn ws_send(
     let response = match emit_future {
         Ok(future) => future.await,
         Err(SendError::Socket(SocketError::Closed(_))) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, "socket closed").into_response()
+            return (StatusCode::INTERNAL_SERVER_ERROR, "socket closed").into_response();
         }
         Err(SendError::Socket(SocketError::InternalChannelFull(_))) => {
-            return StatusCode::TOO_MANY_REQUESTS.into_response()
+            return StatusCode::TOO_MANY_REQUESTS.into_response();
         }
         Err(SendError::Serialize(e)) => {
             panic!("should never fail to serialize a command: {e:?}")

@@ -4,7 +4,7 @@ mod music;
 
 use std::io;
 
-use axum::{middleware::from_fn, Router};
+use axum::{Router, middleware::from_fn};
 use common::{
     net::auth_client::Client,
     telemetry::{get_subscriber_no_bunny, init_subscriber},
