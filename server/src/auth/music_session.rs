@@ -20,7 +20,7 @@ impl fmt::Display for MusicSession {
     }
 }
 
-async fn handle_constraint_violations<'f, F, H, FFut, HFut, T>(
+async fn handle_constraint_violations<F, H, FFut, HFut, T>(
     query: F,
     try_handle_constraint: H,
 ) -> sqlx::Result<T>

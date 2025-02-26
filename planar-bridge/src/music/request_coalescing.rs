@@ -89,5 +89,5 @@ pub async fn request_coalesced(
         .wait_for(Option::is_some)
         .await
         .expect("channel should never be closed");
-    result.clone().unwrap().map_err(Into::into)
+    result.clone().unwrap()
 }

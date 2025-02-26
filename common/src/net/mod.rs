@@ -99,7 +99,7 @@ pub struct LineGuard<'s, T: AsyncBufRead + Unpin> {
     len: usize,
 }
 
-impl<'s, R: Unpin + AsyncRead> Deref for LineGuard<'s, BufReader<R>> {
+impl<R: Unpin + AsyncRead> Deref for LineGuard<'_, BufReader<R>> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
@@ -110,7 +110,7 @@ impl<'s, R: Unpin + AsyncRead> Deref for LineGuard<'s, BufReader<R>> {
     }
 }
 
-impl<'s, R: Unpin + AsyncRead> LineGuard<'s, BufReader<R>> {
+impl<R: Unpin + AsyncRead> LineGuard<'_, BufReader<R>> {
     pub fn as_str(&self) -> &str {
         std::str::from_utf8(self).expect("should have been a str")
     }

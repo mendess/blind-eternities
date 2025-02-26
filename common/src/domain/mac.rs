@@ -67,7 +67,7 @@ impl Serialize for MacAddr {
 
 struct MacVisitor;
 
-impl<'de> Visitor<'de> for MacVisitor {
+impl Visitor<'_> for MacVisitor {
     type Value = MacAddr;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

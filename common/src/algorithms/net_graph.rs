@@ -48,7 +48,7 @@ impl Display for Node<'_> {
     }
 }
 
-impl<'hostname> Node<'hostname> {
+impl Node<'_> {
     fn is_host(&self, host: &Hostname) -> bool {
         matches!(self, Node::Machine(m) if m.hostname == *host)
     }
@@ -84,7 +84,7 @@ pub struct NetGraph<'hostname> {
     graph: Graph<Node<'hostname>, usize>,
 }
 
-impl<'hostname> NetGraph<'hostname> {
+impl NetGraph<'_> {
     const INTERNET_WEIGHT: usize = 100;
     const INTRANET_WEIGHT: usize = 1;
 }
@@ -136,7 +136,7 @@ pub struct SimpleNode {
     pub port: Port,
 }
 
-impl<'hostname> NetGraph<'hostname> {
+impl NetGraph<'_> {
     pub fn find_path(&self, from: &Hostname, to: &Hostname) -> Option<Vec<NodeIndex<u32>>> {
         let graph = &self.graph;
         let from = graph.node_indices().find(|i| graph[*i].is_host(from))?;
