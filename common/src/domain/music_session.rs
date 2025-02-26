@@ -2,15 +2,14 @@ use core::fmt;
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
-use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MusicSession([u8; 6]);
 
 impl MusicSession {
-    pub fn gen() -> MusicSession {
-        MusicSession(thread_rng().gen())
+    pub fn generate() -> MusicSession {
+        MusicSession(rand::random())
     }
 }
 

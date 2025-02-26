@@ -1,12 +1,12 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     fmt::Debug,
     sync::atomic::{AtomicU64, Ordering},
 };
 
 use common::domain::Hostname;
 use spark_protocol::{Command, ErrorResponse};
-use tokio::sync::{mpsc, oneshot, Mutex};
+use tokio::sync::{Mutex, mpsc, oneshot};
 
 use crate::metrics;
 
@@ -92,16 +92,19 @@ impl Connections {
     #[tracing::instrument(skip(self))]
     pub(super) async fn insert(&self, machine: Hostname) -> (Generation, mpsc::Receiver<Request>) {
         let (tx, rx) = mpsc::channel::<Request>(100);
-        let gen = Generation::next();
-        self.connected_hosts.lock().await.insert(machine, (gen, tx));
+        let generation = Generation::next();
+        self.connected_hosts
+            .lock()
+            .await
+            .insert(machine, (generation, tx));
         metrics::persistent_connected();
-        (gen, rx)
+        (generation, rx)
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn remove(&self, machine: Hostname, gen: Generation) {
+    pub async fn remove(&self, machine: Hostname, generation: Generation) {
         if let Entry::Occupied(o) = self.connected_hosts.lock().await.entry(machine) {
-            if o.get().0 == gen {
+            if o.get().0 == generation {
                 o.remove_entry();
                 metrics::persistent_disconnected();
             }
@@ -113,7 +116,7 @@ impl Connections {
             .lock()
             .await
             .iter()
-            .map(|(k, (gen, _))| (k.clone(), *gen))
+            .map(|(k, (generation, _))| (k.clone(), *generation))
             .collect()
     }
 }

@@ -4,8 +4,8 @@ use std::{
 };
 
 use common::net::{
-    MetaProtocolAck, MetaProtocolSyn, ReadJsonLinesExt, RecvError, WriteJsonLinesExt,
-    PERSISTENT_CONN_RECV_TIMEOUT,
+    MetaProtocolAck, MetaProtocolSyn, PERSISTENT_CONN_RECV_TIMEOUT, ReadJsonLinesExt, RecvError,
+    WriteJsonLinesExt,
 };
 use futures::StreamExt;
 use serde::de::DeserializeOwned;
@@ -14,8 +14,8 @@ use sqlx::PgPool;
 use tokio::{
     io::{AsyncWriteExt, BufReader, BufWriter},
     net::{
-        tcp::{ReadHalf, WriteHalf},
         TcpListener, TcpStream,
+        tcp::{ReadHalf, WriteHalf},
     },
     sync::mpsc,
     time::timeout,
@@ -24,7 +24,7 @@ use tracing::Instrument;
 
 use crate::{auth, metrics, persistent_connections::connections::Request};
 
-use super::{connections::Connections, ConnectionError};
+use super::{ConnectionError, connections::Connections};
 
 const TIMEOUT: Duration = Duration::from_secs(PERSISTENT_CONN_RECV_TIMEOUT.as_secs() / 2);
 
@@ -140,7 +140,7 @@ async fn handle_a_connection(
     tracing::info!("accepted a connection");
 
     // start protocol
-    let (gen, hostname, rx) = async {
+    let (generation, hostname, rx) = async {
         let hostname = receive(
             &mut reader,
             &mut writer,
@@ -153,9 +153,9 @@ async fn handle_a_connection(
         .instrument(tracing::info_span!("receiving from client", what = "syn"))
         .await?;
 
-        let (gen, rx) = connections.insert(hostname.clone()).await;
+        let (generation, rx) = connections.insert(hostname.clone()).await;
         tracing::info!(connected_hostname = %hostname, "connection established");
-        Some((gen, hostname, rx))
+        Some((generation, hostname, rx))
     }
     .instrument(tracing::info_span!("protocol"))
     .await?;
@@ -163,7 +163,7 @@ async fn handle_a_connection(
     let _span = tracing::debug_span!(
         "handling new persistent connection",
         connected_hostname = %hostname,
-        ?gen
+        ?generation
     );
 
     async fn handle(
@@ -223,7 +223,7 @@ async fn handle_a_connection(
         tracing::error!(?e, "persistent connection errored out");
     }
     tracing::debug!("removing connection");
-    connections.remove(hostname, gen).await;
+    connections.remove(hostname, generation).await;
     Some(())
 }
 
@@ -233,21 +233,21 @@ async fn heartbeat_checker(connections: Arc<Connections>) {
         let connections = &connections;
         futures::stream::iter(connections.connected_hosts().await)
             .map({
-                |(h, gen)| async move {
+                |(h, generation)| async move {
                     match connections
                         .request(&h, spark_protocol::Command::Heartbeat)
                         .await
                     {
                         Err(ConnectionError::NotFound) | Ok(_) => None,
-                        Err(ConnectionError::ConnectionDropped(_)) => Some((h, gen)),
+                        Err(ConnectionError::ConnectionDropped(_)) => Some((h, generation)),
                     }
                 }
             })
             .buffer_unordered(usize::MAX)
             .filter_map(|x| async { x })
-            .for_each(|(h, gen)| async move {
+            .for_each(|(h, generation)| async move {
                 tracing::warn!(machine = %h, "machine disconnected");
-                connections.remove(h, gen).await;
+                connections.remove(h, generation).await;
             })
             .await;
     }

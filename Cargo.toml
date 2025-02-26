@@ -1,6 +1,5 @@
 [workspace]
 resolver = "2"
-
 members = [
     "server",
     "common",
@@ -8,6 +7,9 @@ members = [
     "spark-protocol",
     "planar-bridge",
 ]
+
+[workspace.package]
+edition = "2024"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -24,7 +26,7 @@ clap_complete = "4.5.2"
 config = "0.14"
 dirs = "5.0.1"
 either = "1.12.0"
-fake = "2.9.2"
+fake = "4.0.0"
 futures = "0.3.30"
 http = "1.1"
 humantime = "2.1.0"
@@ -38,7 +40,7 @@ petgraph = "0.6.5"
 pnet = "0.34"
 proptest = "1.4.0"
 public-ip = "0.2.2"
-rand = "0.8.5"
+rand = "0.9"
 regex = "1.10.4"
 #rust_socketio = "0.6.0"
 rust_socketio = { git = "https://github.com/mendess/rust-socketio", rev = "d1597976e432ef780175621fc9af97c556b72ecb" }

@@ -124,7 +124,7 @@ pub mod tests {
     use super::*;
     use fake::Dummy;
     use proptest::prelude::*;
-    use rand::{distributions::Uniform, prelude::Distribution, seq::SliceRandom, Rng};
+    use rand::{Rng, distr::Uniform, prelude::Distribution, seq::IndexedRandom as _};
 
     pub struct FakeHostname;
 
@@ -133,7 +133,9 @@ pub mod tests {
             const RANGES: [RangeInclusive<char>; 3] = ['a'..='z', 'A'..='Z', '0'..='9'];
             Hostname::try_from(
                 std::iter::repeat_with(|| {
-                    Uniform::from(RANGES.choose(rng).unwrap().clone()).sample(rng)
+                    Uniform::try_from(RANGES.choose(rng).unwrap().clone())
+                        .unwrap()
+                        .sample(rng)
                 })
                 .take(10)
                 .collect::<String>(),
