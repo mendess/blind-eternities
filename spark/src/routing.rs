@@ -183,7 +183,10 @@ pub(super) async fn show_route(opts: &ShowRouteOpts, config: &Config) -> anyhow:
                 .context("writing dot file")?;
         }
         None => {
-            let (file, temp_path) = tempfile::NamedTempFile::new()?.into_parts();
+            let (file, temp_path) = tempfile::Builder::new()
+                .suffix(".png")
+                .tempfile()?
+                .into_parts();
             let mut dot = Command::new("dot")
                 .arg("-Tpng")
                 .stdin(Stdio::piped())
@@ -203,11 +206,13 @@ pub(super) async fn show_route(opts: &ShowRouteOpts, config: &Config) -> anyhow:
                 .await
                 .context("waiting for dot to png conversion")?;
             if status.success() {
-                open::that(&temp_path)
+                open::that_detached(&temp_path)
                     .with_context(|| format!("opening rendered graph: {}", temp_path.display()))?;
             } else {
                 return Err(anyhow::anyhow!("dot finished with exit code: {}", status));
             }
+            // give image viewer time to launch
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
     Ok(())
