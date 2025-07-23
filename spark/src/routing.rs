@@ -433,7 +433,7 @@ fn build_net_graph(statuses: &HashMap<String, MachineStatusFull>) -> NetGraph<'_
 mod tests {
     use super::*;
     use std::{
-        iter::repeat,
+        iter::repeat_n,
         net::{IpAddr, Ipv4Addr},
     };
 
@@ -451,12 +451,14 @@ mod tests {
             "-t",
             "user@192.168.1.1",
         ];
-        let path = repeat(SimpleNode {
-            default_username: None,
-            ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-            port: 222,
-        })
-        .take(2)
+        let path = repeat_n(
+            SimpleNode {
+                default_username: None,
+                ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                port: 222,
+            },
+            2,
+        )
         .collect::<Vec<_>>();
         assert_eq!(
             path_to_args(&path, "user", PseudoTty::Allocate)
@@ -469,12 +471,14 @@ mod tests {
     #[test]
     fn no_hop() {
         let expect = ["ssh", "-p", "22", "-t", "user@192.168.1.1"];
-        let path = repeat(SimpleNode {
-            default_username: None,
-            ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-            port: 22,
-        })
-        .take(1)
+        let path = repeat_n(
+            SimpleNode {
+                default_username: None,
+                ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                port: 22,
+            },
+            1,
+        )
         .collect::<Vec<_>>();
         assert_eq!(
             path_to_args(&path, "user", PseudoTty::Allocate)
@@ -503,12 +507,14 @@ mod tests {
             "-t",
             "user@192.168.1.1",
         ];
-        let path = repeat(SimpleNode {
-            default_username: None,
-            ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-            port: 22,
-        })
-        .take(3)
+        let path = repeat_n(
+            SimpleNode {
+                default_username: None,
+                ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                port: 22,
+            },
+            3,
+        )
         .collect::<Vec<_>>();
         assert_eq!(
             path_to_args(&path, "user", PseudoTty::Allocate)
@@ -534,12 +540,14 @@ mod tests {
             "22",
             "user@192.168.1.1",
         ];
-        let path = repeat(SimpleNode {
-            default_username: None,
-            ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
-            port: 22,
-        })
-        .take(3)
+        let path = repeat_n(
+            SimpleNode {
+                default_username: None,
+                ip: IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                port: 22,
+            },
+            3,
+        )
         .collect::<Vec<_>>();
         assert_eq!(
             path_to_args(&path, "user", PseudoTty::None)
