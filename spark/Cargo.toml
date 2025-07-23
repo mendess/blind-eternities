@@ -19,7 +19,7 @@ humantime.workspace = true
 itertools.workspace = true
 once_cell.workspace = true
 open.workspace = true
-pnet.workspace = true
+default-net.workspace = true
 public-ip.workspace = true
 rust_socketio = { workspace = true, features = ["async"], optional = true }
 serde.workspace = true

@@ -1,18 +1,15 @@
 pub mod destination;
 
-use std::{mem::take, net::IpAddr, pin::pin, str::FromStr};
+use std::{net::IpAddr, pin::pin};
 
 use anyhow::Context;
-use common::domain::{Hostname, MacAddr, MachineStatus, machine_status::IpConnection};
-use futures::{
-    StreamExt, TryStreamExt,
-    future::{Either, select},
-    stream,
+use common::domain::{
+    Hostname, MacAddr, MachineStatus, mac::MacAddr6, machine_status::IpConnection,
 };
-use pnet::datalink;
-use tokio::process::Command;
+use futures::future::{Either, select};
 
 use crate::config::Config;
+use default_net::interface::InterfaceType;
 
 pub(crate) async fn get_hostname() -> anyhow::Result<Hostname> {
     Ok(tokio::task::spawn_blocking(Hostname::from_this_host).await??)
@@ -28,83 +25,37 @@ async fn get_external_ip() -> anyhow::Result<IpAddr> {
 }
 
 async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
-    let (gateway_ip, gateway_mac) = gateway_ip_and_mac().await.context("getting ip and mac")?;
-    stream::iter(
-        tokio::task::spawn_blocking(|| {
-            datalink::interfaces()
-                .into_iter()
-                .filter(|n| !n.is_loopback())
-                .filter(|n| n.is_up())
-                .filter(|n| !n.name.starts_with("docker"))
-                .filter(|n| !n.name.starts_with("veth"))
-                .flat_map(|n| n.ips)
+    let (gateway, ips) = tokio::task::spawn_blocking(default_net::get_interfaces)
+        .await
+        .context("panicked while getting interfaces")?
+        .into_iter()
+        .inspect(|iface| println!("{}: {:?}", iface.name, iface.gateway))
+        .filter(|iface| !iface.is_loopback())
+        .filter(|iface| iface.is_up())
+        .filter(|iface| iface.if_type == InterfaceType::Ethernet)
+        .filter(|iface| !iface.name.starts_with("docker"))
+        .filter(|iface| !iface.name.starts_with("veth"))
+        .fold((None, vec![]), |(gateway, mut ips), iface| {
+            ips.extend(
+                iface
+                    .ipv4
+                    .into_iter()
+                    .map(|v4| IpAddr::V4(v4.network()))
+                    .chain(iface.ipv6.into_iter().map(|v6| IpAddr::V6(v6.network()))),
+            );
+            (dbg!(dbg!(gateway).or(dbg!(iface.gateway))), ips)
+        });
+    let Some(gateway) = gateway else {
+        anyhow::bail!("no gateway found");
+    };
+    Ok(ips
+        .into_iter()
+        .map(|ip| IpConnection {
+            local_ip: ip,
+            gateway_ip: gateway.ip_addr,
+            gateway_mac: Some(MacAddr::V6(MacAddr6(gateway.mac_addr.octets()))),
         })
-        .await?,
-    )
-    .then(|network| async move {
-        Ok(IpConnection {
-            local_ip: network.ip(),
-            gateway_ip,
-            gateway_mac,
-        })
-    })
-    .try_collect()
-    .await
-}
-
-async fn gateway_ip_and_mac() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
-    let mut out = if cfg!(target_os = "macos") {
-        Command::new("sh")
-            .args(["-c", "route -n get default | grep gateway | cut -d: -f2"])
-            .output()
-            .await
-    } else if cfg!(target_os = "android") {
-        return Ok((std::net::Ipv4Addr::LOCALHOST.into(), None));
-    } else {
-        Command::new("sh")
-            .args(["-c", "ip route get 1.1.1.1 | awk '{print $3}' | head -1"])
-            .output()
-            .await
-    }
-    .context("running ip route")?;
-
-    if out.status.success() {
-        let ip_str = String::from_utf8(take(&mut out.stdout)).map_err(|e| {
-            anyhow::anyhow!(
-                "failed to convert {:?} to utf8. Details: {:?}",
-                e.as_bytes(),
-                e.utf8_error()
-            )
-        })?;
-        let ip_str = ip_str.trim();
-        let ip =
-            IpAddr::from_str(ip_str).with_context(|| format!("tried to parse: {:?}", ip_str))?;
-        let mut out = Command::new("sh")
-            .args([
-                "-c",
-                &format!("ip neigh | grep '{} ' | awk '{{ print $5 }}'", ip_str),
-            ])
-            .output()
-            .await
-            .context("running 'ip neigh'")?;
-        if let Some(mac) = out
-            .status
-            .success()
-            .then(|| take(&mut out.stdout))
-            .and_then(|s| String::from_utf8(s).ok())
-            .and_then(|s| MacAddr::from_str(s.trim()).ok())
-        {
-            Ok((ip, Some(mac)))
-        } else {
-            Ok((ip, None))
-        }
-    } else {
-        Err(anyhow::anyhow!(
-            "failed to get ip, exit code: {}, stderr: '{}'",
-            out.status,
-            String::from_utf8_lossy(&out.stderr),
-        ))
-    }
+        .collect())
 }
 
 pub(crate) async fn get_current_status(config: &Config) -> anyhow::Result<MachineStatus> {

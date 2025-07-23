@@ -27,10 +27,10 @@ impl MacAddr {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct MacAddr6([u8; 6]);
+pub struct MacAddr6(pub [u8; 6]);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct MacAddr8([u8; 8]);
+pub struct MacAddr8(pub [u8; 8]);
 
 impl Serialize for MacAddr {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -38,7 +38,7 @@ impl Serialize for MacAddr {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            serializer.collect_str(&format_args!("{}", self))
+            serializer.collect_str(&format_args!("{self}"))
             // let mut last_ok = None;
             // for s in Itertools::intersperse(self.bytes().iter().map(|b| byte_to_str(*b)), [b':', 0])
             // {
