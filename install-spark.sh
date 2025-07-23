@@ -29,4 +29,4 @@ if command -V sudo 2>/dev/null; then
 else
 	sudo=
 fi
-$sudo install ./target/release/spark $target
+$sudo install ./target/release/spark $target "$@"
