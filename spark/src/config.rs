@@ -1,8 +1,11 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Context;
-use common::net::{
-    AuthenticatedClient, auth_client::UrlParseError, defaults::default_persistent_conn_port,
+use common::{
+    domain::Hostname,
+    net::{
+        AuthenticatedClient, auth_client::UrlParseError, defaults::default_persistent_conn_port,
+    },
 };
 use dirs::config_dir;
 use url::Url;
@@ -13,6 +16,8 @@ use crate::util::destination::Destination;
 pub struct Config {
     pub token: uuid::Uuid,
     pub backend_domain: Url,
+    #[serde(default)]
+    pub hostname_override: Option<Hostname>,
     #[serde(default)]
     pub network: Networking,
     #[serde(default)]

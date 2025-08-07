@@ -12,8 +12,11 @@ use crate::config::Config;
 use default_net::interface::InterfaceType;
 use tokio::process::Command;
 
-pub(crate) async fn get_hostname() -> anyhow::Result<Hostname> {
-    Ok(tokio::task::spawn_blocking(Hostname::from_this_host).await??)
+pub(crate) async fn get_hostname(config: &Config) -> anyhow::Result<Hostname> {
+    Ok(match &config.hostname_override {
+        Some(h) => h.clone(),
+        None => tokio::task::spawn_blocking(Hostname::from_this_host).await??,
+    })
 }
 
 async fn get_external_ip() -> anyhow::Result<IpAddr> {
@@ -130,7 +133,7 @@ async fn get_gateway_fallback() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
 
 pub(crate) async fn get_current_status(config: &Config) -> anyhow::Result<MachineStatus> {
     let (hostname, ip_connections, external_ip) = tokio::try_join!(
-        async { get_hostname().await.context("getting hostname") },
+        async { get_hostname(config).await.context("getting hostname") },
         async { get_ip_connections().await.context("getting ip connections") },
         async { get_external_ip().await },
     )?;

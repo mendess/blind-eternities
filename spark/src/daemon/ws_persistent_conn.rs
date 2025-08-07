@@ -10,7 +10,7 @@ use rust_socketio::{
 use serde_json::json;
 use spark_protocol::music::MusicCmdKind;
 
-use crate::config::Config;
+use crate::{config::Config, util::get_hostname};
 
 use super::handle_message;
 
@@ -58,8 +58,8 @@ async fn run(config: &Config, hostname: &Hostname, token: uuid::Uuid) -> anyhow:
     Ok(())
 }
 
-pub(super) async fn start(config: Arc<Config>) -> whoami::Result<()> {
-    let hostname = Hostname::from_this_host()?;
+pub(super) async fn start(config: Arc<Config>) -> anyhow::Result<()> {
+    let hostname = get_hostname(&config).await?;
     loop {
         tracing::info!("starting ws persistent connection");
         if let Err(e) = run(&config, &hostname, config.token).await {
