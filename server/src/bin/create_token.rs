@@ -44,15 +44,15 @@ async fn _main() -> i32 {
 
     match r {
         Ok(uuid) if delete => {
-            println!("Token deleted: '{}'", uuid);
+            println!("Token deleted: '{uuid}'");
             0
         }
         Ok(uuid) => {
-            println!("Token created: '{}'", uuid);
+            println!("Token created: '{uuid}'");
             0
         }
         Err(e) => {
-            println!("Failed to create token: {:#?}", e);
+            println!("Failed to create token: {e:#?}");
             1
         }
     }

@@ -67,14 +67,14 @@ impl Node<'_> {
     fn unwrap_as_internet_mut(&mut self) -> &mut Internet {
         match self {
             Self::Internet(r) => r,
-            _ => panic!("Unwrapped as internet but self is {:?}", self),
+            _ => panic!("Unwrapped as internet but self is {self:?}"),
         }
     }
 
     fn unwrap_as_machine(&self) -> &MachineStatusFull {
         match self {
             Self::Machine(r) => r,
-            _ => panic!("Unwrapped as internet but self is {:?}", self),
+            _ => panic!("Unwrapped as internet but self is {self:?}"),
         }
     }
 }
@@ -232,7 +232,7 @@ impl NetGraph<'_> {
         };
         for (ip, nodes) in by_subnet.into_iter() {
             let subgraph_label = ip.to_string().replace(['.', ':'], "_");
-            out.write_all(format!("    subgraph cluster_{} {{\n", subgraph_label).as_bytes())
+            out.write_all(format!("    subgraph cluster_{subgraph_label} {{\n").as_bytes())
                 .await?;
             for (i, n) in nodes {
                 let hb = n.last_heartbeat.timestamp_millis();
@@ -244,7 +244,7 @@ impl NetGraph<'_> {
                     let color = 1 + ((7 * (hb - one_hour_ago)) / (today - one_hour_ago));
                     tracing::info!("node: {} @ {:?} :: {}", n.hostname, n.last_heartbeat, color);
                     tracing::debug!("node: {:#?} :: {}", n, color);
-                    format!(" style=filled fillcolor={}", color)
+                    format!(" style=filled fillcolor={color}")
                 };
                 out.write_all(
                     format!(
@@ -261,7 +261,7 @@ impl NetGraph<'_> {
                 )
                 .await?;
             }
-            out.write_all(format!("        label = \"{}\"\n", ip).as_bytes())
+            out.write_all(format!("        label = \"{ip}\"\n").as_bytes())
                 .await?;
             out.write_all(b"    }\n").await?;
         }

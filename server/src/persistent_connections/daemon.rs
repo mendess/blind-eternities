@@ -81,7 +81,7 @@ where
                     None
                 },
             }),
-            Err(e) => send!(writer <- MetaProtocolAck::InvalidValue(format!("{:?}", e)); {
+            Err(e) => send!(writer <- MetaProtocolAck::InvalidValue(format!("{e:?}")); {
                 None,
                 e => {
                     tracing::error!(?e, "reporting invalid value error");

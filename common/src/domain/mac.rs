@@ -139,7 +139,7 @@ impl Display for MacAddr {
             &self
                 .bytes()
                 .iter()
-                .format_with(":", |e, f| f(&format_args!("{:02x}", e)))
+                .format_with(":", |e, f| f(&format_args!("{e:02x}")))
         )
     }
 }

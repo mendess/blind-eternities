@@ -76,8 +76,7 @@ async fn machine_status_returns_400_when_data_is_missing() {
         assert_eq!(
             response.status(),
             StatusCode::UNPROCESSABLE_ENTITY,
-            "The API did not fail with 400 Bad Request when the payload was {}",
-            error_msg
+            "The API did not fail with 400 Bad Request when the payload was {error_msg}"
         );
     }
 }
@@ -110,8 +109,7 @@ async fn machine_status_returns_400_when_hostname_is_malformed() {
         assert_eq!(
             response.status(),
             StatusCode::UNPROCESSABLE_ENTITY,
-            "The API did not fail with 400 Bad Request when the payload {}",
-            error_msg,
+            "The API did not fail with 400 Bad Request when the payload {error_msg}",
         );
     }
 }

@@ -89,7 +89,7 @@ pub async fn send_to_session(
 ) -> anyhow::Result<spark_protocol::Response> {
     send_impl(
         AuthenticatedClient::try_from(&config)?
-            .post(&format!("/music/ws/{}", session))?
+            .post(&format!("/music/ws/{session}"))?
             .json(&command),
     )
     .await

@@ -211,7 +211,7 @@ mod test {
             let response = c
                 .send(&Command::Reload)
                 .await
-                .unwrap_or_else(|e| panic!("i: {i}: {:?}", e))
+                .unwrap_or_else(|e| panic!("i: {i}: {e:?}"))
                 .unwrap_or_else(|| panic!("i: {i}: end of file"));
             assert_eq!(Ok(SuccessfulResponse::Unit), response, "i: {i}");
         }

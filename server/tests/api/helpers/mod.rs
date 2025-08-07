@@ -81,7 +81,7 @@ impl TestApp {
             .expect("Failed to bind address");
         tokio::spawn(server.into_future());
         let app = TestApp {
-            address: format!("http://localhost:{}", port),
+            address: format!("http://localhost:{port}"),
             persistent_conn_port,
             db_pool: connection,
             db_name: conf.db.name,
@@ -203,11 +203,11 @@ impl Drop for TestApp {
                 let mut conn = PgConnection::connect("postgres://postgres:postgres@localhost:5432")
                     .await
                     .expect("Failed to connect to postgres");
-                if let Err(e) = sqlx::query(&format!(r#"DROP DATABASE "{}" WITH (FORCE)"#, db_name))
+                if let Err(e) = sqlx::query(&format!(r#"DROP DATABASE "{db_name}" WITH (FORCE)"#))
                     .execute(&mut conn)
                     .await
                 {
-                    eprintln!("Failed to drop database {}: {:?}", db_name, e)
+                    eprintln!("Failed to drop database {db_name}: {e:?}")
                 } else {
                     eprintln!("dropped database '{db_name}'");
                 }
