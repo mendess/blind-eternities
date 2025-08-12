@@ -7,6 +7,7 @@ edition.workspace = true
 askama.workspace = true
 askama_axum.workspace = true
 axum.workspace = true
+clap.workspace = true
 common = { path = "../common", features = ["metrics"] }
 config.workspace = true
 futures.workspace = true

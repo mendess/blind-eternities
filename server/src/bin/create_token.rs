@@ -1,24 +1,26 @@
 use blind_eternities::{auth, configuration::get_configuration};
+use clap::Parser;
 use sqlx::{PgPool, Row};
 use std::env;
 use uuid::Uuid;
 
+#[derive(clap::Parser)]
+struct Args {
+    #[arg(short, long)]
+    config: Option<String>,
+    #[arg(short, long)]
+    delete: bool,
+    hostname: String,
+}
+
 async fn _main() -> i32 {
-    let mut args = env::args().skip(1);
-    let hostname = match args.next() {
-        Some(hostname) => hostname,
-        None => {
-            println!(
-                "Usage {} HOSTNAME [-d|--delete]",
-                env::args().next().unwrap()
-            );
-            return 1;
-        }
-    };
+    let Args {
+        config,
+        delete,
+        hostname,
+    } = Args::parse();
 
-    let delete = matches!(args.next().as_deref(), Some("-d" | "--delete"));
-
-    let conf = get_configuration().expect("Failed to read configuration");
+    let conf = get_configuration(config.as_deref()).expect("Failed to read configuration");
     let conn_string = conf.db.connection_string();
 
     println!("connecting to db: {conn_string}");

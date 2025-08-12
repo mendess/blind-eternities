@@ -43,9 +43,9 @@ impl DbSettings {
 
 pub const PREFIX: &str = "BLIND_ETER";
 
-pub fn get_configuration() -> Result<Settings, config::ConfigError> {
+pub fn get_configuration(path: Option<&str>) -> Result<Settings, config::ConfigError> {
     Config::builder()
-        .add_source(File::with_name("configuration").required(false))
+        .add_source(File::with_name(path.unwrap_or("configuration")).required(false))
         .add_source(Environment::with_prefix(PREFIX).separator("__"))
         .build()
         .and_then(Config::try_deserialize)

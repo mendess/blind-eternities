@@ -10,6 +10,7 @@ async-recursion.workspace = true
 axum-prometheus.workspace = true
 axum.workspace = true
 chrono.workspace = true
+clap.workspace = true
 common = { path = "../common", features = ["sqlx", "metrics"] }
 config.workspace = true
 futures.workspace = true

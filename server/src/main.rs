@@ -1,18 +1,26 @@
 use anyhow::Context;
 use blind_eternities::configuration::{Settings, get_configuration};
+use clap::Parser;
 use common::telemetry::{get_subscriber, init_subscriber};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use tokio::net::TcpListener;
 
+#[derive(clap::Parser)]
+struct Args {
+    #[arg(short, long)]
+    config: Option<String>,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let Args { config } = Args::parse();
     init_subscriber(get_subscriber(
         "blind-eternities".into(),
         "info".into(),
         std::io::stdout,
     ));
 
-    let conf = get_configuration().expect("Failed to read configuration");
+    let conf = get_configuration(config.as_deref()).expect("Failed to read configuration");
     tracing::info!(initial_configuration = ?conf);
     let conn_string = conf.db.connection_string();
 
