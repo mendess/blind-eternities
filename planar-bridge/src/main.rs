@@ -4,11 +4,11 @@ mod music;
 
 use std::io;
 
-use axum::{Router, middleware::from_fn};
+use axum::Router;
 use clap::Parser;
 use common::{
     net::auth_client::Client,
-    telemetry::{get_subscriber_no_bunny, init_subscriber},
+    telemetry::{get_subscriber_no_bunny, init_subscriber, metrics::MetricsEndpoint},
 };
 use config::File;
 use serde::{Deserialize, Serialize};
@@ -54,20 +54,16 @@ async fn main() -> io::Result<()> {
 
     let client = Client::new(config.backend_url).map_err(io::Error::other)?;
 
+    let MetricsEndpoint { worker, layer } = common::telemetry::metrics::start_metrics_endpoint(
+        "planar_bridge",
+        TcpListener::bind("0.0.0:9000").await?,
+    );
+    tokio::spawn(worker);
     let router = Router::new()
         .nest("/music", music::routes())
         .nest_service("/assets", ServeDir::new("planar-bridge/assets"))
-        .layer(from_fn(common::telemetry::metrics::RequestMetrics::as_fn))
+        .layer(layer)
         .with_state(client);
-
-    match common::telemetry::metrics::start_metrics_endpoint("planar_bridge").await {
-        Ok(fut) => {
-            tokio::spawn(fut);
-        }
-        Err(error) => {
-            tracing::warn!(?error, "failed to start metrics endpoint");
-        }
-    }
 
     println!("running on http://localhost:{}/music", config.port);
     axum::serve(TcpListener::bind(("0.0.0.0", config.port)).await?, router).await

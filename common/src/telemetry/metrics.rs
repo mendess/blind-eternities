@@ -1,79 +1,112 @@
+use axum::{Router, response::IntoResponse, routing::get};
+use http::{HeaderMap, HeaderValue, StatusCode, header};
+use parking_lot::RwLock;
+use prometheus_client::registry::Registry;
 use std::{
     future::{Future, IntoFuture},
     io,
-    sync::OnceLock,
+    sync::LazyLock,
 };
-
-use axum::{
-    Router,
-    extract::{MatchedPath, Request},
-    middleware::Next,
-    routing::get,
-};
-use http::Method;
-use prometheus::{Encoder, IntCounterVec, register_int_counter_vec};
 use tokio::net::TcpListener;
 
-pub fn new_request(route: &str, method: &Method) {
-    static METRICS: OnceLock<IntCounterVec> = OnceLock::new();
+#[doc(hidden)]
+pub use parking_lot::MappedRwLockReadGuard;
 
-    METRICS
-        .get_or_init(|| {
-            register_int_counter_vec!(
-                "requests",
-                "number of requests by route",
-                &["route", "method"]
-            )
-            .unwrap()
-        })
-        .with_label_values(&[route, method.as_str()])
-        .inc();
-}
+pub static REGISTRY: LazyLock<RwLock<Registry>> = LazyLock::new(RwLock::default);
 
-pub async fn metrics_handler(prefix: &str) -> String {
-    let encoder = prometheus::TextEncoder::new();
+#[macro_export]
+macro_rules! make_metric {
+    ($help:expr, $name:ident ($kind:path), {$($label:ident : $type:ty),*}$(,)?) => {
+        make_metric!(
+            $help,
+            $name ($kind) ( $($label: $type),* ),
+            { $($label: $type),* },
+            { $($label),* }
+        );
+    };
+    (
+        $help:expr,
+        $name:ident ($kind:path)($($label_param:ident : $type_param:ty),*),
+        { $($label_struct:ident : $type_struct:ty),* },
+        { $($conv:tt)* }
+    ) => {
+        pub fn $name($($label_param:$type_param),*)
+            -> $crate::telemetry::metrics::MappedRwLockReadGuard<'static, $kind> {
+            use ::prometheus_client::{
+                metrics::{
+                    family::Family
+                },
+                encoding::EncodeLabelSet
+            };
+            use ::std::sync::LazyLock;
 
-    let mut buffer = Vec::new();
-    let mut metrics = prometheus::gather();
-    for m in &mut metrics {
-        let name = format!("{prefix}_{}", m.get_name());
-        m.set_name(name);
-    }
-    if let Err(e) = encoder.encode(&metrics, &mut buffer) {
-        tracing::error!(error = ?e, "could not encode custom metrics");
-    }
-
-    match String::from_utf8(buffer.clone()) {
-        Ok(v) => v,
-        Err(e) => {
-            tracing::error!(error = ?e, "custom metrics aren't valid utf8");
-            String::default()
+            #[derive(Debug, Clone, Hash, Eq, PartialEq, EncodeLabelSet)]
+            struct Labels {
+                $($label_struct:$type_struct),*
+            }
+            static METRICS: LazyLock<Family<Labels, $kind>> = LazyLock::new(|| {
+                let metric = Family::<Labels, $kind>::default();
+                $crate::telemetry::metrics::REGISTRY.write().register(
+                    ::std::stringify!($name),
+                    $help,
+                    metric.clone(),
+                );
+                metric
+            });
+            METRICS.get_or_create(&Labels { $($conv)* })
         }
-    }
+    };
 }
 
-pub async fn start_metrics_endpoint(
-    prefix: &'static str,
-) -> io::Result<impl Future<Output = io::Result<()>>> {
-    Ok(axum::serve(
-        TcpListener::bind("0.0.0.0:9000").await?,
-        Router::new().route("/metrics", get(|| metrics_handler(prefix))),
+pub async fn metrics_handler(axum: axum_prometheus::Handle) -> impl IntoResponse {
+    let mut body = String::new();
+
+    prometheus_client::encoding::text::encode_registry(&mut body, &REGISTRY.read()).unwrap();
+
+    body.push('\n');
+    body.push_str(&axum.0.render());
+
+    prometheus_client::encoding::text::encode_eof(&mut body).unwrap();
+
+    (
+        StatusCode::OK,
+        HeaderMap::from_iter([(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("text/plain; version=0.0.4"),
+        )]),
+        body,
     )
-    .into_future())
 }
 
-#[derive(Clone, Copy, Default, Debug)]
-pub struct RequestMetrics;
+pub struct MetricsEndpoint<F> {
+    pub worker: F,
+    pub layer: axum_prometheus::GenericMetricLayer<
+        'static,
+        axum_prometheus::metrics_exporter_prometheus::PrometheusHandle,
+        axum_prometheus::Handle,
+    >,
+}
 
-impl RequestMetrics {
-    pub async fn as_fn(
-        matched: Option<MatchedPath>,
-        req: Request,
-        next: Next,
-    ) -> axum::response::Response {
-        if let Some(matched) = matched {
-            new_request(matched.as_str(), req.method());
-        }
-        next.run(req).await
-    }
+pub fn start_metrics_endpoint(
+    prefix: &'static str,
+    metrics_listener: TcpListener,
+) -> MetricsEndpoint<impl Future<Output = io::Result<()>>> {
+    let (layer, handle) = axum_prometheus::PrometheusMetricLayerBuilder::new()
+        .with_prefix(prefix)
+        .with_endpoint_label_type(axum_prometheus::EndpointLabel::MatchedPathWithFallbackFn(
+            |_| "UNMATCHED".into(),
+        ))
+        .with_default_metrics()
+        .build_pair();
+
+    let worker = axum::serve(
+        metrics_listener,
+        Router::new().route(
+            "/metrics",
+            get(move || metrics_handler(axum_prometheus::Handle(handle.clone()))),
+        ),
+    )
+    .into_future();
+
+    MetricsEndpoint { worker, layer }
 }

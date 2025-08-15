@@ -67,10 +67,10 @@ where
             .get(&(tid, key.to_string()))
             .and_then(|entry| entry.get())
         {
-            metrics::cache_hit();
+            metrics::music_cache_hit().inc();
             return Ok(t);
         }
-        metrics::cache_miss();
+        metrics::music_cache_miss().inc();
     }
     let new_t = Marc::new(default().await?);
     let mut cache = cache().lock().await;

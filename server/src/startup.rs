@@ -1,6 +1,5 @@
 use crate::routes;
-use axum::middleware::from_fn;
-use common::telemetry::metrics::RequestMetrics;
+use common::telemetry::metrics::MetricsEndpoint;
 use sqlx::PgPool;
 use std::{
     future::{self, Future, IntoFuture},
@@ -13,6 +12,7 @@ use tower_http::trace::TraceLayer;
 pub fn run(
     server_listener: TcpListener,
     persistent_conns_listener: TcpListener,
+    metrics_listener: impl Into<Option<TcpListener>>,
     db: PgPool,
 ) -> io::Result<impl Future<Output = io::Result<()>>> {
     let db = Arc::new(db);
@@ -21,14 +21,20 @@ pub fn run(
         db.clone(),
     );
 
-    let (layer, io) = crate::persistent_connections::ws::socket_io_routes(db.clone());
+    let (ws_layer, io) = crate::persistent_connections::ws::socket_io_routes(db.clone());
+
+    let mut router = routes::router(connections, db, io);
+
+    if let Some(l) = metrics_listener.into() {
+        let MetricsEndpoint { worker, layer } =
+            common::telemetry::metrics::start_metrics_endpoint("blind_eternities", l);
+        tokio::spawn(worker);
+        router = router.layer(layer);
+    }
 
     Ok(axum::serve(
         server_listener,
-        routes::router(connections, db, io)
-            .layer(layer)
-            .layer(from_fn(RequestMetrics::as_fn))
-            .layer(TraceLayer::new_for_http()),
+        router.layer(ws_layer).layer(TraceLayer::new_for_http()),
     )
     .with_graceful_shutdown(async {
         if let Err(e) = tokio::signal::ctrl_c().await {

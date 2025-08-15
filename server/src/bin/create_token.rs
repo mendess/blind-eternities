@@ -1,7 +1,6 @@
 use blind_eternities::{auth, configuration::get_configuration};
 use clap::Parser;
 use sqlx::{PgPool, Row};
-use std::env;
 use uuid::Uuid;
 
 #[derive(clap::Parser)]

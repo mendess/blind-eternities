@@ -16,7 +16,7 @@ pub fn routes() -> Router<super::RouterState> {
     Router::new()
         .route("/health_check", get(health_check))
         .route(
-            "/music-session/:hostname",
+            "/music-session/{hostname}",
             get(create_music_session).delete(delete_music_session),
         )
 }

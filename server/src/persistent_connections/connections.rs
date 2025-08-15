@@ -97,17 +97,17 @@ impl Connections {
             .lock()
             .await
             .insert(machine, (generation, tx));
-        metrics::persistent_connected();
+        metrics::persistent_connections().inc();
         (generation, rx)
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn remove(&self, machine: Hostname, generation: Generation) {
-        if let Entry::Occupied(o) = self.connected_hosts.lock().await.entry(machine) {
-            if o.get().0 == generation {
-                o.remove_entry();
-                metrics::persistent_disconnected();
-            }
+        if let Entry::Occupied(o) = self.connected_hosts.lock().await.entry(machine)
+            && o.get().0 == generation
+        {
+            o.remove_entry();
+            metrics::persistent_connections().dec();
         }
     }
 

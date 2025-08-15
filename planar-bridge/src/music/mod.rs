@@ -2,9 +2,8 @@ mod request_coalescing;
 
 use std::{io, sync::Arc, time::Duration};
 
-use askama_axum::Template;
 use axum::{
-    Form, Json, Router, async_trait,
+    Form, Json, Router,
     extract::{FromRequestParts, Path, Query, State},
     response::{AppendHeaders, IntoResponse},
     routing::{get, post},
@@ -27,6 +26,7 @@ use uuid::Uuid;
 use crate::{Backend, cache, metrics};
 
 use self::request_coalescing::{SharedError, request_coalesced};
+use askama::Template;
 
 pub fn routes() -> Router<Backend> {
     Router::new()
@@ -59,14 +59,18 @@ enum Error {
     BadRequest,
     #[error("not found")]
     NotFound,
+    #[error("render error: {0}")]
+    TemplateRender(#[from] askama::Error),
 }
 
 impl Error {
     pub fn status_code(&self) -> StatusCode {
         match self {
-            Self::Io(_) | Self::Reqwest(_) | Self::UnexpectedBackendResponse(_) | Self::Mlib(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
+            Self::Io(_)
+            | Self::Reqwest(_)
+            | Self::UnexpectedBackendResponse(_)
+            | Self::Mlib(_)
+            | Self::TemplateRender(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::PlayerOrSessionNotFound | Self::NotFound => StatusCode::NOT_FOUND,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::BadRequest => StatusCode::BAD_REQUEST,
@@ -85,7 +89,7 @@ async fn request_from_backend(
     target: &Target,
     cmd: MusicCmdKind,
 ) -> Result<spark_protocol::music::Response, Error> {
-    metrics::music_backend_request(&cmd);
+    metrics::music_backend_request(&cmd).inc();
     let request = match target {
         Target::Host { hostname, auth } => client
             .post(&format!("/persistent-connections/ws/send/{hostname}"))
@@ -128,7 +132,6 @@ enum Target {
     Session { session: MusicSession },
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Target
 where
     S: Send + Sync,
@@ -180,8 +183,8 @@ struct MainPage {
     target: Target,
 }
 
-async fn index(target: Target) -> MainPage {
-    MainPage { target }
+async fn index(target: Target) -> Result<impl IntoResponse, Error> {
+    Ok(MainPage { target }.render()?)
 }
 
 #[derive(Template)]
@@ -192,21 +195,26 @@ struct NowPlaying {
     current: Marc<Current>,
 }
 
-async fn now_playing(backend: State<Backend>, target: Target) -> Result<NowPlaying, SharedError> {
+async fn now_playing(
+    backend: State<Backend>,
+    target: Target,
+) -> Result<impl IntoResponse, SharedError> {
     Ok(NowPlaying {
         current: get_current(backend, target.clone()).await?,
         target,
-    })
+    }
+    .render()?)
 }
 
 async fn play_pause_button(
     backend: State<Backend>,
     target: Target,
-) -> Result<PlayPause, SharedError> {
+) -> Result<impl IntoResponse, SharedError> {
     let current = get_current(backend, target).await?;
     Ok(PlayPause {
         playing: current.playing,
-    })
+    }
+    .render()?)
 }
 
 #[derive(Template)]
@@ -257,13 +265,13 @@ struct Tabs {
     tab: Tab,
 }
 
-async fn tabs(target: Target, kind: Path<String>) -> Result<Tabs, Error> {
+async fn tabs(target: Target, kind: Path<String>) -> Result<impl IntoResponse, Error> {
     let tab = match kind.as_str() {
         "now" => Tab::Now,
         "queue" => Tab::Queue,
         _ => return Err(Error::NotFound),
     };
-    Ok(Tabs { target, tab })
+    Ok(Tabs { target, tab }.render()?)
 }
 
 #[derive(Template)]
@@ -272,7 +280,7 @@ struct Now {
     now: Marc<(Vec<String>, String, Vec<String>)>,
 }
 
-async fn now(backend: State<Backend>, target: Target) -> Result<Now, Error> {
+async fn now(backend: State<Backend>, target: Target) -> Result<impl IntoResponse, Error> {
     let now = cache::get_or_init(
         &target.to_query_string(),
         || async {
@@ -292,7 +300,7 @@ async fn now(backend: State<Backend>, target: Target) -> Result<Now, Error> {
         Duration::from_secs(1),
     )
     .await?;
-    Ok(Now { now })
+    Ok(Now { now }.render()?)
 }
 
 #[derive(Template)]
@@ -310,7 +318,7 @@ struct SearchFormData {
 async fn search(
     target: Target,
     Form(SearchFormData { search }): Form<SearchFormData>,
-) -> Result<SearchResults, Error> {
+) -> Result<impl IntoResponse, Error> {
     let playlist = load_playlist().await?;
     let mut songs = if search.is_empty() {
         playlist.songs.iter().map(|s| s.name.clone()).collect()
@@ -324,7 +332,7 @@ async fn search(
 
     songs.insert(0, search);
 
-    Ok(SearchResults { songs, target })
+    Ok(SearchResults { songs, target }.render()?)
 }
 
 async fn get_current(
@@ -387,7 +395,7 @@ async fn queue(
     backend: State<Backend>,
     target: Target,
     Json(QueueCommand { query, search }): Json<QueueCommand>,
-) -> Result<QueueSummary, Error> {
+) -> Result<impl IntoResponse, Error> {
     let response =
         request_from_backend(&backend, &target, MusicCmdKind::Queue { query, search }).await?;
     let Response::QueueSummary {
@@ -399,5 +407,6 @@ async fn queue(
     println!("queueing {search}");
     Ok(QueueSummary {
         distance: moved_to.saturating_sub(current),
-    })
+    }
+    .render()?)
 }

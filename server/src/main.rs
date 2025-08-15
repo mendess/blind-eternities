@@ -32,15 +32,6 @@ async fn main() -> anyhow::Result<()> {
             .expect("Failed to connect to Postgres")
     };
 
-    match common::telemetry::metrics::start_metrics_endpoint("blind_eternities").await {
-        Ok(fut) => {
-            tokio::spawn(fut);
-        }
-        Err(error) => {
-            tracing::warn!(?error, "failed to start metrics endpoint");
-        }
-    }
-
     blind_eternities::startup::run(
         TcpListener::bind(("0.0.0.0", conf.port))
             .await
@@ -48,6 +39,9 @@ async fn main() -> anyhow::Result<()> {
         TcpListener::bind(("0.0.0.0", conf.persistent_conn_port))
             .await
             .context("binding persistent connections port")?,
+        TcpListener::bind("0.0.0.0:9000")
+            .await
+            .context("binding metrics listener port")?,
         connection,
     )?
     .await

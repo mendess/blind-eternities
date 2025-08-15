@@ -64,11 +64,11 @@ impl ServerBuilder {
         Fut: Future<Output = crate::Response> + Send,
     {
         async fn create_socket<P: AsRef<Path> + Debug>(p: P) -> io::Result<UnixListener> {
-            if let Err(e) = fs::remove_file(&p).await {
-                if e.kind() != io::ErrorKind::NotFound {
-                    tracing::error!(?e, path = ?p, "failed to remove old socket");
-                    return Err(e);
-                }
+            if let Err(e) = fs::remove_file(&p).await
+                && e.kind() != io::ErrorKind::NotFound
+            {
+                tracing::error!(?e, path = ?p, "failed to remove old socket");
+                return Err(e);
             }
             tracing::info!(path = ?p, "binding ipc socket");
             let socket = UnixListener::bind(&p)?;

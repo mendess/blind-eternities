@@ -27,10 +27,10 @@ pub fn routes() -> Router<super::RouterState> {
             "/ws",
             Router::new()
                 .route("/", get(ws_list_persistent_connections))
-                .route("/send/:hostname", post(ws_send)),
+                .route("/send/{hostname}", post(ws_send)),
         )
         .route("/", get(list_persistent_connections))
-        .route("/send/:hostname", post(send))
+        .route("/send/{hostname}", post(send))
 }
 
 async fn ws_list_persistent_connections(

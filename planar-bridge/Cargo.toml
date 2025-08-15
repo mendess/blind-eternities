@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 askama.workspace = true
-askama_axum.workspace = true
 axum.workspace = true
 clap.workspace = true
 common = { path = "../common", features = ["metrics"] }
@@ -14,7 +13,7 @@ futures.workspace = true
 http.workspace = true
 mappable-rc.workspace = true
 mlib = { workspace = true, features = ["playlist"] }
-prometheus.workspace = true
+prometheus-client.workspace = true
 reqwest = { workspace = true, features = ["stream"] }
 serde.workspace = true
 spark-protocol = { path = "../spark-protocol" }

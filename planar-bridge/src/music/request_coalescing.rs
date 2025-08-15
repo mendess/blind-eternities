@@ -30,6 +30,15 @@ impl From<Arc<super::Error>> for SharedError {
     }
 }
 
+impl<E> From<E> for SharedError
+where
+    super::Error: From<E>,
+{
+    fn from(error: E) -> Self {
+        Self(Arc::new(super::Error::from(error)))
+    }
+}
+
 impl IntoResponse for SharedError {
     fn into_response(self) -> axum::response::Response {
         (self.0.status_code(), self.to_string()).into_response()

@@ -77,8 +77,13 @@ impl TestApp {
         let connection = configure_database(&conf.db).await;
 
         tracing::debug!("starting server");
-        let server = startup::run(listener, persistent_conns_listener, connection.clone())
-            .expect("Failed to bind address");
+        let server = startup::run(
+            listener,
+            persistent_conns_listener,
+            None,
+            connection.clone(),
+        )
+        .expect("Failed to bind address");
         tokio::spawn(server.into_future());
         let app = TestApp {
             address: format!("http://localhost:{port}"),

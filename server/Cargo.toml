@@ -16,7 +16,7 @@ config.workspace = true
 futures.workspace = true
 http.workspace = true
 itertools.workspace = true
-prometheus.workspace = true
+prometheus-client.workspace = true
 regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde-querystring.workspace = true

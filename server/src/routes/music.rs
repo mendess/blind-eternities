@@ -14,8 +14,8 @@ use crate::{
 
 pub fn routes() -> Router<super::RouterState> {
     Router::new()
-        .route("/ws/:id", post(ws_message_music_player))
-        .route("/:id", post(message_music_player))
+        .route("/ws/{id}", post(ws_message_music_player))
+        .route("/{id}", post(message_music_player))
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -7,12 +7,14 @@ edition.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+axum-prometheus = { workspace = true, optional = true }
 chrono = { workspace = true, features = ["serde"] }
 either.workspace = true
 itertools.workspace = true
 once_cell.workspace = true
+parking_lot.workspace = true
 petgraph.workspace = true
-prometheus = { workspace = true, optional = true }
+prometheus-client = { workspace = true, optional = true }
 rand.workspace = true
 regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
@@ -48,4 +50,10 @@ rand.workspace = true
 
 [features]
 sqlx = ["dep:sqlx"]
-metrics = ["dep:prometheus", "dep:axum", "dep:http", "dep:tower"]
+metrics = [
+    "dep:prometheus-client",
+    "dep:axum",
+    "dep:http",
+    "dep:tower",
+    "dep:axum-prometheus"
+]

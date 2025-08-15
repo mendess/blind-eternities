@@ -138,7 +138,6 @@ impl<T> Role for T where T: priv_role::Role {}
 
 macro_rules! gen_role_extractor {
     ($role:ident) => {
-        #[axum::async_trait]
         impl<S> FromRequestParts<S> for $role
         where
             S: Send + Sync + AsRef<PgPool>,
