@@ -1,6 +1,6 @@
 # inspiration: https://dev.to/rogertorres/first-steps-with-docker-rust-30oi
 
-FROM rust:1.84.0-bookworm as build
+FROM rust:1.89-bookworm AS build
 
 # create an empty shell project
 RUN USER=root cargo new --bin blind-eternities
@@ -41,6 +41,5 @@ FROM debian:bookworm-slim
 
 COPY --from=build /blind-eternities/target/release/planar-bridge bridge
 COPY ./planar-bridge/assets ./planar-bridge/assets
-COPY bridgerc.toml .
 
-CMD ["./bridge"]
+ENTRYPOINT ["./bridge"]
