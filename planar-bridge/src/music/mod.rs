@@ -35,7 +35,7 @@ pub fn routes() -> Router<Backend> {
         .route("/current/playpause", get(play_pause_button))
         .route("/volume", get(volume))
         .route("/ctl", post(ctl))
-        .route("/tabs/:mode", get(tabs))
+        .route("/tabs/{mode}", get(tabs))
         .route("/now", get(now))
         .route("/search", post(search))
         .route("/queue", post(queue))
