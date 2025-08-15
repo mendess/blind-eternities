@@ -5,14 +5,14 @@ use prometheus_client::registry::Registry;
 use std::{
     future::{Future, IntoFuture},
     io,
-    sync::LazyLock,
+    sync::OnceLock,
 };
 use tokio::net::TcpListener;
 
 #[doc(hidden)]
 pub use parking_lot::MappedRwLockReadGuard;
 
-pub static REGISTRY: LazyLock<RwLock<Registry>> = LazyLock::new(RwLock::default);
+pub static REGISTRY: OnceLock<RwLock<Registry>> = OnceLock::new();
 
 #[macro_export]
 macro_rules! make_metric {
@@ -46,11 +46,15 @@ macro_rules! make_metric {
             }
             static METRICS: LazyLock<Family<Labels, $kind>> = LazyLock::new(|| {
                 let metric = Family::<Labels, $kind>::default();
-                $crate::telemetry::metrics::REGISTRY.write().register(
-                    ::std::stringify!($name),
-                    $help,
-                    metric.clone(),
-                );
+                $crate::telemetry::metrics::REGISTRY
+                    .get()
+                    .expect("registry not initialized")
+                    .write()
+                    .register(
+                        ::std::stringify!($name),
+                        $help,
+                        metric.clone(),
+                    );
                 metric
             });
             METRICS.get_or_create(&Labels { $($conv)* })
@@ -61,7 +65,8 @@ macro_rules! make_metric {
 pub async fn metrics_handler(axum: axum_prometheus::Handle) -> impl IntoResponse {
     let mut body = String::new();
 
-    prometheus_client::encoding::text::encode_registry(&mut body, &REGISTRY.read()).unwrap();
+    prometheus_client::encoding::text::encode_registry(&mut body, &REGISTRY.get().unwrap().read())
+        .unwrap();
 
     body.push('\n');
     body.push_str(&axum.0.render());
@@ -98,6 +103,8 @@ pub fn start_metrics_endpoint(
         ))
         .with_default_metrics()
         .build_pair();
+
+    REGISTRY.get_or_init(|| RwLock::new(Registry::with_prefix(prefix)));
 
     let worker = axum::serve(
         metrics_listener,
