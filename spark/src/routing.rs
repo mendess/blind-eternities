@@ -44,15 +44,25 @@ pub(super) struct SshOpts {
 pub(super) struct SshCommandOpts {
     #[command(flatten)]
     core: SshOpts,
+    #[arg(short = 'T')]
+    no_pseudo_terminal: bool,
     #[arg(short = 'c', long = "shell", conflicts_with("args"))]
     sub_shell: Option<String>,
     args: Vec<String>,
 }
 
 pub(super) async fn ssh(opts: &SshCommandOpts, config: &Config) -> anyhow::Result<ExitStatus> {
-    let args = route_to_ssh_hops(&opts.core.destination, config, PseudoTty::Allocate)
-        .await
-        .context("getting ssh hops")?;
+    let args = route_to_ssh_hops(
+        &opts.core.destination,
+        config,
+        if opts.no_pseudo_terminal {
+            PseudoTty::None
+        } else {
+            PseudoTty::Allocate
+        },
+    )
+    .await
+    .context("getting ssh hops")?;
     let (ssh, args) = args
         .split_first()
         .expect("There should be at least one string here 🤔");
@@ -61,7 +71,7 @@ pub(super) async fn ssh(opts: &SshCommandOpts, config: &Config) -> anyhow::Resul
     cmd.args(args);
     match &opts.sub_shell {
         Some(script) => cmd.args(["bash", "-c", script]),
-        None => cmd.args(&opts.args),
+        None => cmd.arg("--").args(&opts.args),
     };
     debug!("running ssh with args [{:?}]", cmd.get_args().format(", "));
     if opts.core.dry_run {
@@ -362,9 +372,14 @@ impl SshCommand<'_> {
         push("ssh".into());
         push("-p".into());
         push(self.port.to_string());
-        if let PseudoTty::Allocate = self.tty {
-            push("-t".into());
-        }
+        push(
+            match self.tty {
+                PseudoTty::Allocate => "-t",
+                PseudoTty::None => "-T",
+            }
+            .into(),
+        );
+        if let PseudoTty::Allocate = self.tty {}
         push(format!("{}@{}", self.username, self.ip));
         for a in extra_args {
             push(a.into())
