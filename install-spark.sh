@@ -5,7 +5,7 @@ set -e
 
 extra_args=()
 case "$(hostname)" in
-    tolaria|weatherlight)
+    tolaria|weatherlight|pendrellvale)
         extra_args+=("--features" "music-ctl")
         ;;
     *)
