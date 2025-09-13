@@ -24,7 +24,14 @@ impl IntoResponse for AuthError {
             Self::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
-        (code, self.to_string()).into_response()
+        (
+            code,
+            match self {
+                AuthError::UnexpectedError(error) => format!("{error:?}"),
+                e => e.to_string(),
+            },
+        )
+            .into_response()
     }
 }
 
@@ -95,6 +102,7 @@ mod priv_role {
     }
 
     pub trait Role: Send {
+        /// parent which also has access to the same resources Self has
         type Parent: Role;
 
         /// value to send to DB
