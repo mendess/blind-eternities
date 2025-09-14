@@ -9,7 +9,6 @@ use axum::{
     routing::{get, post},
 };
 use common::domain::{Hostname, music_session::MusicSession};
-use futures::TryStreamExt;
 use http::{HeaderMap, StatusCode, header};
 use mappable_rc::Marc;
 use mlib::{
@@ -362,15 +361,13 @@ async fn load_playlist() -> Result<Marc<Playlist>, Error> {
 
     async fn init() -> Result<Playlist, Error> {
         let playlist_request = reqwest::get(
-            "https://raw.githubusercontent.com/mendess/spell-book/master/runes/m/playlist",
+            "https://raw.githubusercontent.com/mendess/spell-book/master/runes/m/playlist.json",
         )
         .await?;
 
-        let stream = tokio_util::io::StreamReader::new(
-            playlist_request.bytes_stream().map_err(io::Error::other),
-        );
+        let text = playlist_request.text().await.map_err(io::Error::other)?;
 
-        Ok(Playlist::load_from_reader(stream).await?)
+        Ok(Playlist::load_from_str(&text)?)
     }
 
     cache::get_or_init(Default::default(), init, ONE_HOUR).await
