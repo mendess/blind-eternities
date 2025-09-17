@@ -9,7 +9,7 @@ use socketioxide::{
 };
 use sqlx::PgPool;
 
-use crate::persistent_connections::connections::Generation;
+use crate::{metrics, persistent_connections::connections::Generation};
 
 pub type SocketIo = socketioxide::SocketIo<socketioxide::adapter::LocalAdapter>;
 
@@ -28,6 +28,7 @@ async fn hostname_middleware(s: SocketRef) -> Result<(), &'static str> {
         })
     {
         tracing::info!("hostname connected {hostname}");
+        metrics::persistent_connections().inc();
         s.extensions.insert(hostname);
         s.extensions.insert(Generation::next());
         Ok(())
@@ -57,6 +58,7 @@ fn on_connect(socket: SocketRef, hostname: Extension<SHostname>) {
 
     socket.on_disconnect(
         |s: SocketRef, reason: DisconnectReason, hostname: Extension<SHostname>| {
+            metrics::persistent_connections().dec();
             tracing::info!(
                 hostname = %*hostname,
                 sid = %s.id,
