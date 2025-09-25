@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HTMX Music Player</title>
+  <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+  <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+        background: #111;
+        color: white;
+      }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+      padding: 10px;
+    }
+    .thumb {
+      cursor: pointer;
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+    }
+    .player-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 0;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      padding: 10px;
+    }
+    button {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    button:hover { color: #1db954; }
+    .progress-container {
+      height: 0.5em;
+      background:#444;
+      width: 100%;
+    }
+    .progress {
+      height: 100%;
+      width: 0%;
+      background:#1d54b9;
+    }
+    .song-title {
+      text-align:center;
+      padding-bottom:5px;
+      font-size:14px;
+      color:#ccc;
+    }
+    .song-artist {
+      text-align:center;
+      padding-bottom:5px;
+      font-size:14px;
+      color:#ccc;
+    }
+    .song-categories {
+      text-align:center;
+      padding-bottom:5px;
+      font-size:14px;
+      font-style: italic;
+      color:#ddd;
+    }
+  </style>
+</head>
+<body>
+  <!-- Playlist container -->
+  <div id="playlist"
+       hx-get="/playlist/playlist"
+       hx-trigger="load"
+       hx-target="#playlist"
+       hx-swap="innerHTML">
+  </div>
+
+  <!-- Player bar -->
+  <div id="player-bar" class="player-bar" style="display:none;">
+    <div class="controls">
+      <button onclick="playPrev()">⏮</button>
+      <button id="play-pause" onclick="togglePlay()">⏯</button>
+      <button onclick="playNext()">⏭</button>
+      <input id="volume" type="range" min="0" max="1" step="0.01" value="1"
+             style="width:100px;">
+    </div>
+    <div id="song-title" class="song-title">
+    </div>
+    <div id="song-artist" class="song-artist">
+    </div>
+    <div id="song-categories" class="song-categories">
+    </div>
+    <div class="progress-container" onmousedown="startSeek(event)">
+      <div id="progress" class="progress"></div>
+    </div>
+  </div>
+
+  <audio id="audio" preload="metadata"></audio>
+
+  <script>
+    let playlist = [];
+    let currentIndex = -1;
+    const audio = document.getElementById('audio');
+    const playerBar = document.getElementById('player-bar');
+    const playPauseBtn = document.getElementById('play-pause');
+    const progress = document.getElementById('progress');
+    const volumeSlider = document.getElementById('volume');
+    let seeking = false;
+
+    // Called by playlist HTML fragment after load
+    function initPlaylist(ids) {
+      playlist = ids;
+    }
+
+    function playSong(index) {
+      currentIndex = index;
+      const song = playlist[currentIndex];
+      audio.src = `/playlist/audio/${song.id}`;
+      audio.play();
+      playerBar.style.display = 'flex';
+      playPauseBtn.textContent = '⏸';
+      document.getElementById('song-title').textContent = song.title || '';
+      document.getElementById('song-artist').textContent = song.artist || '';
+      document.getElementById('song-categories').textContent = song.categories.join(" | ");
+    }
+
+    function playNext() {
+      if (currentIndex < playlist.length - 1) {
+        playSong(currentIndex + 1);
+      }
+    }
+
+    function playPrev() {
+      if (currentIndex > 0) {
+        playSong(currentIndex - 1);
+      }
+    }
+
+    function togglePlay() {
+      if (audio.paused) { audio.play(); playPauseBtn.textContent = '⏸'; }
+      else { audio.pause(); playPauseBtn.textContent = '▶'; }
+    }
+
+    function startSeek(e) {
+      seeking = true;
+      seekTo(e);
+      document.addEventListener('mousemove', seekTo);
+      document.addEventListener('mouseup', stopSeek);
+    }
+
+    function seekTo(e) {
+      const container = document.querySelector('.progress-container');
+      const rect = container.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width)); // clamp
+      const ratio = x / rect.width;
+      audio.currentTime = ratio * audio.duration;
+    }
+
+    function stopSeek() {
+      seeking = false;
+      document.removeEventListener('mousemove', seekTo);
+      document.removeEventListener('mouseup', stopSeek);
+    }
+
+    audio.ontimeupdate = () => {
+      if (audio.duration) {
+        progress.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+      }
+    };
+
+    volumeSlider.oninput = () => {
+      audio.volume = volumeSlider.value;
+    };
+
+    audio.onended = playNext;
+  </script>
+</body>
+</html>

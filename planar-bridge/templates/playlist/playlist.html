@@ -1,0 +1,27 @@
+<div class="grid">
+  {% for (i, song) in songs.iter().enumerate() %}
+  <img
+    src="https://mendess.xyz/api/v1/playlist/thumb/{{ song.id }}"
+    class="thumb"
+    onclick="playSong({{ i }})"
+  >
+  {% endfor %}
+</div>
+<script>
+  initPlaylist([
+    {% for song in songs.iter() %}
+    {
+      id: '{{ song.id }}',
+      title: '{{ song.title }}',
+      categories: [
+        {% for c in song.categories.iter() %}
+          '{{ c }}',
+        {% endfor %}
+      ],
+      {% if let Some(artist) = song.artist %}
+      artist: '{{ artist }}',
+      {% endif %}
+    },
+    {% endfor %}
+  ]);
+</script>

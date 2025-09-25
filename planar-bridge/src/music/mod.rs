@@ -187,7 +187,6 @@ async fn index(target: Target) -> Result<impl IntoResponse, Error> {
 }
 
 #[derive(Template)]
-#[allow(dead_code)]
 #[template(path = "music/current.html")]
 struct NowPlaying {
     target: Target,

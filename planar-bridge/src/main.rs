@@ -1,6 +1,7 @@
 mod cache;
 mod metrics;
 mod music;
+mod playlist;
 
 use std::io;
 
@@ -72,10 +73,14 @@ async fn main() -> io::Result<()> {
             "/music",
             music::routes().layer(axum::middleware::from_fn(set_html_content_type)),
         )
+        .nest(
+            "/playlist",
+            playlist::routes().layer(axum::middleware::from_fn(set_html_content_type)),
+        )
         .nest_service("/assets", ServeDir::new("planar-bridge/assets"))
         .layer(layer)
         .with_state(client);
 
-    println!("running on http://localhost:{}/music", config.port);
+    println!("running on http://localhost:{}/playlist", config.port);
     axum::serve(TcpListener::bind(("0.0.0.0", config.port)).await?, router).await
 }
