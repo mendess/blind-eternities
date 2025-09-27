@@ -1,6 +1,6 @@
 mod request_coalescing;
 
-use std::{io, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use axum::{
     Form, Json, Router,
@@ -11,10 +11,7 @@ use axum::{
 use common::domain::{Hostname, music_session::MusicSession};
 use http::{HeaderMap, StatusCode, header};
 use mappable_rc::Marc;
-use mlib::{
-    playlist::{PartialSearchResult, Playlist},
-    queue::Current,
-};
+use mlib::{playlist::PartialSearchResult, queue::Current};
 use serde::Deserialize;
 use spark_protocol::{
     SuccessfulResponse,
@@ -22,7 +19,7 @@ use spark_protocol::{
 };
 use uuid::Uuid;
 
-use crate::{Backend, cache, metrics};
+use crate::{Backend, cache, metrics, playlist::load_playlist};
 
 use self::request_coalescing::{SharedError, request_coalesced};
 use askama::Template;
@@ -42,37 +39,29 @@ pub fn routes() -> Router<Backend> {
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
-    #[error("io: {0}")]
-    Io(#[from] io::Error),
-    #[error("reqwest: {0}")]
-    Reqwest(#[from] reqwest::Error),
+    #[error("{0}")]
+    Common(crate::Error),
     #[error("unexpected response: {0}")]
     UnexpectedBackendResponse(String),
-    #[error("mlib error")]
-    Mlib(#[from] mlib::Error),
     #[error("player not found")]
     PlayerOrSessionNotFound,
-    #[error("unauthorized")]
-    Unauthorized,
-    #[error("bad request")]
-    BadRequest,
-    #[error("not found")]
-    NotFound,
-    #[error("render error: {0}")]
-    TemplateRender(#[from] askama::Error),
+}
+
+impl<T> From<T> for Error
+where
+    T: Into<crate::Error>,
+{
+    fn from(value: T) -> Self {
+        Self::Common(value.into())
+    }
 }
 
 impl Error {
     pub fn status_code(&self) -> StatusCode {
         match self {
-            Self::Io(_)
-            | Self::Reqwest(_)
-            | Self::UnexpectedBackendResponse(_)
-            | Self::Mlib(_)
-            | Self::TemplateRender(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::PlayerOrSessionNotFound | Self::NotFound => StatusCode::NOT_FOUND,
-            Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::BadRequest => StatusCode::BAD_REQUEST,
+            Self::UnexpectedBackendResponse(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::PlayerOrSessionNotFound => StatusCode::NOT_FOUND,
+            Self::Common(e) => e.status_code(),
         }
     }
 }
@@ -150,7 +139,7 @@ where
 
         let Query(target) = Query::<Target>::from_request_parts(parts, state)
             .await
-            .map_err(|_| Error::BadRequest)?;
+            .map_err(|_| crate::Error::BadRequest)?;
         let header_map = match HeaderMap::from_request_parts(parts, state).await {
             Ok(m) => m,
             Err(e) => match e {}, // infalible
@@ -161,7 +150,7 @@ where
                 .get(header::AUTHORIZATION)
                 .and_then(|a| a.to_str().ok()?.parse().ok())
                 .map(|auth| Self::Host { hostname, auth })
-                .ok_or(Error::Unauthorized),
+                .ok_or(crate::Error::Unauthorized.into()),
             Target::Session { session } => Ok(Self::Session { session }),
         }
     }
@@ -267,7 +256,7 @@ async fn tabs(target: Target, kind: Path<String>) -> Result<impl IntoResponse, E
     let tab = match kind.as_str() {
         "now" => Tab::Now,
         "queue" => Tab::Queue,
-        _ => return Err(Error::NotFound),
+        _ => return Err(crate::Error::NotFound.into()),
     };
     Ok(Tabs { target, tab }.render()?)
 }
@@ -353,23 +342,6 @@ async fn get_current(
         Duration::from_secs(1),
     )
     .await
-}
-
-async fn load_playlist() -> Result<Marc<Playlist>, Error> {
-    const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
-
-    async fn init() -> Result<Playlist, Error> {
-        let playlist_request = reqwest::get(
-            "https://raw.githubusercontent.com/mendess/spell-book/master/runes/m/playlist.json",
-        )
-        .await?;
-
-        let text = playlist_request.text().await.map_err(io::Error::other)?;
-
-        Ok(Playlist::load_from_str(&text)?)
-    }
-
-    cache::get_or_init(Default::default(), init, ONE_HOUR).await
 }
 
 #[derive(Deserialize, Debug)]

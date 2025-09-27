@@ -5,18 +5,60 @@ mod playlist;
 
 use std::io;
 
-use axum::{Router, extract::Request, middleware::Next, response::Response};
+use axum::{
+    Router,
+    extract::Request,
+    middleware::Next,
+    response::{IntoResponse, Response},
+};
 use clap::Parser;
 use common::{
     net::auth_client::Client,
     telemetry::{get_subscriber_no_bunny, init_subscriber, metrics::MetricsEndpoint},
 };
 use config::File;
-use http::{HeaderValue, header};
+use http::{HeaderValue, StatusCode, header};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 use url::Url;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("io: {0}")]
+    Io(#[from] io::Error),
+    #[error("reqwest: {0}")]
+    Reqwest(#[from] reqwest::Error),
+    #[error("mlib error")]
+    Mlib(#[from] mlib::Error),
+    #[error("unauthorized")]
+    Unauthorized,
+    #[error("bad request")]
+    BadRequest,
+    #[error("not found")]
+    NotFound,
+    #[error("render error: {0}")]
+    TemplateRender(#[from] askama::Error),
+}
+
+impl Error {
+    pub fn status_code(&self) -> StatusCode {
+        match self {
+            Self::Io(_) | Self::Reqwest(_) | Self::Mlib(_) | Self::TemplateRender(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::BadRequest => StatusCode::BAD_REQUEST,
+        }
+    }
+}
+
+impl IntoResponse for Error {
+    fn into_response(self) -> axum::response::Response {
+        (self.status_code(), self.to_string()).into_response()
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 struct Config {

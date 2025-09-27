@@ -1,27 +1,126 @@
-<div class="grid">
-  {% for (i, song) in songs.iter().enumerate() %}
-  <img
-    src="https://mendess.xyz/api/v1/playlist/thumb/{{ song.id }}"
-    class="thumb"
-    onclick="playSong({{ i }})"
-  >
-  {% endfor %}
-</div>
-<script>
-  initPlaylist([
-    {% for song in songs.iter() %}
-    {
-      id: '{{ song.id }}',
-      title: '{{ song.title }}',
-      categories: [
-        {% for c in song.categories.iter() %}
-          '{{ c }}',
-        {% endfor %}
-      ],
-      {% if let Some(artist) = song.artist %}
-      artist: '{{ artist }}',
-      {% endif %}
-    },
+{% let shuffle_state %}
+{% if shuffled %}
+{% let shuffle_state = "&s=true" %}
+{% else %}
+{% let shuffle_state = "" %}
+{% endif %}
+<div id="playlistInner">
+    <ul class="categories">
+    {% for (i, category) in categories.iter().enumerate() %}
+      <li class="category"
+          hx-swap="outerHtml"
+          hx-target="#playlistInner"
+          hx-get="/playlist/playlist?t={{category.name|urlencode}}&{{qstring}}{{shuffle_state}}"
+        >
+        {% match category.mode %}
+        {% when CategoryFilterMode::Neutral %}
+        <span>{{ category.name }}</span>
+        {% when CategoryFilterMode::CantHave %}
+        <span style="color:red">{{category.name}}</span>
+        {% when CategoryFilterMode::MustHave %}
+        <span style="color:green">{{category.name}}</span>
+        {% endmatch %}
+        {% if i != categories.len() - 1 %} | {% endif %}
+      </li>
     {% endfor %}
-  ]);
-</script>
+  </ul>
+  <div class="shuffle">
+    {% if shuffled %}
+    <button class="shuffle-button shuffle-button-on"
+            hx-swap="outerHtml"
+            hx-target="#playlistInner"
+            hx-get="/playlist/playlist?s=false&{{qstring}}">Shuffle</button>
+    {% else %}
+    <button class="shuffle-button shuffle-button-off"
+            hx-swap="outerHtml"
+            hx-target="#playlistInner"
+            hx-get="/playlist/playlist?s=true&{{qstring}}">Shuffle</button>
+    {% endif %}
+  </div>
+  <div class="grid">
+    {% for (i, song) in songs.iter().enumerate() %}
+    <img
+      src="https://mendess.xyz/api/v1/playlist/thumb/{{ song.id }}"
+      class="thumb"
+      onclick="playSong({{ i }})"
+    >
+    {% endfor %}
+  </div>
+  <script>
+    initPlaylist([
+      {% for song in songs.iter() %}
+      {
+        id: '{{ song.id }}',
+        title: '{{ song.title }}',
+        categories: [
+          {% for c in song.categories.iter() %}
+            '{{ c }}',
+          {% endfor %}
+        ],
+        {% if let Some(artist) = song.artist %}
+        artist: '{{ artist }}',
+        {% endif %}
+      },
+      {% endfor %}
+    ]);
+  </script>
+  <style>
+  .categories {
+    padding-left: 30px;
+    padding-right: 30px;
+    background-color: transparent;
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  li.category {
+    list-style-type: none;
+    display: inline;
+    cursor: pointer;
+  }
+  .gray-500 {
+    color: gray;
+  }
+  .shuffle {
+    display: flex;
+    justify-content: center;
+    margin: 15px 0;
+  }
+
+  .shuffle-button {
+    font-size: 14px;
+    font-weight: bold;
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  /* OFF state */
+  .shuffle-button-off {
+    background: #333;
+    color: #ccc;
+    border-color: #444;
+  }
+
+  .shuffle-button-off:hover {
+    background: #444;
+    color: #fff;
+  }
+
+  /* ON state */
+  .shuffle-button-on {
+    background: #1d54b9;
+    color: #fff;
+    border-color: #2e65ca;
+    box-shadow: 0 0 8px #3f76db;
+  }
+
+  .shuffle-button-on:hover {
+    background: #2e65ca;
+    border-color: #3f76db;
+  }
+
+  </style>
+</div>

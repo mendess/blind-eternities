@@ -18,6 +18,7 @@ askama = { version = "0.14" }
 async-recursion = "1.1.1"
 async-trait = "0.1"
 axum = { version = "0.8", features = ["macros"] }
+axum-extra = { version = "0.10.1" }
 axum-prometheus = "0.9.0"
 chrono = "0.4"
 clap = { version = "4", features = ["derive"] }

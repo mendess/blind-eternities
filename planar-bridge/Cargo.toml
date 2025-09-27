@@ -25,3 +25,5 @@ tracing-subscriber.workspace = true
 tracing.workspace = true
 url = { workspace = true, features = ["serde"] }
 uuid.workspace = true
+axum-extra = { workspace = true, features = ["query"] }
+rand.workspace = true

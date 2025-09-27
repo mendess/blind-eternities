@@ -1,9 +1,15 @@
-use crate::Backend;
-use askama::Template;
+use crate::{Backend, Error, cache};
+use askama::{Template, filters::urlencode};
 use axum::{Router, extract::Path, response::IntoResponse, routing::get};
-use http::StatusCode;
+use axum_extra::extract::Query;
+use mappable_rc::Marc;
+use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
-use std::io;
+use std::{
+    collections::{HashMap, HashSet},
+    io,
+    time::Duration,
+};
 
 pub fn routes() -> Router<Backend> {
     Router::new()
@@ -11,29 +17,6 @@ pub fn routes() -> Router<Backend> {
         .route("/playlist", get(playlist))
         .route("/audio/{id}", get(audio))
     // .route("/thumb/{id}", get(thumb))
-}
-
-#[derive(Debug, thiserror::Error)]
-enum Error {
-    #[error("api request failed: {0}")]
-    Reqwest(#[from] reqwest::Error),
-    #[error("render error: {0}")]
-    TemplateRender(#[from] askama::Error),
-}
-
-impl Error {
-    fn status_code(&self) -> StatusCode {
-        match self {
-            Self::Reqwest(e) => e.status().unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
-            Self::TemplateRender(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
-}
-
-impl IntoResponse for Error {
-    fn into_response(self) -> axum::response::Response {
-        (self.status_code(), self.to_string()).into_response()
-    }
 }
 
 #[derive(Template)]
@@ -47,7 +30,24 @@ async fn index() -> Result<impl IntoResponse, Error> {
 #[derive(Template)]
 #[template(path = "playlist/playlist.html")]
 struct Playlist {
+    qstring: String,
+    categories: Vec<Category>,
     songs: Vec<Song>,
+    shuffled: bool,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+enum CategoryFilterMode {
+    MustHave,
+    CantHave,
+    Neutral,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+struct Category {
+    songs: u16,
+    name: String,
+    mode: CategoryFilterMode,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -58,26 +58,108 @@ struct Song {
     categories: Vec<String>,
 }
 
-async fn playlist() -> Result<impl IntoResponse, Error> {
-    let playlist = load_playlist().await.unwrap();
-    Ok(Playlist {
-        songs: playlist
-            .songs
-            .into_iter()
-            .map(|s| Song {
-                id: s.link.id().to_string(),
-                categories: s
-                    .all_categories()
-                    .filter(|c| Some(*c) != s.artist.as_deref())
-                    .map(|s| s.to_string())
-                    .collect(),
-                title: s.name,
-                artist: s.artist,
-            })
-            .rev()
-            .collect(),
+#[derive(Debug, Serialize, Deserialize)]
+struct CategoryFilter {
+    #[serde(default, rename = "s")]
+    shuffle: bool,
+    #[serde(default, rename = "d")]
+    disabled: HashSet<String>,
+    #[serde(default, rename = "m")]
+    must_have: HashSet<String>,
+    #[serde(default, rename = "t")]
+    toggle: Option<String>,
+}
+
+async fn playlist(Query(mut query): Query<CategoryFilter>) -> Result<impl IntoResponse, Error> {
+    if let Some(toggle) = std::mem::take(&mut query.toggle) {
+        if query.disabled.contains(&toggle) {
+            query.disabled.remove(&toggle);
+            query.must_have.insert(toggle);
+        } else if query.must_have.contains(&toggle) {
+            query.must_have.remove(&toggle);
+        } else {
+            query.disabled.insert(toggle);
+        }
     }
-    .render()?)
+    let playlist = load_playlist().await.unwrap();
+    let categories = {
+        let categories = playlist.songs.iter().flat_map(|s| s.all_categories()).fold(
+            HashMap::new(),
+            |mut acc, cat| {
+                *acc.entry(cat).or_insert(0) += 1;
+                acc
+            },
+        );
+        let mut categories = categories
+            .into_iter()
+            .filter(|(_, freq)| *freq > 3)
+            .map(|(c, freq)| Category {
+                mode: if query.disabled.contains(c) {
+                    CategoryFilterMode::CantHave
+                } else if query.must_have.contains(c) {
+                    CategoryFilterMode::MustHave
+                } else {
+                    CategoryFilterMode::Neutral
+                },
+                name: c.into(),
+                songs: freq,
+            })
+            .collect::<Vec<_>>();
+        categories.sort_by(|s0, s1| s0.cmp(s1).reverse());
+        categories
+    };
+    let mut songs = playlist
+        .songs
+        .iter()
+        .filter(|s| include_song(s, &query))
+        .map(song_map)
+        .rev()
+        .collect::<Vec<_>>();
+    if query.shuffle {
+        songs.shuffle(&mut rand::rng());
+    }
+    return Ok(Playlist {
+        shuffled: query.shuffle,
+        categories,
+        songs,
+        qstring: set_to_qstring(
+            'm',
+            query.must_have,
+            set_to_qstring('d', query.disabled, String::new()),
+        ),
+    }
+    .render()?);
+
+    fn song_map(s: &mlib::playlist::Song) -> Song {
+        Song {
+            id: s.link.id().to_string(),
+            categories: s
+                .all_categories()
+                .filter(|c| Some(*c) != s.artist.as_deref())
+                .map(|s| s.to_string())
+                .collect(),
+            title: s.name.clone(),
+            artist: s.artist.clone(),
+        }
+    }
+
+    fn include_song(s: &mlib::playlist::Song, query: &CategoryFilter) -> bool {
+        s.all_categories().all(|c| !query.disabled.contains(c))
+            && (query.must_have.is_empty()
+                || s.all_categories().any(|c| query.must_have.contains(c)))
+    }
+
+    fn set_to_qstring(param: char, set: HashSet<String>, buf: String) -> String {
+        set.iter().fold(buf, |mut s, c| {
+            if !s.is_empty() {
+                s.push('&');
+            }
+            s.push(param);
+            s.push('=');
+            s.push_str(&urlencode(c).unwrap().0.to_string());
+            s
+        })
+    }
 }
 
 #[derive(Deserialize)]
@@ -102,20 +184,19 @@ async fn audio(query: Path<AudioQuery>) -> Result<impl IntoResponse, Error> {
     ))
 }
 
-// TODO: dedup
-pub async fn load_playlist() -> io::Result<mlib::playlist::Playlist> {
-    // const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
+pub async fn load_playlist() -> Result<Marc<mlib::playlist::Playlist>, Error> {
+    const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
 
-    async fn init() -> io::Result<mlib::playlist::Playlist> {
+    async fn init() -> Result<mlib::playlist::Playlist, Error> {
         let playlist_request = reqwest::get(
             "https://raw.githubusercontent.com/mendess/spell-book/master/runes/m/playlist.json",
         )
-        .await
-        .map_err(io::Error::other)?;
+        .await?;
 
         let text = playlist_request.text().await.map_err(io::Error::other)?;
 
-        mlib::playlist::Playlist::load_from_str(&text).map_err(io::Error::other)
+        Ok(mlib::playlist::Playlist::load_from_str(&text)?)
     }
-    init().await
+
+    cache::get_or_init(Default::default(), init, ONE_HOUR).await
 }
