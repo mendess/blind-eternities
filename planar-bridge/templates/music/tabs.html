@@ -1,5 +1,5 @@
 {% let query_string = target.to_query_string() %}
-{% let unselected_css = "hover:border-blue-400 hover:text-blue-400 transition-colors duration-400" %}
+{% let unselected_css = "tab-button-unselected" %}
 {% let now_css %}
 {% let queue_css %}
 {% match tab %}
@@ -10,14 +10,14 @@
     {% let now_css = unselected_css %}
     {% let queue_css = "bottom-right-glow" %}
 {% endmatch %}
-<div class="mx-auto lg:w-1/2 pb-4 flex justify-center">
+<div class="tab-buttons">
     <button
-      class="flex-1 border {{ now_css }}"
+      class="{{ now_css }}"
       hx-get="/music/tabs/now?{{ query_string }}">
       Up Next
     </button>
     <button
-      class="flex-1 border {{ queue_css }}"
+      class="{{ queue_css }}"
       hx-get="/music/tabs/queue?{{ query_string }}">
       Request a Song
     </button>
@@ -25,9 +25,8 @@
 
 {% match tab %}
   {% when Tab::Now %}
-      <div class="flex flex-col items-center">
+      <div class="tab-now">
         <ul
-          class="justify-center text-surface dark:text-white"
           id="search-results"
           hx-get="/music/now?{{ query_string }}"
           hx-trigger="load, every 10s"
@@ -37,9 +36,8 @@
         </ul>
       </div>
   {% when Tab::Queue %}
-      <div class="flex flex-col items-center">
-        <input class="m-4 px-4 py-2 border rounded-md border-black border-b-white top-glow"
-               style="background:black"
+      <div class="tab-queue">
+        <input class="top-glow"
                type="search"
                name="search"
                placeholder="song name or youtube link"

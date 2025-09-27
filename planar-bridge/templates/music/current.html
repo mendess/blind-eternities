@@ -1,5 +1,6 @@
 {% let query_string = target.to_query_string() %}
-<h2 id="title" class="font-bold m-4 text-2xl">{{ current.title }}</h2>
+<h2 id="title">{{ current.title }}</h2>
+
 {% if let Some((index, title)) = current.chapter %}
 <h3 id="chapter">{{ index }} - {{ title }}</h3>
 {% endif %}
@@ -7,25 +8,23 @@
 <br>
 
 {# Playback controls #}
-<div class="flex justify-center items-center gap-x-8">
-
+<div class="controls">
   {# Previous song #}
   <div hx-post="/music/ctl?{{ query_string }}"
        hx-vars='{"command": "Back"}'
        hx-ext='json-enc'
-       hx-target='#title'
-       class="cursor-pointer amplitude-prev disable-dbl-tap-zoom">
+       hx-target='#title'>
     <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M26 7C26 5.76393 24.5889 5.05836 23.6 5.8L11.6 14.8C10.8 15.4 10.8 16.6 11.6 17.2L23.6 26.2C24.5889 26.9416 26 26.2361 26 25V7Z" fill="#94A3B8" stroke="#94A3B8" stroke-width="2" stroke-linejoin="round"></path>
-      <path d="M6 5L6 27" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M26 7C26 5.76393 24.5889 5.05836 23.6 5.8L11.6 14.8C10.8 15.4 10.8 16.6 11.6 17.2L23.6 26.2C24.5889 26.9416 26 26.2361 26 25V7Z" stroke-width="2" stroke-linejoin="round"></path>
+      <path d="M6 5L6 27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
     </svg>
   </div>
 
   {# Play/Pause #}
-  <div hx-post="/music/ctl?{{ query_string }}"
+  <div class="controls-play-pause"
+       hx-post="/music/ctl?{{ query_string }}"
        hx-vars='{"command": "CyclePause"}'
-       hx-ext='json-enc'
-       class="cursor-pointer amplitude-play-pause w-24 h-24 rounded-full bg-white border border-play-pause-light-border shadow-xl flex items-center justify-center dark:bg-play-pause-dark-background dark:border-play-pause-dark-border amplitude-paused disable-dbl-tap-zoom">
+       hx-ext='json-enc'>
     {% let playing = current.playing %}
     {% include "playpause.html" %}
   </div>
@@ -34,17 +33,16 @@
   <div hx-post="/music/ctl?{{ query_string }}"
        hx-vars='{"command": "Frwd"}'
        hx-ext='json-enc'
-       hx-target='#title'
-       class="cursor-pointer amplitude-next disable-dbl-tap-zoom">
+       hx-target='#title'>
     <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6 7C6 5.76393 7.41115 5.05836 8.4 5.8L20.4 14.8C21.2 15.4 21.2 16.6 20.4 17.2L8.4 26.2C7.41115 26.9416 6 26.2361 6 25V7Z" fill="#94A3B8" stroke="#94A3B8" stroke-width="2" stroke-linejoin="round"></path>
-      <path d="M26 5L26 27" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M6 7C6 5.76393 7.41115 5.05836 8.4 5.8L20.4 14.8C21.2 15.4 21.2 16.6 20.4 17.2L8.4 26.2C7.41115 26.9416 6 26.2361 6 25V7Z" stroke-width="2" stroke-linejoin="round"></path>
+      <path d="M26 5L26 27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
     </svg>
   </div>
 </div>
 
 {# Volume Controls #}
-<div class="flex justify-center items-center gap-x-8">
+<div class="controls">
   {# Lower volume #}
   <button hx-post="/music/ctl?{{ query_string }}"
           hx-vars='{"command": {"ChangeVolume": {"amount" : -5}}}'
@@ -69,7 +67,7 @@
 
 <br>
 
-<div class="mx-auto w-4/5 bg-gray-200 rounded-full h-1.5 mb-4 dark:bg-gray-700 md:w-1/2">
-  <div class="bg-blue-600 h-1.5 rounded-full dark:bg-blue-500" style="width: {{ current.progress.unwrap_or_default().round() }}%"></div>
+<div class="progress outer">
+  <div class="progress inner" style="width: {{ current.progress.unwrap_or_default().round() }}%"></div>
 </div>
 <br>

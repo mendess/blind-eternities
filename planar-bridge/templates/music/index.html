@@ -1,31 +1,26 @@
 <!DOCTYPE html>
 {% let query_string = target.to_query_string() %}
 <html>
-  <head>
-    <title>Jukebox</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/json-enc.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" type="text/css" href="/assets/styles.css">
-    <style>body { background: black; }</style>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  </head>
-  <body class="text-white text-center items-center justify-center">
-    <h1 class="bg-blue-950 mb-10 text-2xl italic font-extrabold">Jukebox</h1>
+  {% let head_scripts = ["/assets/json-enc.2.0.1.js"] %}
+  {% let head_title = "Jukebox" %}
+  {% let head_stylesheet = "/assets/jukebox.css" %}
+  {% include "../head.html" %}
+  <body>
+    <h1>Jukebox</h1>
 
     <div>
       {# Current song #}
       <div>
-        <div hx-get="/music/current?{{ query_string }}"
-             hx-trigger="load, every 0.5s, new-current"
-             class="flex-col items-center justify-center">
+        <div
+             hx-get="/music/current?{{ query_string }}"
+             hx-trigger="load, every 0.5s, new-current">
           <div class="lds-ripple"><div></div><div></div></div>
         </div>
       </div>
 
       {# Tabs #}
       <div
-          class="w-3/4 mx-auto"
+          class="tabs"
           id="tabs"
           hx-get="/music/tabs/queue?{{ query_string }}"
           hx-trigger="load delay:100ms"

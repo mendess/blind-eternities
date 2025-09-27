@@ -1,0 +1,44 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+body {
+  line-height: inherit;
+  background: black;
+  color: white;
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+}
+h1 {
+  font-style: italic;
+  font-weight: 800;
+  font-size: 1.5rem;
+  line-height: 2rem;
+  background-color: rgb(23 37 84);
+  margin-bottom: 2.5rem;
+}
+ul {
+  list-style: none;
+  color: inherit;
+}
+button {
+  text-transform: none;
+  cursor: pointer;
+  background-color: transparent;
+  background-image: none;
+  box-sizing: border-box;
+  border-width: 0px;
+}
+button, input, optgroup, select, textarea {
+  font-family: inherit;
+  font-feature-settings: inherit;
+  font-variation-settings: inherit;
+  font-size: 100%;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+}

@@ -1,8 +1,7 @@
 {% let user_input_idx = songs.len().saturating_sub(1) %}
 {% for (id, song) in songs.iter().rev().enumerate() %}
-<li class="w-full border-b-2 border-neutral-100 py-2 hover:text-blue-200 transition-colors duration-200 dark:border-white/10">
+<li>
   <button
-    class="fade-me-out"
     hx-post="/music/queue?{{ target.to_query_string() }}"
     hx-target="this"
     hx-swap="outerHTML"
