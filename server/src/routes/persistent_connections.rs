@@ -8,9 +8,7 @@ use axum::{
 };
 use common::{domain::Hostname, ws};
 use http::StatusCode;
-use socketioxide::{
-    AckError, AdapterError, SendError, SocketError, ack::AckResponse, extract::SocketRef,
-};
+use socketioxide::{AckError, SendError, SocketError, extract::SocketRef};
 
 use crate::{
     auth,
@@ -37,10 +35,7 @@ async fn ws_list_persistent_connections(
     _: auth::Admin,
     State(io): State<SocketIo>,
 ) -> impl IntoResponse {
-    let connected = match io.of(ws::NS).unwrap().sockets() {
-        Ok(rooms) => rooms,
-        Err(infallible) => match infallible {},
-    };
+    let connected = io.of(ws::NS).unwrap().sockets();
 
     (
         StatusCode::OK,
@@ -59,10 +54,7 @@ pub async fn ws_send(
     hostname: Path<Hostname>,
     Json(command): Json<spark_protocol::Command>,
 ) -> impl IntoResponse {
-    let sockets = match io.of(ws::NS).unwrap().sockets() {
-        Ok(sockets) => sockets,
-        Err(infallible) => match infallible {},
-    };
+    let sockets = io.of(ws::NS).unwrap().sockets();
     let by_hostname = |s: &SocketRef| {
         s.extensions
             .get::<SHostname>()
@@ -80,13 +72,13 @@ pub async fn ws_send(
     tracing::info!(?command, "sending message to ws");
     let emit_future = socket
         .timeout(Duration::from_secs(60))
-        .emit_with_ack::<_, [spark_protocol::Response; 1]>(ws::COMMAND, command);
+        .emit_with_ack::<_, [spark_protocol::Response; 1]>(ws::COMMAND, &command);
     let response = match emit_future {
         Ok(future) => future.await,
-        Err(SendError::Socket(SocketError::Closed(_))) => {
+        Err(SendError::Socket(SocketError::Closed)) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, "socket closed").into_response();
         }
-        Err(SendError::Socket(SocketError::InternalChannelFull(_))) => {
+        Err(SendError::Socket(SocketError::InternalChannelFull)) => {
             return StatusCode::TOO_MANY_REQUESTS.into_response();
         }
         Err(SendError::Serialize(e)) => {
@@ -97,19 +89,16 @@ pub async fn ws_send(
     tracing::info!(?response, "received response");
 
     match response {
-        Ok(AckResponse { data: [data], .. }) => (StatusCode::OK, Json(data)).into_response(),
+        Ok([data]) => (StatusCode::OK, Json(data)).into_response(),
         Err(AckError::Timeout) => StatusCode::GATEWAY_TIMEOUT.into_response(),
-        Err(AckError::Serde(e)) => {
+        Err(AckError::Decode(e)) => {
             (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
         }
-        Err(AckError::Socket(SocketError::Closed(_))) => {
+        Err(AckError::Socket(SocketError::Closed)) => {
             (StatusCode::INTERNAL_SERVER_ERROR, "socket closed").into_response()
         }
-        Err(AckError::Socket(SocketError::InternalChannelFull(_))) => {
+        Err(AckError::Socket(SocketError::InternalChannelFull)) => {
             StatusCode::TOO_MANY_REQUESTS.into_response()
-        }
-        Err(AckError::Adapter(AdapterError(infallible))) => {
-            panic!("LocalAdapter should never error: {infallible}")
         }
     }
 }

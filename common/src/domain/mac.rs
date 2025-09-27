@@ -151,7 +151,7 @@ where
     &'r str: Decode<'r, DB>,
 {
     fn decode(
-        value: <DB as sqlx::database::HasValueRef<'r>>::ValueRef,
+        value: <DB as sqlx::database::Database>::ValueRef<'r>,
     ) -> Result<Self, sqlx::error::BoxDynError> {
         let v = <&str as Decode<DB>>::decode(value)?;
         Ok(serde_json::from_str(v)?)

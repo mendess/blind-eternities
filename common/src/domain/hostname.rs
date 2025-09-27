@@ -110,7 +110,7 @@ where
     String: Decode<'r, DB>,
 {
     fn decode(
-        value: <DB as sqlx::database::HasValueRef<'r>>::ValueRef,
+        value: <DB as sqlx::database::Database>::ValueRef<'r>,
     ) -> Result<Self, sqlx::error::BoxDynError> {
         let v = <String as Decode<DB>>::decode(value)?;
         Ok(Hostname::try_from(v)?)
