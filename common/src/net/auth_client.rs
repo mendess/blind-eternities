@@ -24,6 +24,10 @@ impl Client {
         })
     }
 
+    pub fn hostname(&self) -> &Url {
+        &self.base
+    }
+
     pub fn get(&self, path: &str) -> Result<RequestBuilder> {
         Ok(self.client.get(self.base.join(path)?))
     }
@@ -63,6 +67,10 @@ impl AuthenticatedClient {
             client: Client::new(base)?,
             token,
         })
+    }
+
+    pub fn hostname(&self) -> &Url {
+        self.client.hostname()
     }
 
     pub fn get(&self, path: &str) -> Result<RequestBuilder> {

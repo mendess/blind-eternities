@@ -148,7 +148,8 @@ macro_rules! gen_role_extractor {
     ($role:ident) => {
         impl<S> FromRequestParts<S> for $role
         where
-            S: Send + Sync + AsRef<PgPool>,
+            S: Send + Sync,
+            std::sync::Arc<PgPool>: axum::extract::FromRef<S>,
         {
             type Rejection = AuthError;
 
@@ -167,7 +168,11 @@ macro_rules! gen_role_extractor {
                     .parse()
                     .map_err(|_| AuthError::InvalidToken)?;
 
-                check_token(state.as_ref(), bearer).await
+                check_token(
+                    &*<std::sync::Arc<PgPool> as axum::extract::FromRef<S>>::from_ref(state),
+                    bearer,
+                )
+                .await
             }
         }
     };

@@ -1,9 +1,7 @@
 [package]
 name = "spark"
-version = "0.5.8"
+version = "0.5.9"
 edition.workspace = true
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow.workspace = true
@@ -11,21 +9,26 @@ arrayvec.workspace = true
 chrono.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
-common = { path = "../common" }
+common = { path = "../common", features = ["playlist"] }
 config.workspace = true
+default-net.workspace = true
 dirs.workspace = true
+ffmpeg-next.workspace = true
 futures.workspace = true
 humantime.workspace = true
+image.workspace = true
 itertools.workspace = true
+lofty.workspace = true
+mime_guess.workspace = true
 once_cell.workspace = true
 open.workspace = true
-default-net.workspace = true
 public-ip.workspace = true
-rust_socketio = { workspace = true, features = ["async"], optional = true }
+rust_socketio = { workspace = true, features = ["async"] }
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
+tokio-util = { workspace = true, features = ["codec"] }
 tracing = { workspace = true, features = ["log"] }
 tracing-bunyan-formatter.workspace = true
 tracing-futures.workspace = true
@@ -62,6 +65,5 @@ optional = true
 
 
 [features]
-default = ["ws"]
+default = []
 music-ctl = ["dep:mlib"]
-ws = ["dep:rust_socketio"]

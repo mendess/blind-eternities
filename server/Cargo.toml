@@ -11,12 +11,14 @@ axum-prometheus.workspace = true
 axum.workspace = true
 chrono.workspace = true
 clap.workspace = true
-common = { path = "../common", features = ["sqlx", "metrics"] }
+common = { path = "../common", features = ["sqlx", "metrics", "playlist"] }
 config.workspace = true
 futures.workspace = true
 http.workspace = true
 itertools.workspace = true
+mime_guess.workspace = true
 prometheus-client.workspace = true
+rand.workspace = true
 regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde-querystring.workspace = true
@@ -26,12 +28,14 @@ spark-protocol = { path = "../spark-protocol" }
 sqlx.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio-util = { workspace = true, features = ["io", "compat"] }
 tower-http = { workspace = true, features = ["trace", "auth"] }
 tracing = { workspace = true, features = ["log"] }
 tracing-bunyan-formatter.workspace = true
 tracing-futures.workspace = true
 tracing-log.workspace = true
 uuid.workspace = true
+httpdate = "1.0.3"
 
 [dependencies.tracing-subscriber]
 workspace = true
@@ -42,6 +46,7 @@ tokio.workspace = true
 serde_json.workspace = true
 proptest.workspace = true
 fake.workspace = true
+tempfile.workspace = true
 
 [dev-dependencies.reqwest]
 workspace = true

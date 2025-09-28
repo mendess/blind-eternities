@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 use axum::{
     Form, Json, Router,
     extract::{FromRequestParts, Path, Query, State},
-    response::{AppendHeaders, IntoResponse},
+    response::{AppendHeaders, Html, IntoResponse},
     routing::{get, post},
 };
 use common::domain::{Hostname, music_session::MusicSession};
@@ -172,7 +172,7 @@ struct MainPage {
 }
 
 async fn index(target: Target) -> Result<impl IntoResponse, Error> {
-    Ok(MainPage { target }.render()?)
+    Ok(Html(MainPage { target }.render()?))
 }
 
 #[derive(Template)]
@@ -186,11 +186,13 @@ async fn now_playing(
     backend: State<Backend>,
     target: Target,
 ) -> Result<impl IntoResponse, SharedError> {
-    Ok(NowPlaying {
-        current: get_current(backend, target.clone()).await?,
-        target,
-    }
-    .render()?)
+    Ok(Html(
+        NowPlaying {
+            current: get_current(backend, target.clone()).await?,
+            target,
+        }
+        .render()?,
+    ))
 }
 
 async fn play_pause_button(
@@ -198,10 +200,12 @@ async fn play_pause_button(
     target: Target,
 ) -> Result<impl IntoResponse, SharedError> {
     let current = get_current(backend, target).await?;
-    Ok(PlayPause {
-        playing: current.playing,
-    }
-    .render()?)
+    Ok(Html(
+        PlayPause {
+            playing: current.playing,
+        }
+        .render()?,
+    ))
 }
 
 #[derive(Template)]
@@ -258,7 +262,7 @@ async fn tabs(target: Target, kind: Path<String>) -> Result<impl IntoResponse, E
         "queue" => Tab::Queue,
         _ => return Err(crate::Error::NotFound.into()),
     };
-    Ok(Tabs { target, tab }.render()?)
+    Ok(Html(Tabs { target, tab }.render()?))
 }
 
 #[derive(Template)]
@@ -287,7 +291,7 @@ async fn now(backend: State<Backend>, target: Target) -> Result<impl IntoRespons
         Duration::from_secs(1),
     )
     .await?;
-    Ok(Now { now }.render()?)
+    Ok(Html(Now { now }.render()?))
 }
 
 #[derive(Template)]
@@ -319,7 +323,7 @@ async fn search(
 
     songs.insert(0, search);
 
-    Ok(SearchResults { songs, target }.render()?)
+    Ok(Html(SearchResults { songs, target }.render()?))
 }
 
 async fn get_current(
@@ -373,8 +377,10 @@ async fn queue(
         return Err(Error::UnexpectedBackendResponse(format!("{response:?}")));
     };
     println!("queueing {search}");
-    Ok(QueueSummary {
-        distance: moved_to.saturating_sub(current),
-    }
-    .render()?)
+    Ok(Html(
+        QueueSummary {
+            distance: moved_to.saturating_sub(current),
+        }
+        .render()?,
+    ))
 }

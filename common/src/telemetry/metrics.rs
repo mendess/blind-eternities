@@ -46,9 +46,10 @@ macro_rules! make_metric {
             }
             static METRICS: LazyLock<Family<Labels, $kind>> = LazyLock::new(|| {
                 let metric = Family::<Labels, $kind>::default();
-                $crate::telemetry::metrics::REGISTRY
-                    .get()
-                    .expect("registry not initialized")
+                let Some(registry) = $crate::telemetry::metrics::REGISTRY.get() else {
+                    return metric;
+                };
+                registry
                     .write()
                     .register(
                         ::std::stringify!($name),

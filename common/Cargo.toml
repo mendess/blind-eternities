@@ -57,3 +57,6 @@ metrics = [
     "dep:tower",
     "dep:axum-prometheus"
 ]
+playlist = [
+    "dep:http"
+]

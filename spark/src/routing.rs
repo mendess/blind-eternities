@@ -545,14 +545,17 @@ mod tests {
             "ssh",
             "-p",
             "22",
+            "-T",
             "user@192.168.1.1",
             "ssh",
             "-p",
             "22",
+            "-T",
             "user@192.168.1.1",
             "ssh",
             "-p",
             "22",
+            "-T",
             "user@192.168.1.1",
         ];
         let path = repeat_n(
@@ -578,10 +581,12 @@ mod tests {
             "ssh",
             "-p",
             "22",
+            "-T",
             "mendess@192.168.1.1",
             "ssh",
             "-p",
             "22",
+            "-T",
             "pedromendes@192.168.1.1",
         ];
         let path = vec![

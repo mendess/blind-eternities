@@ -1,22 +1,33 @@
 use crate::{Backend, Error, cache};
 use askama::{Template, filters::urlencode};
-use axum::{Router, extract::Path, response::IntoResponse, routing::get};
+use axum::{
+    Router,
+    body::Body,
+    extract::Path,
+    response::{Html, IntoResponse},
+    routing::get,
+};
 use axum_extra::extract::Query;
+use futures::StreamExt as _;
+use http::{Response, StatusCode, header};
 use mappable_rc::Marc;
+use mlib::item::link::HasId as _;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     io,
+    process::Stdio,
     time::Duration,
 };
+use tokio::process::Command;
+use tokio_util::io::ReaderStream;
 
 pub fn routes() -> Router<Backend> {
     Router::new()
         .route("/", get(index))
         .route("/playlist", get(playlist))
         .route("/audio/{id}", get(audio))
-    // .route("/thumb/{id}", get(thumb))
 }
 
 #[derive(Template)]
@@ -24,7 +35,7 @@ pub fn routes() -> Router<Backend> {
 struct Index {}
 
 async fn index() -> Result<impl IntoResponse, Error> {
-    Ok(Index {}.render()?)
+    Ok(Html(Index {}.render()?))
 }
 
 #[derive(Template)]
@@ -118,17 +129,19 @@ async fn playlist(Query(mut query): Query<CategoryFilter>) -> Result<impl IntoRe
     if query.shuffle {
         songs.shuffle(&mut rand::rng());
     }
-    return Ok(Playlist {
-        shuffled: query.shuffle,
-        categories,
-        songs,
-        qstring: set_to_qstring(
-            'm',
-            query.must_have,
-            set_to_qstring('d', query.disabled, String::new()),
-        ),
-    }
-    .render()?);
+    return Ok(Html(
+        Playlist {
+            shuffled: query.shuffle,
+            categories,
+            songs,
+            qstring: set_to_qstring(
+                'm',
+                query.must_have,
+                set_to_qstring('d', query.disabled, String::new()),
+            ),
+        }
+        .render()?,
+    ));
 
     fn song_map(s: &mlib::playlist::Song) -> Song {
         Song {
@@ -168,20 +181,63 @@ struct AudioQuery {
 }
 
 async fn audio(query: Path<AudioQuery>) -> Result<impl IntoResponse, Error> {
-    let response = reqwest::Client::new()
+    // Fetch the original .mka file into memory
+    let mut response = reqwest::Client::new()
         .get(format!(
-            "https://mendess.xyz/api/v1/playlist/audio/{}",
+            "https://blind-eternities.mendess.xyz/playlist/song/audio/{}",
             query.0.id
         ))
         .send()
         .await?
         .error_for_status()?;
 
-    Ok((
-        response.status(),
-        response.headers().clone(),
-        response.bytes().await?,
-    ))
+    // Spawn ffmpeg to transcode to mp3 (browser-friendly)
+    let mut child = Command::new("ffmpeg")
+        .args([
+            "-i",
+            "pipe:0", // read input from stdin
+            "-f",
+            "mp3", // output format
+            "-codec:a",
+            "libmp3lame",
+            "pipe:1", // write output to stdout
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null()) // silence ffmpeg logs
+        .spawn()?;
+
+    // Write input bytes into ffmpeg stdin
+    {
+        let mut stdin = child.stdin.take().unwrap();
+        tokio::spawn(async move {
+            loop {
+                let chunk = match response.chunk().await {
+                    Ok(Some(chunk)) => chunk,
+                    Ok(None) => break,
+                    Err(e) => {
+                        tracing::error!(error = ?e, "failed to read chunk");
+                        break;
+                    }
+                };
+                use tokio::io::AsyncWriteExt;
+                let _ = stdin.write_all(&chunk).await;
+            }
+        });
+    }
+
+    // Stream ffmpeg stdout back to client
+    let stdout = child.stdout.take().unwrap();
+    let stream = ReaderStream::new(stdout).map(|chunk| chunk.map_err(io::Error::other));
+
+    let mut res = Response::new(Body::from_stream(stream));
+    *res.status_mut() = StatusCode::OK;
+    res.headers_mut().insert(
+        header::CONTENT_TYPE,
+        header::HeaderValue::from_static("audio/mpeg"),
+    );
+
+    Ok(res)
 }
 
 pub async fn load_playlist() -> Result<Marc<mlib::playlist::Playlist>, Error> {

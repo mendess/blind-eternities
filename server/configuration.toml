@@ -7,3 +7,6 @@ port = 5432
 username = "postgres"
 password = "postgres"
 name = "blind_eternities"
+
+[playlist_config]
+song_dir = "/tmp/blind-eternities-song-dir"

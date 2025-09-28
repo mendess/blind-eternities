@@ -1,3 +1,4 @@
+use crate::routes::PlaylistConfig;
 use config::{Config, Environment, File};
 
 #[derive(Debug, serde::Deserialize)]
@@ -8,6 +9,7 @@ pub struct Settings {
     pub persistent_conn_port: u16,
     #[serde(default = "enabled")]
     pub enable_metrics: bool,
+    pub playlist_config: PlaylistConfig,
 }
 
 fn enabled() -> bool {

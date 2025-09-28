@@ -39,6 +39,7 @@ RUN cargo build -p planar-bridge --release --bin planar-bridge
 # executing image
 FROM debian:bookworm-slim
 
+RUN apt update -yyq && apt install -yyq ffmpeg
 COPY --from=build /blind-eternities/target/release/planar-bridge bridge
 COPY ./planar-bridge/assets ./planar-bridge/assets
 

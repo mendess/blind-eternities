@@ -5,19 +5,14 @@ mod playlist;
 
 use std::io;
 
-use axum::{
-    Router,
-    extract::Request,
-    middleware::Next,
-    response::{IntoResponse, Response},
-};
+use axum::{Router, response::IntoResponse};
 use clap::Parser;
 use common::{
     net::auth_client::Client,
     telemetry::{get_subscriber_no_bunny, init_subscriber, metrics::MetricsEndpoint},
 };
 use config::File;
-use http::{HeaderValue, StatusCode, header};
+use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
@@ -87,13 +82,6 @@ struct Args {
     config: Option<String>,
 }
 
-async fn set_html_content_type(req: Request, next: Next) -> Response {
-    let mut res = next.run(req).await;
-    res.headers_mut()
-        .insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html"));
-    res
-}
-
 #[tokio::main]
 async fn main() -> io::Result<()> {
     let Args { config } = Args::parse();
@@ -111,14 +99,8 @@ async fn main() -> io::Result<()> {
     );
     tokio::spawn(worker);
     let router = Router::new()
-        .nest(
-            "/music",
-            music::routes().layer(axum::middleware::from_fn(set_html_content_type)),
-        )
-        .nest(
-            "/playlist",
-            playlist::routes().layer(axum::middleware::from_fn(set_html_content_type)),
-        )
+        .nest("/music", music::routes())
+        .nest("/playlist", playlist::routes())
         .nest_service("/assets", ServeDir::new("planar-bridge/assets"))
         .layer(layer)
         .with_state(client);

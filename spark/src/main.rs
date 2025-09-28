@@ -92,6 +92,15 @@ enum Backend {
     },
     /// delete a music auth token
     DeleteMusicSession { session: String },
+    /// add a new song file
+    AddSong {
+        title: String,
+        path: PathBuf,
+        #[arg(short, long)]
+        artist: Option<String>,
+        #[arg(long)]
+        thumb: Option<PathBuf>,
+    },
 }
 
 async fn app(args: Args) -> anyhow::Result<ExitStatus> {

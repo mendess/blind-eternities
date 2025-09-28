@@ -1,10 +1,15 @@
 pub mod persistent_conn;
 
-use std::{future::IntoFuture, sync::OnceLock};
+use std::{
+    fmt,
+    future::IntoFuture,
+    sync::{Arc, OnceLock},
+};
 
 use blind_eternities::{
     auth,
     configuration::{DbSettings, Settings},
+    routes::PlaylistConfig,
     startup,
 };
 use common::{
@@ -34,7 +39,7 @@ fn init_tracing() {
     });
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct TestApp {
     pub address: String,
     pub persistent_conn_port: u16,
@@ -42,6 +47,30 @@ pub struct TestApp {
     pub db_name: String,
     pub http: reqwest::Client,
     pub auth_token: uuid::Uuid,
+    #[allow(dyn_drop)]
+    pub _drop_guards: Vec<Arc<dyn Drop>>,
+}
+
+impl fmt::Debug for TestApp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            address,
+            persistent_conn_port,
+            db_pool,
+            db_name,
+            http,
+            auth_token,
+            _drop_guards,
+        } = self;
+        f.debug_struct("TestApp")
+            .field("address", address)
+            .field("persistent_conn_port", persistent_conn_port)
+            .field("db_pool", db_pool)
+            .field("db_name", db_name)
+            .field("http", http)
+            .field("auth_token", auth_token)
+            .finish()
+    }
 }
 
 impl TestApp {
@@ -59,6 +88,8 @@ impl TestApp {
         let persistent_conn_port = persistent_conns_listener.local_addr().unwrap().port();
         let _spawn_span = tracing::debug_span!("spawning test app", port);
 
+        let song_dir = tempfile::tempdir().expect("failed to create song dir");
+
         let conf = Settings {
             port: 8000,
             db: DbSettings {
@@ -71,6 +102,9 @@ impl TestApp {
             },
             persistent_conn_port,
             enable_metrics: true,
+            playlist_config: PlaylistConfig {
+                song_dir: song_dir.path().to_owned(),
+            },
         };
 
         tracing::debug!("configuring database");
@@ -82,6 +116,7 @@ impl TestApp {
             persistent_conns_listener,
             None,
             connection.clone(),
+            conf.playlist_config,
         )
         .expect("Failed to bind address");
         tokio::spawn(server.into_future());
@@ -92,6 +127,7 @@ impl TestApp {
             db_name: conf.db.name,
             http: reqwest::Client::new(),
             auth_token: uuid::Uuid::new_v4(),
+            _drop_guards: vec![Arc::new(song_dir)],
         };
         tracing::debug!("inserting auth token");
         auth::insert_token::<auth::Admin>(&app.db_pool, app.auth_token, "hostname")
