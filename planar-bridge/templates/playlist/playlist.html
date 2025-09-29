@@ -24,7 +24,7 @@
       </li>
     {% endfor %}
   </ul>
-  <div class="shuffle-and-play-all">
+  <div class="main-buttons">
     <div>
       {% if shuffled %}
       <button class=" main-button-on"
@@ -49,9 +49,7 @@
         src="https://blind-eternities.mendess.xyz/playlist/song/thumb/{{ song.id }}"
         class="thumb"
       >
-      <div class="thumb-name">
-        <div>{{song.title}}</div>
-      </div>
+      <div class="thumb-name">{{song.title}}</div>
     </div>
     {% endfor %}
   </div>
