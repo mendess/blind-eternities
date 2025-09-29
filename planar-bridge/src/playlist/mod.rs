@@ -85,11 +85,11 @@ async fn playlist(Query(mut query): Query<CategoryFilter>) -> Result<impl IntoRe
     if let Some(toggle) = std::mem::take(&mut query.toggle) {
         if query.disabled.contains(&toggle) {
             query.disabled.remove(&toggle);
-            query.must_have.insert(toggle);
         } else if query.must_have.contains(&toggle) {
             query.must_have.remove(&toggle);
-        } else {
             query.disabled.insert(toggle);
+        } else {
+            query.must_have.insert(toggle);
         }
     }
     let playlist = load_playlist().await.unwrap();
