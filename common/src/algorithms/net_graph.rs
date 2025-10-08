@@ -103,7 +103,7 @@ impl<'hostname> FromIterator<&'hostname MachineStatusFull> for NetGraph<'hostnam
             // connect machine to internet
             graph.add_edge(machine_idx, internet_idx, Self::INTERNET_WEIGHT);
 
-            // establish a port forwward
+            // establish a port forward
             if let Some(port) = machine.ssh {
                 graph.add_edge(internet_idx, machine_idx, Self::INTERNET_WEIGHT);
                 graph[internet_idx].unwrap_as_internet_mut().connect_to(

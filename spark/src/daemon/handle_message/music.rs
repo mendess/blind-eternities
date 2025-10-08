@@ -23,14 +23,14 @@ pub async fn wait_for_next_title(player: &players::PlayerLink) -> Result<String,
         stream: impl Stream<Item = io::Result<PlayerEvent>>,
     ) -> Result<Option<String>, mlib::Error> {
         tokio::pin!(stream);
-        while let Some(event) = stream.next().await {
-            if let OwnedLibMpvEvent::PropertyChange { name, change, .. } = event?.event {
-                if name == "media-title" {
-                    let Ok(title) = change.into_string() else {
-                        continue;
-                    };
-                    return Ok(Some(title));
-                }
+        while let Some(event) = stream.next().await
+            && let OwnedLibMpvEvent::PropertyChange { name, change, .. } = event?.event
+        {
+            if name == "media-title" {
+                let Ok(title) = change.into_string() else {
+                    continue;
+                };
+                return Ok(Some(title));
             }
         }
         Ok(None)
