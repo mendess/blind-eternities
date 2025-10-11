@@ -604,7 +604,7 @@ checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 [[package]]
 name = "cli-daemon"
 version = "0.1.1"
-source = "git+https://github.com/mendess/m?rev=bfeb69c489e3052e0961f3cceedbf97f1e0d7851#bfeb69c489e3052e0961f3cceedbf97f1e0d7851"
+source = "git+https://github.com/mendess/m?rev=be26728287cd831d3dc04d4db6dc33f9fa681d2e#be26728287cd831d3dc04d4db6dc33f9fa681d2e"
 dependencies = [
  "futures-util",
  "namespaced-tmp",
@@ -2327,7 +2327,7 @@ dependencies = [
 [[package]]
 name = "mlib"
 version = "0.17.0"
-source = "git+https://github.com/mendess/m?rev=bfeb69c489e3052e0961f3cceedbf97f1e0d7851#bfeb69c489e3052e0961f3cceedbf97f1e0d7851"
+source = "git+https://github.com/mendess/m?rev=be26728287cd831d3dc04d4db6dc33f9fa681d2e#be26728287cd831d3dc04d4db6dc33f9fa681d2e"
 dependencies = [
  "arc-swap",
  "base64 0.22.1",
