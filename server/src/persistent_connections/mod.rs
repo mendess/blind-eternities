@@ -1,18 +1,14 @@
-pub mod connections;
-mod daemon;
+use std::sync::atomic::{AtomicU64, Ordering};
+
 pub mod ws;
 
-use sqlx::PgPool;
-use std::sync::Arc;
-use tokio::net::TcpListener;
+#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord, Hash)]
+pub struct Generation(u64);
 
-pub use connections::{ConnectionError, Connections};
+impl Generation {
+    pub fn next() -> Self {
+        static GENERATION: AtomicU64 = AtomicU64::new(0);
 
-pub fn start_persistent_connections_daemon(
-    listener: TcpListener,
-    db: Arc<PgPool>,
-) -> Arc<Connections> {
-    let connections = Arc::new(Connections::new());
-    tokio::spawn(daemon::start(listener, connections.clone(), db));
-    connections
+        Self(GENERATION.fetch_add(1, Ordering::SeqCst))
+    }
 }

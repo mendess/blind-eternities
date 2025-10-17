@@ -1,5 +1,6 @@
 use std::io;
 
+use super::TestApp;
 use common::{
     domain::Hostname,
     net::{
@@ -7,9 +8,6 @@ use common::{
     },
 };
 use spark_protocol::{Command, Response};
-
-use super::TestApp;
-
 use tokio::{
     io::{BufReader, BufWriter},
     net::{

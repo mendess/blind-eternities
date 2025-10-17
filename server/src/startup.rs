@@ -11,20 +11,14 @@ use tower_http::trace::TraceLayer;
 
 pub fn run(
     server_listener: TcpListener,
-    persistent_conns_listener: TcpListener,
     metrics_listener: impl Into<Option<TcpListener>>,
     db: PgPool,
     playlist_config: PlaylistConfig,
 ) -> io::Result<impl Future<Output = io::Result<()>>> {
     let db = Arc::new(db);
-    let connections = crate::persistent_connections::start_persistent_connections_daemon(
-        persistent_conns_listener,
-        db.clone(),
-    );
-
     let (ws_layer, io) = crate::persistent_connections::ws::socket_io_routes(db.clone());
 
-    let mut router = routes::router(connections, db, io, playlist_config);
+    let mut router = routes::router(db, io, playlist_config);
 
     if let Some(l) = metrics_listener.into() {
         let MetricsEndpoint { worker, layer } =

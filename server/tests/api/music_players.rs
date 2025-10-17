@@ -29,7 +29,7 @@ impl TestApp {
         session: &MusicSession,
         command: MusicCmdKind,
     ) -> spark_protocol::Response {
-        self.post(&format!("music/{session}"))
+        self.post(&format!("music/ws/{session}"))
             .json(&command)
             .send()
             .await
@@ -89,7 +89,7 @@ async fn requesting_to_skip_a_song_is_delivered() {
 
     let title = "title";
     let device = app
-        .simulate_device(Simulation {
+        .simulate_device_ws(Simulation {
             hostname: &hostname,
             expect_to_receive: MusicCmdKind::Frwd,
             respond_with: Ok(SuccessfulResponse::MusicResponse(music::Response::Title {
@@ -119,7 +119,7 @@ async fn requesting_to_skip_back_a_song_is_delivered() {
 
     let title = "title";
     let device = app
-        .simulate_device(Simulation {
+        .simulate_device_ws(Simulation {
             hostname: &hostname,
             expect_to_receive: MusicCmdKind::Back,
             respond_with: Ok(SuccessfulResponse::MusicResponse(music::Response::Title {
@@ -148,7 +148,7 @@ async fn requesting_to_cycle_pause_is_delivered() {
     let session = app.create_session(&hostname).await;
 
     let device = app
-        .simulate_device(Simulation {
+        .simulate_device_ws(Simulation {
             hostname: &hostname,
             expect_to_receive: MusicCmdKind::CyclePause,
             respond_with: Ok(SuccessfulResponse::MusicResponse(
@@ -177,7 +177,7 @@ async fn requesting_to_change_volume_is_delivered() {
     let session = app.create_session(&hostname).await;
 
     let device = app
-        .simulate_device(Simulation {
+        .simulate_device_ws(Simulation {
             hostname: &hostname,
             expect_to_receive: MusicCmdKind::ChangeVolume { amount: 2 },
             respond_with: Ok(SuccessfulResponse::MusicResponse(music::Response::Volume {
@@ -207,7 +207,7 @@ async fn requesting_current_is_delivered() {
     let session = app.create_session(&hostname).await;
 
     let device = app
-        .simulate_device(Simulation {
+        .simulate_device_ws(Simulation {
             hostname: &hostname,
             expect_to_receive: MusicCmdKind::Current,
             respond_with: Ok(SuccessfulResponse::MusicResponse(
@@ -256,7 +256,7 @@ async fn requesting_to_queue_a_song_is_delivered() {
     };
 
     let device = app
-        .simulate_device(Simulation {
+        .simulate_device_ws(Simulation {
             hostname: &hostname,
             expect_to_receive: command_to_send.clone(),
             respond_with: Ok(SuccessfulResponse::Unit),

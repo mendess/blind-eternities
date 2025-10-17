@@ -36,9 +36,6 @@ async fn main() -> anyhow::Result<()> {
         TcpListener::bind(("0.0.0.0", conf.port))
             .await
             .context("binding http socket")?,
-        TcpListener::bind(("0.0.0.0", conf.persistent_conn_port))
-            .await
-            .context("binding persistent connections port")?,
         TcpListener::bind("0.0.0.0:9000")
             .await
             .context("binding metrics listener port")?,

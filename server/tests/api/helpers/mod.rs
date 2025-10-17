@@ -1,4 +1,4 @@
-pub mod persistent_conn;
+pub mod ws;
 
 use std::{
     fmt,
@@ -111,14 +111,8 @@ impl TestApp {
         let connection = configure_database(&conf.db).await;
 
         tracing::debug!("starting server");
-        let server = startup::run(
-            listener,
-            persistent_conns_listener,
-            None,
-            connection.clone(),
-            conf.playlist_config,
-        )
-        .expect("Failed to bind address");
+        let server = startup::run(listener, None, connection.clone(), conf.playlist_config)
+            .expect("Failed to bind address");
         tokio::spawn(server.into_future());
         let app = TestApp {
             address: format!("http://localhost:{port}"),
@@ -189,16 +183,16 @@ impl TestApp {
         cmd: impl Into<spark_protocol::Command>,
     ) -> spark_protocol::Response {
         let resp = self
-            .post_authed(&format!("persistent-connections/send/{hostname}"))
+            .post_authed(&format!("persistent-connections/ws/send/{hostname}"))
             .json(&cmd.into())
             .send()
             .await
             .expect("success");
-        assert_status!(resp.status(), StatusCode::OK);
+        assert_status!(StatusCode::OK, resp.status());
         resp.json().await.expect("deserialized successfully")
     }
 
-    pub async fn simulate_device<C, R>(
+    pub async fn simulate_device_ws<C, R>(
         &self,
         Simulation {
             hostname,
@@ -210,12 +204,12 @@ impl TestApp {
         C: Into<spark_protocol::Command> + Send + 'static,
         R: Into<spark_protocol::Response> + Send + 'static,
     {
-        let mut device = timeout!(self.connect_device(hostname));
+        let mut device = timeout!(self.connect_device_ws(hostname));
 
         tokio::spawn(async move {
-            let req = timeout!(device.recv()).expect("success recv").expect("eof");
+            let (req, reply) = timeout!(device.recv()).expect("success recv");
             assert_eq!(expect_to_receive.into(), req);
-            timeout!(device.send(respond_with.into())).expect("success send");
+            timeout!(reply.reply(respond_with.into()));
         })
     }
 }

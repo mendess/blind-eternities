@@ -47,6 +47,7 @@ serde_json.workspace = true
 proptest.workspace = true
 fake.workspace = true
 tempfile.workspace = true
+rust_socketio = { workspace = true, features = ["async"] }
 
 [dev-dependencies.reqwest]
 workspace = true

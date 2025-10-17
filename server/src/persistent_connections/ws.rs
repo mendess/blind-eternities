@@ -9,7 +9,7 @@ use socketioxide::{
 };
 use sqlx::PgPool;
 
-use crate::{metrics, persistent_connections::connections::Generation};
+use crate::{metrics, persistent_connections::Generation};
 
 pub type SocketIo = socketioxide::SocketIo<socketioxide::adapter::LocalAdapter>;
 

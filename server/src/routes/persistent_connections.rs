@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use axum::{
     Json, Router,
@@ -13,22 +13,18 @@ use socketioxide::{AckError, SendError, SocketError, extract::SocketRef};
 use crate::{
     auth,
     persistent_connections::{
-        ConnectionError, Connections,
-        connections::Generation,
+        Generation,
         ws::{SHostname, SocketIo},
     },
 };
 
 pub fn routes() -> Router<super::RouterState> {
-    Router::new()
-        .nest(
-            "/ws",
-            Router::new()
-                .route("/", get(ws_list_persistent_connections))
-                .route("/send/{hostname}", post(ws_send)),
-        )
-        .route("/", get(list_persistent_connections))
-        .route("/send/{hostname}", post(send))
+    Router::new().nest(
+        "/ws",
+        Router::new()
+            .route("/", get(ws_list_persistent_connections))
+            .route("/send/{hostname}", post(ws_send)),
+    )
 }
 
 async fn ws_list_persistent_connections(
@@ -53,8 +49,9 @@ pub async fn ws_send(
     State(io): State<SocketIo>,
     hostname: Path<Hostname>,
     Json(command): Json<spark_protocol::Command>,
-) -> impl IntoResponse {
+) -> axum::response::Response {
     let sockets = io.of(ws::NS).unwrap().sockets();
+    tracing::warn!("socket#: {}", sockets.len());
     let by_hostname = |s: &SocketRef| {
         s.extensions
             .get::<SHostname>()
@@ -99,37 +96,6 @@ pub async fn ws_send(
         }
         Err(AckError::Socket(SocketError::InternalChannelFull)) => {
             StatusCode::TOO_MANY_REQUESTS.into_response()
-        }
-    }
-}
-
-async fn list_persistent_connections(
-    _: auth::Admin,
-    connections: State<Arc<Connections>>,
-) -> impl IntoResponse {
-    let connected = connections.connected_hosts().await;
-    (
-        StatusCode::OK,
-        Json(connected.into_iter().map(|(h, _)| h).collect::<Vec<_>>()),
-    )
-}
-
-async fn send(
-    _: auth::Admin,
-    connections: State<Arc<Connections>>,
-    hostname: Path<Hostname>,
-    Json(command): Json<spark_protocol::Command>,
-) -> impl IntoResponse {
-    let r = connections.request(&hostname, command).await;
-    tracing::debug!(response = ?r, "responding");
-    match r {
-        Ok(response) => (StatusCode::OK, Json(response)).into_response(),
-        Err(ConnectionError::NotFound) => StatusCode::NOT_FOUND.into_response(),
-        Err(ConnectionError::ConnectionDropped(Some(reason))) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, reason).into_response()
-        }
-        Err(ConnectionError::ConnectionDropped(None)) => {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
 }
