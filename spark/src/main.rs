@@ -95,7 +95,7 @@ enum Backend {
     /// add a new song file
     AddSong {
         title: String,
-        path: PathBuf,
+        uri: String,
         #[arg(short, long)]
         artist: Option<String>,
         #[arg(long)]
