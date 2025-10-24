@@ -98,6 +98,7 @@ pub async fn add_song_file(
     let audio = tempfile::Builder::new().tempfile()?;
     extract_audio_and_embed_thumb_cli(path, audio.path(), title.clone(), artist, thumb).await?;
     let audio_path = audio.into_temp_path();
+    tracing::info!("uploading song");
     let response = client
         .post("/playlist/song/audio")?
         .header(
