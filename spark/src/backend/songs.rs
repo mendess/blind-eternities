@@ -40,13 +40,11 @@ pub async fn dl_song(uri: String) -> anyhow::Result<TempPath> {
         .error_for_status()
         .context("request error")?;
 
-    if let Some(region) = response
+    let region = response
         .headers()
         .get("x-region")
         .and_then(|r| r.to_str().ok())
-    {
-        tracing::info!(region, "proxying");
-    };
+        .map(str::to_owned);
 
     let port = response
         .text()
@@ -56,6 +54,8 @@ pub async fn dl_song(uri: String) -> anyhow::Result<TempPath> {
         .context("failed to parse port")?;
 
     let proxy = format!("http://10.0.0.1:{port}");
+
+    tracing::info!(?region, ?proxy, ?uri, "launching yt-dlp");
     let output = Command::new("yt-dlp")
         .arg(uri)
         .args(["--print", "after_move:filename"])
