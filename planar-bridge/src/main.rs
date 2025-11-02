@@ -24,7 +24,7 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error("reqwest: {0}")]
     Reqwest(#[from] reqwest::Error),
-    #[error("mlib error")]
+    #[error("mlib error: {0}")]
     Mlib(#[from] mlib::Error),
     #[error("unauthorized")]
     Unauthorized,
@@ -60,6 +60,12 @@ struct Config {
     log_level: Option<String>,
     port: u16,
     backend_url: Url,
+    #[serde(default = "default_metrics_port")]
+    metrics_port: u16,
+}
+
+fn default_metrics_port() -> u16 {
+    9000
 }
 
 fn load_config(path: Option<&str>) -> Result<Config, config::ConfigError> {
@@ -95,7 +101,7 @@ async fn main() -> io::Result<()> {
 
     let MetricsEndpoint { worker, layer } = common::telemetry::metrics::start_metrics_endpoint(
         "planar_bridge",
-        TcpListener::bind("0.0.0:9000").await?,
+        TcpListener::bind((std::net::Ipv4Addr::UNSPECIFIED, config.metrics_port)).await?,
     );
     tokio::spawn(worker);
     let router = Router::new()

@@ -307,10 +307,11 @@ struct SearchFormData {
 }
 
 async fn search(
+    backend: State<Backend>,
     target: Target,
     Form(SearchFormData { search }): Form<SearchFormData>,
 ) -> Result<impl IntoResponse, Error> {
-    let playlist = load_playlist().await?;
+    let playlist = load_playlist(&backend).await?;
     let mut songs = if search.is_empty() {
         playlist.songs.iter().map(|s| s.name.clone()).collect()
     } else {

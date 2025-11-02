@@ -15,11 +15,13 @@ common = { path = "../common", features = ["sqlx", "metrics", "playlist"] }
 config.workspace = true
 futures.workspace = true
 http.workspace = true
+httpdate.workspace = true
 itertools.workspace = true
 mime_guess.workspace = true
 prometheus-client.workspace = true
 rand.workspace = true
 regex.workspace = true
+reqwest = { workspace = true, features = ["stream"] }
 serde = { workspace = true, features = ["derive"] }
 serde-querystring.workspace = true
 serde_json.workspace = true
@@ -35,7 +37,6 @@ tracing-bunyan-formatter.workspace = true
 tracing-futures.workspace = true
 tracing-log.workspace = true
 uuid.workspace = true
-httpdate = "1.0.3"
 
 [dependencies.tracing-subscriber]
 workspace = true

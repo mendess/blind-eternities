@@ -3,7 +3,7 @@ use askama::{Template, filters::urlencode};
 use axum::{
     Router,
     body::Body,
-    extract::Path,
+    extract::{Path, State},
     response::{Html, IntoResponse},
     routing::get,
 };
@@ -81,7 +81,10 @@ struct CategoryFilter {
     toggle: Option<String>,
 }
 
-async fn playlist(Query(mut query): Query<CategoryFilter>) -> Result<impl IntoResponse, Error> {
+async fn playlist(
+    backend: State<Backend>,
+    Query(mut query): Query<CategoryFilter>,
+) -> Result<impl IntoResponse, Error> {
     if let Some(toggle) = std::mem::take(&mut query.toggle) {
         if query.disabled.contains(&toggle) {
             query.disabled.remove(&toggle);
@@ -92,7 +95,7 @@ async fn playlist(Query(mut query): Query<CategoryFilter>) -> Result<impl IntoRe
             query.must_have.insert(toggle);
         }
     }
-    let playlist = load_playlist().await.unwrap();
+    let playlist = load_playlist(&backend).await?;
     let categories = {
         let categories = playlist.songs.iter().flat_map(|s| s.all_categories()).fold(
             HashMap::new(),
@@ -180,13 +183,14 @@ struct AudioQuery {
     id: String,
 }
 
-async fn audio(query: Path<AudioQuery>) -> Result<impl IntoResponse, Error> {
+async fn audio(
+    client: State<Backend>,
+    query: Path<AudioQuery>,
+) -> Result<impl IntoResponse, Error> {
     // Fetch the original .mka file into memory
-    let mut response = reqwest::Client::new()
-        .get(format!(
-            "https://blind-eternities.mendess.xyz/playlist/song/audio/{}",
-            query.0.id
-        ))
+    let mut response = client
+        .get(&format!("/playlist/song/audio/{}", query.0.id))
+        .expect("url should always parse")
         .send()
         .await?
         .error_for_status()?;
@@ -240,19 +244,16 @@ async fn audio(query: Path<AudioQuery>) -> Result<impl IntoResponse, Error> {
     Ok(res)
 }
 
-pub async fn load_playlist() -> Result<Marc<mlib::playlist::Playlist>, Error> {
+pub async fn load_playlist(client: &Backend) -> Result<Marc<mlib::playlist::Playlist>, Error> {
     const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
 
-    async fn init() -> Result<mlib::playlist::Playlist, Error> {
-        let playlist_request = reqwest::get(
-            "https://raw.githubusercontent.com/mendess/spell-book/master/runes/m/playlist.json",
-        )
-        .await?;
+    async fn init(client: &Backend) -> Result<mlib::playlist::Playlist, Error> {
+        let playlist_request = client.get("/playlist").unwrap().send().await?;
 
         let text = playlist_request.text().await.map_err(io::Error::other)?;
 
         Ok(mlib::playlist::Playlist::load_from_str(&text)?)
     }
 
-    cache::get_or_init(Default::default(), init, ONE_HOUR).await
+    cache::get_or_init(Default::default(), || init(client), ONE_HOUR).await
 }

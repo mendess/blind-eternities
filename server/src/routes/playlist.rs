@@ -23,10 +23,10 @@ use tokio_util::io::ReaderStream;
 
 pub fn routes() -> Router<super::RouterState> {
     Router::new()
+        .route("/", get(playlist))
         .route("/song/audio", post(add_song))
-        .route("/song/thumb/{id}", post(add_thumb))
         .route("/song/audio/{id}", get(song_audio))
-        .route("/song/thumb/{id}", get(song_thumb))
+        .route("/song/thumb/{id}", get(song_thumb).post(add_thumb))
         .route("/song/metadata/{id}", get(song_meta))
 }
 
@@ -72,6 +72,21 @@ impl PlaylistConfig {
     fn thumb_dir(&self) -> PathBuf {
         mkdir!(self.song_dir.join("thumb"))
     }
+}
+
+async fn playlist() -> Result<impl IntoResponse, Error> {
+    reqwest::get(
+        "https://raw.githubusercontent.com/mendess/spell-book/master/runes/m/playlist.json",
+    )
+    .await
+    .map_err(|e| Error::Io(io::Error::other(e)))
+    .and_then(|mut r| {
+        let mut response = axum::response::Response::builder().status(r.status());
+        *response.headers_mut().unwrap() = std::mem::take(r.headers_mut());
+        response
+            .body(axum::body::Body::from_stream(r.bytes_stream()))
+            .map_err(|e| Error::Io(io::Error::other(e)))
+    })
 }
 
 #[tracing::instrument(skip(st))]
