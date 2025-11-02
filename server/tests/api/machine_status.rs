@@ -160,7 +160,7 @@ async fn machine_status_returns_posted_status() {
         .expect("an object");
 
     fn json_value_to_ndt(j: &serde_json::Value) -> DateTime<Utc> {
-        dbg!(j.as_str())
+        j.as_str()
             .expect("is a string")
             .parse::<DateTime<Utc>>()
             .expect("naive date time to be parsed from last heartbeat")

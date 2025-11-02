@@ -25,13 +25,11 @@ async fn ws_message_music_player(
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
-    dbg!(
-        super::persistent_connections::ws_send(
-            auth::Admin {},
-            State(socket_io),
-            Path(hostname),
-            Json(command.into()),
-        )
-        .await
+    super::persistent_connections::ws_send(
+        auth::Admin {},
+        State(socket_io),
+        Path(hostname),
+        Json(command.into()),
     )
+    .await
 }

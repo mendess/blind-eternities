@@ -1,16 +1,18 @@
 pub mod destination;
 
-use std::{net::IpAddr, pin::pin, str::FromStr as _};
+use std::{net::IpAddr, pin::pin};
 
 use anyhow::Context;
-use common::domain::{
-    Hostname, MacAddr, MachineStatus, mac::MacAddr6, machine_status::IpConnection,
-};
+use common::domain::{Hostname, MachineStatus, machine_status::IpConnection};
 use futures::future::{Either, select};
 
 use crate::config::Config;
-use default_net::interface::InterfaceType;
 use tokio::process::Command;
+
+#[cfg(not(target_os = "android"))]
+use common::domain::{MacAddr, mac::MacAddr6};
+#[cfg(not(target_os = "android"))]
+use default_net::interface::InterfaceType;
 
 pub(crate) async fn get_hostname(config: &Config) -> anyhow::Result<Hostname> {
     Ok(match &config.hostname_override {
@@ -28,6 +30,63 @@ async fn get_external_ip() -> anyhow::Result<IpAddr> {
     .ok_or_else(|| anyhow::anyhow!("failed to get external ip"))
 }
 
+#[cfg(target_os = "android")]
+async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
+    let output = Command::new("ifconfig").output().await?;
+
+    fn extract_ip(interface: &str, data: &str) -> Option<(IpAddr, IpAddr)> {
+        let mut lines = data.lines().peekable();
+
+        while let Some(line) = lines.next() {
+            // match line like "wlan0: flags=..."
+            if line
+                .strip_prefix(interface)
+                .and_then(|s| s.strip_prefix(":"))
+                .is_some()
+            {
+                fn tag<'s>(i: &mut impl Iterator<Item = &'s str>, tag: &str) -> Option<()> {
+                    (i.next()? == tag).then_some(())
+                }
+
+                fn parse_line(line: &str) -> Option<(IpAddr, IpAddr)> {
+                    let mut line = line.split_whitespace();
+                    tag(&mut line, "inet")?;
+                    let ip = line.next()?.parse::<std::net::Ipv4Addr>().ok()?;
+                    tag(&mut line, "netmask")?;
+                    let mask = line.next()?.parse::<std::net::Ipv4Addr>().ok()?;
+                    let mut gateway_speculation = ip.octets();
+                    std::iter::zip(&mut gateway_speculation, mask.octets()).for_each(|(g, m)| {
+                        if m == 0 {
+                            *g = 1;
+                        }
+                    });
+                    Some((
+                        IpAddr::from(ip),
+                        IpAddr::from(std::net::Ipv4Addr::from(gateway_speculation)),
+                    ))
+                }
+
+                // consume following indented lines that belong to this interface
+                while let Some(&next) = lines.peek() {
+                    if let Some(x) = parse_line(next) {
+                        return Some(x);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+    let (ip, gateway_ip) =
+        extract_ip("wlan0", std::str::from_utf8(&output.stdout)?).context("dajskldjasd")?;
+    Ok(vec![IpConnection {
+        local_ip: ip,
+        gateway_ip,
+        gateway_mac: None,
+    }])
+}
+
+#[cfg(not(target_os = "android"))]
 async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
     let (gateway, ips) = tokio::task::spawn_blocking(default_net::get_interfaces)
         .await
@@ -65,6 +124,7 @@ async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
         .collect())
 }
 
+#[cfg(not(target_os = "android"))]
 async fn get_gateway_fallback() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
     let mut out = if cfg!(target_os = "android") {
         return Ok((std::net::Ipv4Addr::LOCALHOST.into(), None));
@@ -116,7 +176,7 @@ async fn get_gateway_fallback() -> anyhow::Result<(IpAddr, Option<MacAddr>)> {
             .success()
             .then(|| std::mem::take(&mut out.stdout))
             .and_then(|s| String::from_utf8(s).ok())
-            .and_then(|s| MacAddr::from_str(s.trim()).ok())
+            .and_then(|s| s.trim().parse::<MacAddr>().ok())
         {
             Ok((gateway_ip, Some(mac)))
         } else {

@@ -83,8 +83,7 @@ enum Backend {
     Persistents,
     /// add a music auth token
     CreateMusicSession {
-        #[arg(default_value_t = Hostname::from_this_host().unwrap())]
-        hostname: Hostname,
+        hostname: Option<Hostname>,
         #[arg(short, long, value_parser = humantime::parse_duration)]
         expire_in: Option<Duration>,
         #[arg(short = 'l', long)]

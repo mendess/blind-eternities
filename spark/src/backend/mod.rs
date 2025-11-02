@@ -1,6 +1,6 @@
 mod songs;
 
-use crate::config::Config;
+use crate::{config::Config, util::get_hostname};
 use chrono::Utc;
 use common::{
     domain::{Hostname, music_session::ExpiresAt},
@@ -16,7 +16,18 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
             hostname,
             expire_in,
             show_link,
-        } => create_music_session(client, hostname, expire_in, show_link).await?,
+        } => {
+            create_music_session(
+                client,
+                match hostname {
+                    Some(h) => h,
+                    None => get_hostname(&config).await?,
+                },
+                expire_in,
+                show_link,
+            )
+            .await?
+        }
         crate::Backend::DeleteMusicSession { session } => {
             delete_music_session(client, session).await?
         }
