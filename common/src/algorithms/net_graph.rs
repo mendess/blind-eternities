@@ -48,11 +48,7 @@ impl Display for Node<'_> {
     }
 }
 
-impl Node<'_> {
-    fn is_host(&self, host: &Hostname) -> bool {
-        matches!(self, Node::Machine(m) if m.hostname == *host)
-    }
-
+impl MachineStatus {
     fn share_nat(&self, other: &MachineStatus) -> bool {
         fn ip_eq(a: IpAddr, b: IpAddr) -> bool {
             match (a, b) {
@@ -61,7 +57,13 @@ impl Node<'_> {
                 _ => false,
             }
         }
-        matches!(self, Node::Machine(m) if ip_eq(m.external_ip, other.external_ip))
+        ip_eq(self.external_ip, other.external_ip)
+    }
+}
+
+impl Node<'_> {
+    fn is_host(&self, host: &Hostname) -> bool {
+        matches!(self, Node::Machine(m) if m.hostname == *host)
     }
 
     fn unwrap_as_internet_mut(&mut self) -> &mut Internet {
@@ -116,7 +118,10 @@ impl<'hostname> FromIterator<&'hostname MachineStatusFull> for NetGraph<'hostnam
             // find all the friends of this network
             let subnet_friends = graph
                 .node_indices()
-                .filter(|i| graph[*i].share_nat(machine))
+                .filter(|i| match graph[*i] {
+                    Node::Machine(machine_status_full) => machine.share_nat(machine_status_full),
+                    Node::Internet(_) => false,
+                })
                 .collect::<Vec<_>>();
 
             // connect both ways with friends
@@ -138,13 +143,15 @@ pub struct SimpleNode {
 
 impl NetGraph<'_> {
     pub fn find_path(&self, from: &Hostname, to: &Hostname) -> Option<Vec<NodeIndex<u32>>> {
-        let graph = &self.graph;
-        let from = graph.node_indices().find(|i| graph[*i].is_host(from))?;
+        let from = self
+            .graph
+            .node_indices()
+            .find(|i| self.graph[*i].is_host(from))?;
 
         let (_, nodes) = astar(
-            graph,
+            &self.graph,
             from,
-            |i| graph[i].is_host(to),
+            |i| self.graph[i].is_host(to),
             |e| *e.weight(),
             |_| 0,
         )?;
@@ -157,7 +164,7 @@ impl NetGraph<'_> {
         while let Some(ni) = i.next() {
             match &self.graph[*ni] {
                 Node::Machine(n) => {
-                    let ip = n.preferred_ip()?;
+                    let ip = dbg!(n.preferred_ip())?;
                     v.push(SimpleNode {
                         default_username: n.default_user.clone(),
                         ip,
