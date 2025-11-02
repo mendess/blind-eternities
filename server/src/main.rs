@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
             .await
             .context("binding metrics listener port")?,
         connection,
-        conf.playlist_config,
+        blind_eternities::routes::PlaylistConfig::new(&conf.data_dir),
     )?
     .await
     .context("running blind_eternities")?;

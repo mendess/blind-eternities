@@ -17,13 +17,15 @@ use std::{
     sync::{LazyLock, Mutex},
     time::SystemTime,
 };
-use tokio::fs::File;
+use tokio::{fs::File, process::Command};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tokio_util::io::ReaderStream;
 
 pub fn routes() -> Router<super::RouterState> {
     Router::new()
         .route("/", get(playlist))
+        .route("/mtogo/version", get(mtogo_version))
+        .route("/mtogo/download", get(mtogo_download))
         .route("/song/audio", post(add_song))
         .route("/song/audio/{id}", get(song_audio))
         .route("/song/thumb/{id}", get(song_thumb).post(add_thumb))
@@ -66,11 +68,17 @@ impl PlaylistConfig {
     fn audio_dir(&self) -> PathBuf {
         mkdir!(self.song_dir.join("audio"))
     }
+
     fn meta_dir(&self) -> PathBuf {
         mkdir!(self.song_dir.join("meta"))
     }
+
     fn thumb_dir(&self) -> PathBuf {
         mkdir!(self.song_dir.join("thumb"))
+    }
+
+    fn mtogo_dir(&self) -> PathBuf {
+        mkdir!(self.song_dir.join("mtogo"))
     }
 }
 
@@ -292,4 +300,44 @@ async fn search(
         }
     }
     named_file(&path).await
+}
+
+async fn mtogo_version(State(st): State<super::RouterState>) -> Result<impl IntoResponse, Error> {
+    static PARSE: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"versionCode='(?<vcode>\d+)' versionName='(?<version>\d+\.\d+\.\d+)'")
+            .unwrap()
+    });
+    let output = Command::new(st.playlist_config.mtogo_dir().join("aapt2"))
+        .args(["dump", "badging"])
+        .arg(st.playlist_config.mtogo_dir().join("mtogo.apk"))
+        .output()
+        .await?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .map_err(|_| Error::Io(io::Error::other("aapt2 returned non utf8 bytes")))?;
+
+    let Some(captures) = PARSE.captures(stdout) else {
+        tracing::error!(?stdout, "invalid aapt2 output");
+        return Err(Error::Io(io::Error::other("invalid appt2 output")));
+    };
+
+    let version_code = captures
+        .name("vcode")
+        .unwrap()
+        .as_str()
+        .parse::<u16>()
+        .unwrap();
+
+    let version = captures.name("version").unwrap().as_str();
+
+    Ok((
+        StatusCode::OK,
+        axum::extract::Json(
+            serde_json::json!({ "version_code": version_code, "version": version }),
+        ),
+    ))
+}
+
+async fn mtogo_download(State(st): State<super::RouterState>) -> Result<impl IntoResponse, Error> {
+    Ok(named_file(&st.playlist_config.mtogo_dir().join("mtogo.apk")).await?)
 }

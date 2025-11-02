@@ -1,4 +1,5 @@
 port = 8000
+data_dir = "/tmp/blind_eternities-data-dir"
 allow_any_localhost_token = true
 
 [db]
@@ -7,6 +8,3 @@ port = 5432
 username = "postgres"
 password = "postgres"
 name = "blind_eternities"
-
-[playlist_config]
-song_dir = "/tmp/blind-eternities-song-dir"

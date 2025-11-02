@@ -88,9 +88,10 @@ impl TestApp {
         let persistent_conn_port = persistent_conns_listener.local_addr().unwrap().port();
         let _spawn_span = tracing::debug_span!("spawning test app", port);
 
-        let song_dir = tempfile::tempdir().expect("failed to create song dir");
+        let data_dir = tempfile::tempdir().expect("failed to create song dir");
 
         let conf = Settings {
+            data_dir: data_dir.path().to_owned(),
             port: 8000,
             db: DbSettings {
                 username: "postgres".into(),
@@ -102,17 +103,19 @@ impl TestApp {
             },
             persistent_conn_port,
             enable_metrics: true,
-            playlist_config: PlaylistConfig {
-                song_dir: song_dir.path().to_owned(),
-            },
         };
 
         tracing::debug!("configuring database");
         let connection = configure_database(&conf.db).await;
 
         tracing::debug!("starting server");
-        let server = startup::run(listener, None, connection.clone(), conf.playlist_config)
-            .expect("Failed to bind address");
+        let server = startup::run(
+            listener,
+            None,
+            connection.clone(),
+            PlaylistConfig::new(&conf.data_dir),
+        )
+        .expect("Failed to bind address");
         tokio::spawn(server.into_future());
         let app = TestApp {
             address: format!("http://localhost:{port}"),
@@ -121,7 +124,7 @@ impl TestApp {
             db_name: conf.db.name,
             http: reqwest::Client::new(),
             auth_token: uuid::Uuid::new_v4(),
-            _drop_guards: vec![Arc::new(song_dir)],
+            _drop_guards: vec![Arc::new(data_dir)],
         };
         tracing::debug!("inserting auth token");
         auth::insert_token::<auth::Admin>(&app.db_pool, app.auth_token, "hostname")

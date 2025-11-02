@@ -4,7 +4,10 @@ pub mod music;
 pub mod persistent_connections;
 pub mod playlist;
 
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use axum::{Router, extract::FromRef};
 use sqlx::PgPool;
@@ -22,6 +25,14 @@ pub struct RouterState {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaylistConfig {
     pub song_dir: PathBuf,
+}
+
+impl PlaylistConfig {
+    pub fn new(path: &Path) -> Self {
+        Self {
+            song_dir: path.join("music"),
+        }
+    }
 }
 
 pub fn router(db: Arc<PgPool>, socket_io: SocketIo, playlist_config: PlaylistConfig) -> Router {

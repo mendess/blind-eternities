@@ -1,5 +1,5 @@
-use crate::routes::PlaylistConfig;
 use config::{Config, Environment, File};
+use std::path::PathBuf;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Settings {
@@ -9,7 +9,7 @@ pub struct Settings {
     pub persistent_conn_port: u16,
     #[serde(default = "enabled")]
     pub enable_metrics: bool,
-    pub playlist_config: PlaylistConfig,
+    pub data_dir: PathBuf,
 }
 
 fn enabled() -> bool {
