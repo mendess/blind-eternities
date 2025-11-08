@@ -4,3 +4,4 @@ pub mod metrics;
 pub mod persistent_connections;
 pub mod routes;
 pub mod startup;
+pub mod util;

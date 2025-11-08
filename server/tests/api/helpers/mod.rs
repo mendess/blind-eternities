@@ -9,7 +9,7 @@ use std::{
 use blind_eternities::{
     auth,
     configuration::{DbSettings, Settings},
-    routes::PlaylistConfig,
+    routes::dirs::Directories,
     startup,
 };
 use common::{
@@ -113,7 +113,7 @@ impl TestApp {
             listener,
             None,
             connection.clone(),
-            PlaylistConfig::new(&conf.data_dir),
+            Directories::new(conf.data_dir),
         )
         .expect("Failed to bind address");
         tokio::spawn(server.into_future());

@@ -1,4 +1,4 @@
-use crate::routes::{self, PlaylistConfig};
+use crate::routes;
 use common::telemetry::metrics::MetricsEndpoint;
 use sqlx::PgPool;
 use std::{
@@ -13,12 +13,12 @@ pub fn run(
     server_listener: TcpListener,
     metrics_listener: impl Into<Option<TcpListener>>,
     db: PgPool,
-    playlist_config: PlaylistConfig,
+    dirs: routes::dirs::Directories,
 ) -> io::Result<impl Future<Output = io::Result<()>>> {
     let db = Arc::new(db);
     let (ws_layer, io) = crate::persistent_connections::ws::socket_io_routes(db.clone());
 
-    let mut router = routes::router(db, io, playlist_config);
+    let mut router = routes::router(db, io, dirs);
 
     if let Some(l) = metrics_listener.into() {
         let MetricsEndpoint { worker, layer } =

@@ -477,6 +477,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.16",
  "tokio",
+ "tokio-stream",
  "tokio-util",
  "tower-http 0.5.2",
  "tracing",

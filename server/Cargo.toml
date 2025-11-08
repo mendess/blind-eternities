@@ -31,6 +31,7 @@ sqlx.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tokio-util = { workspace = true, features = ["io", "compat"] }
+tokio-stream = { workspace = true }
 tower-http = { workspace = true, features = ["trace", "auth"] }
 tracing = { workspace = true, features = ["log"] }
 tracing-bunyan-formatter.workspace = true

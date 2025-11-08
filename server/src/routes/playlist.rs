@@ -1,25 +1,21 @@
-use crate::{auth, routes::PlaylistConfig};
+use crate::{auth, routes::dirs::Directory, util::fs::named_file};
 use axum::{
     Json, Router,
     body::Body,
     extract::{Path, State},
-    response::{AppendHeaders, IntoResponse},
+    response::IntoResponse,
     routing::{get, post},
 };
 use common::playlist::{SONG_META_HEADER, SongId, SongMetadata};
 use futures::TryStreamExt;
-use http::{HeaderMap, HeaderValue, StatusCode, header};
-use httpdate::fmt_http_date;
+use http::{HeaderMap, StatusCode, header};
 use std::{
     collections::HashMap,
     io,
-    path::PathBuf,
     sync::{LazyLock, Mutex},
-    time::SystemTime,
 };
 use tokio::{fs::File, process::Command};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
-use tokio_util::io::ReaderStream;
 
 pub fn routes() -> Router<super::RouterState> {
     Router::new()
@@ -53,35 +49,6 @@ impl IntoResponse for Error {
     }
 }
 
-macro_rules! mkdir {
-    ($dir:expr) => {{
-        static CREATE_DIR: std::sync::Once = std::sync::Once::new();
-        let path = $dir;
-        CREATE_DIR.call_once(|| {
-            std::fs::create_dir_all(&path).unwrap();
-        });
-        path
-    }};
-}
-
-impl PlaylistConfig {
-    fn audio_dir(&self) -> PathBuf {
-        mkdir!(self.song_dir.join("audio"))
-    }
-
-    fn meta_dir(&self) -> PathBuf {
-        mkdir!(self.song_dir.join("meta"))
-    }
-
-    fn thumb_dir(&self) -> PathBuf {
-        mkdir!(self.song_dir.join("thumb"))
-    }
-
-    fn mtogo_dir(&self) -> PathBuf {
-        mkdir!(self.song_dir.join("mtogo"))
-    }
-}
-
 async fn playlist() -> Result<impl IntoResponse, Error> {
     reqwest::get(
         "https://raw.githubusercontent.com/mendess/spell-book/master/runes/m/playlist.json",
@@ -102,7 +69,7 @@ async fn song_audio(
     State(st): State<super::RouterState>,
     Path(id): Path<SongId>,
 ) -> Result<impl IntoResponse, Error> {
-    let audio_dir = st.playlist_config.audio_dir();
+    let audio_dir = st.dirs.music().audio();
     let file = search(&AUDIO_PATH_CACHE, &audio_dir, &id).await?;
     Ok((StatusCode::OK, file))
 }
@@ -112,7 +79,7 @@ async fn song_thumb(
     State(st): State<super::RouterState>,
     Path(id): Path<SongId>,
 ) -> Result<impl IntoResponse, Error> {
-    let thumb_dir = st.playlist_config.thumb_dir();
+    let thumb_dir = st.dirs.music().thumb();
     let file = search(&THUMB_PATH_CACHE, &thumb_dir, &id).await?;
     Ok((StatusCode::OK, file))
 }
@@ -122,11 +89,7 @@ async fn song_meta(
     State(st): State<super::RouterState>,
     Path(id): Path<SongId>,
 ) -> Result<impl IntoResponse, Error> {
-    let metadata = st
-        .playlist_config
-        .meta_dir()
-        .join(id)
-        .with_extension("json");
+    let metadata = st.dirs.music().meta().file(&id).with_extension("json");
 
     Ok((StatusCode::OK, named_file(&metadata).await?))
 }
@@ -147,10 +110,10 @@ async fn add_song(
 
     let ext = ext_from_headers(&headers)?;
 
-    let audio_dir = st.playlist_config.audio_dir();
+    let audio_dir = st.dirs.music().audio();
     let (id, mut file) = loop {
         let id = SongId::generate();
-        let mut path = audio_dir.join(&id);
+        let mut path = audio_dir.file(&id);
         path.set_extension(ext);
         match File::create_new(path).await {
             Ok(f) => break (id, f),
@@ -169,10 +132,7 @@ async fn add_song(
     )
     .await?;
     tokio::fs::write(
-        st.playlist_config
-            .meta_dir()
-            .join(&id)
-            .with_extension("json"),
+        st.dirs.music().meta().file(&id).with_extension("json"),
         serde_json::to_vec(&metadata).unwrap(),
     )
     .await?;
@@ -189,7 +149,7 @@ async fn add_thumb(
     body: Body,
 ) -> Result<impl IntoResponse, Error> {
     // assert music file exists
-    if let Err(e) = search(&AUDIO_PATH_CACHE, &st.playlist_config.audio_dir(), &id).await {
+    if let Err(e) = search(&AUDIO_PATH_CACHE, &st.dirs.music().audio(), &id).await {
         return if e.kind() == io::ErrorKind::NotFound {
             Err(Error::BadRequest("corresponding audio file does not exist"))
         } else {
@@ -199,7 +159,7 @@ async fn add_thumb(
 
     let ext = ext_from_headers(&headers)?;
 
-    let thumb = st.playlist_config.thumb_dir().join(id).with_extension(ext);
+    let thumb = st.dirs.music().mtogo().file(&id).with_extension(ext);
     let mut file = File::create(thumb).await?;
     tokio::io::copy(
         &mut body
@@ -228,64 +188,17 @@ fn ext_from_headers(headers: &HeaderMap) -> Result<&'static str, Error> {
         .ok_or(Error::BadRequest("invalid content type"))
 }
 
-pub async fn named_file(path: &std::path::Path) -> io::Result<impl IntoResponse + use<>> {
-    let file = File::open(path).await?;
-    let meta = file.metadata().await?;
-    let len = meta.len();
-    let modified = meta.modified().unwrap_or_else(|_| SystemTime::now());
-
-    let mime = mime_guess::from_path(path).first_or_octet_stream();
-    let filename = path.file_name().unwrap().to_string_lossy();
-
-    let stream = ReaderStream::new(file);
-    let body = Body::from_stream(stream);
-
-    let headers = AppendHeaders([
-        (
-            header::CONTENT_TYPE,
-            HeaderValue::from_str(mime.as_ref()).unwrap(),
-        ),
-        (
-            header::CONTENT_LENGTH,
-            HeaderValue::from_str(&len.to_string()).unwrap(),
-        ),
-        // (
-        //     header::ACCEPT_RANGES,
-        //     const { HeaderValue::from_static("bytes") },
-        // ),
-        (
-            header::CONTENT_DISPOSITION,
-            HeaderValue::from_str(&format!("inline; filename=\"{}\"", filename)).unwrap(),
-        ),
-        (
-            header::LAST_MODIFIED,
-            HeaderValue::from_str(&fmt_http_date(modified)).unwrap(),
-        ),
-        (
-            header::DATE,
-            HeaderValue::from_str(&fmt_http_date(SystemTime::now())).unwrap(),
-        ),
-        (header::ETAG, {
-            let dur = modified.duration_since(SystemTime::UNIX_EPOCH).unwrap();
-            // Simple ETag: "<len>:<modified>"
-            let etag = format!("\"{:x}:{:x}\"", len, dur.as_secs());
-            HeaderValue::from_str(&etag).unwrap()
-        }),
-    ]);
-
-    Ok((headers, body))
-}
-
 async fn search(
     cache: &'static Mutex<HashMap<String, String>>,
-    dir: &std::path::Path,
+    // TODO: replace with impl when generics being excluded from use<> clauses becomes possible
+    dir: &(dyn Directory + Sync),
     id: &str,
 ) -> io::Result<impl IntoResponse + use<>> {
-    let mut path = dir.join(id);
+    let mut path = dir.file(id);
     if let Some(ext) = cache.lock().unwrap().get(id) {
         path.set_extension(ext);
     } else {
-        let mut read_dir = tokio::fs::read_dir(&dir).await?;
+        let mut read_dir = tokio::fs::read_dir(dir.get()).await?;
         while let Some(f) = read_dir.next_entry().await? {
             let f_path = f.path();
             if f_path
@@ -307,9 +220,9 @@ async fn mtogo_version(State(st): State<super::RouterState>) -> Result<impl Into
         regex::Regex::new(r"versionCode='(?<vcode>\d+)' versionName='(?<version>\d+\.\d+\.\d+)'")
             .unwrap()
     });
-    let output = Command::new(st.playlist_config.mtogo_dir().join("aapt2"))
+    let output = Command::new(st.dirs.music().mtogo().file("aapt2"))
         .args(["dump", "badging"])
-        .arg(st.playlist_config.mtogo_dir().join("mtogo.apk"))
+        .arg(st.dirs.music().mtogo().file("mtogo.apk"))
         .output()
         .await?;
 
@@ -339,5 +252,5 @@ async fn mtogo_version(State(st): State<super::RouterState>) -> Result<impl Into
 }
 
 async fn mtogo_download(State(st): State<super::RouterState>) -> Result<impl IntoResponse, Error> {
-    Ok(named_file(&st.playlist_config.mtogo_dir().join("mtogo.apk")).await?)
+    Ok(named_file(&st.dirs.music().mtogo().file("mtogo.apk")).await?)
 }
