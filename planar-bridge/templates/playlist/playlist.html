@@ -5,25 +5,30 @@
 {% let shuffle_state = "" %}
 {% endif %}
 <div id="playlistInner">
-    <ul class="categories">
-    {% for (i, category) in categories.iter().enumerate() %}
-      <li class="category"
-          hx-swap="outerHtml"
-          hx-target="#playlistInner"
-          hx-get="/playlist/playlist?t={{category.name|urlencode}}&{{qstring}}{{shuffle_state}}"
-        >
-        {% match category.mode %}
-        {% when CategoryFilterMode::Neutral %}
-        <span>{{ category.name }}</span>
-        {% when CategoryFilterMode::CantHave %}
-        <span style="color:red">{{category.name}}</span>
-        {% when CategoryFilterMode::MustHave %}
-        <span style="color:green">{{category.name}}</span>
-        {% endmatch %}
-        {% if i != categories.len() - 1 %} | {% endif %}
-      </li>
+    {% for (group_name, categories) in categories.iter() %}
+    <div class="all-categories">
+      <p class="category-group-name">{{group_name}}</p>
+      <ul class="categories">
+        {% for (i, category) in categories.iter().enumerate() %}
+        <li class="category"
+            hx-swap="outerHtml"
+            hx-target="#playlistInner"
+            hx-get="/playlist/playlist?t={{category.name|urlencode}}&f={{group_name}}&{{qstring}}{{shuffle_state}}"
+          >
+          {% match category.mode %}
+          {% when CategoryFilterMode::Neutral %}
+          <span>{{ category.name }}</span>
+          {% when CategoryFilterMode::CantHave %}
+          <span style="color:red">{{category.name}}</span>
+          {% when CategoryFilterMode::MustHave %}
+          <span style="color:green">{{category.name}}</span>
+          {% endmatch %}
+          {% if i != categories.len() - 1 %} | {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
     {% endfor %}
-  </ul>
   <div class="main-buttons">
     <div>
       {% if shuffled %}

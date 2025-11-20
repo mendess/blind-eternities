@@ -606,7 +606,7 @@ checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 [[package]]
 name = "cli-daemon"
 version = "0.1.1"
-source = "git+https://github.com/mendess/m?rev=0af321c48ab9a1de363000b3ee0b4a1d7657055b#0af321c48ab9a1de363000b3ee0b4a1d7657055b"
+source = "git+https://github.com/mendess/m?rev=6ab26a10c1c725fafc204d618f10731a9097eec1#6ab26a10c1c725fafc204d618f10731a9097eec1"
 dependencies = [
  "futures-util",
  "namespaced-tmp",
@@ -2328,8 +2328,8 @@ dependencies = [
 
 [[package]]
 name = "mlib"
-version = "0.18.0"
-source = "git+https://github.com/mendess/m?rev=0af321c48ab9a1de363000b3ee0b4a1d7657055b#0af321c48ab9a1de363000b3ee0b4a1d7657055b"
+version = "0.19.2"
+source = "git+https://github.com/mendess/m?rev=6ab26a10c1c725fafc204d618f10731a9097eec1#6ab26a10c1c725fafc204d618f10731a9097eec1"
 dependencies = [
  "arc-swap",
  "base64 0.22.1",
@@ -2787,6 +2787,7 @@ dependencies = [
  "askama",
  "axum",
  "axum-extra",
+ "base64 0.22.1",
  "clap",
  "common",
  "config",
@@ -2798,6 +2799,7 @@ dependencies = [
  "rand 0.9.2",
  "reqwest",
  "serde",
+ "serde_json",
  "spark-protocol",
  "thiserror 2.0.16",
  "tokio",

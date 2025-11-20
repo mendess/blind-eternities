@@ -1,5 +1,5 @@
 use crate::{Backend, Error, cache};
-use askama::{Template, filters::urlencode};
+use askama::Template;
 use axum::{
     Router,
     body::Body,
@@ -8,18 +8,14 @@ use axum::{
     routing::get,
 };
 use axum_extra::extract::Query;
+use base64::Engine;
 use futures::StreamExt as _;
 use http::{Response, StatusCode, header};
 use mappable_rc::Marc;
 use mlib::item::link::HasId as _;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{HashMap, HashSet},
-    io,
-    process::Stdio,
-    time::Duration,
-};
+use std::{collections::HashSet, io, process::Stdio, time::Duration};
 use tokio::process::Command;
 use tokio_util::io::ReaderStream;
 
@@ -42,7 +38,12 @@ async fn index() -> Result<impl IntoResponse, Error> {
 #[template(path = "playlist/playlist.html")]
 struct Playlist {
     qstring: String,
-    categories: Vec<Category>,
+    categories: Vec<(&'static str, Vec<Category>)>,
+    // artists: Vec<Category>,
+    // genres: Vec<Category>,
+    // liked_by: Vec<Category>,
+    // languages: Vec<Category>,
+    // free_categories: Vec<Category>,
     songs: Vec<Song>,
     shuffled: bool,
 }
@@ -56,7 +57,7 @@ enum CategoryFilterMode {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 struct Category {
-    songs: u16,
+    songs: usize,
     name: String,
     mode: CategoryFilterMode,
 }
@@ -70,62 +71,121 @@ struct Song {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct CategoryFilter {
+struct UserAction {
     #[serde(default, rename = "s")]
     shuffle: bool,
-    #[serde(default, rename = "d")]
-    disabled: HashSet<String>,
-    #[serde(default, rename = "m")]
-    must_have: HashSet<String>,
+    #[serde(default, rename = "b")]
+    category_blob: Option<String>,
     #[serde(default, rename = "t")]
     toggle: Option<String>,
+    #[serde(default, rename = "f")]
+    field: Option<String>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct CategoryFilter {
+    #[serde(default, rename = "d")]
+    disabled: CategoryFilterFields,
+    #[serde(default, rename = "m")]
+    must_have: CategoryFilterFields,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct CategoryFilterFields {
+    #[serde(default, rename = "f")]
+    free: HashSet<String>,
+    #[serde(default, rename = "a")]
+    artists: HashSet<String>,
+    #[serde(default, rename = "g")]
+    genres: HashSet<String>,
+    #[serde(default, rename = "s")]
+    language: HashSet<String>,
+    #[serde(default, rename = "l")]
+    liked_by: HashSet<String>,
 }
 
 async fn playlist(
     backend: State<Backend>,
-    Query(mut query): Query<CategoryFilter>,
+    Query(mut query): Query<UserAction>,
 ) -> Result<impl IntoResponse, Error> {
-    if let Some(toggle) = std::mem::take(&mut query.toggle) {
-        if query.disabled.contains(&toggle) {
-            query.disabled.remove(&toggle);
-        } else if query.must_have.contains(&toggle) {
-            query.must_have.remove(&toggle);
-            query.disabled.insert(toggle);
+    let mut filter = query
+        .category_blob
+        .and_then(|s| {
+            serde_json::from_slice::<CategoryFilter>(
+                &base64::engine::general_purpose::URL_SAFE.decode(s).ok()?,
+            )
+            .ok()
+        })
+        .unwrap_or_default();
+    if let Some((toggle, field)) = query
+        .toggle
+        .take()
+        .and_then(|t| query.field.take().map(|f| (t, f)))
+    {
+        let (disabled, must_have) = match field.as_str() {
+            "other" => (&mut filter.disabled.free, &mut filter.must_have.free),
+            "genres" => (&mut filter.disabled.genres, &mut filter.must_have.genres),
+            "language" => (
+                &mut filter.disabled.language,
+                &mut filter.must_have.language,
+            ),
+            "liked_by" => (
+                &mut filter.disabled.liked_by,
+                &mut filter.must_have.liked_by,
+            ),
+            "artists" => (&mut filter.disabled.artists, &mut filter.must_have.artists),
+            _ => panic!(),
+        };
+        if disabled.contains(&toggle) {
+            disabled.remove(&toggle);
+        } else if must_have.contains(&toggle) {
+            must_have.remove(&toggle);
+            disabled.insert(toggle);
         } else {
-            query.must_have.insert(toggle);
+            must_have.insert(toggle);
         }
     }
     let playlist = load_playlist(&backend).await?;
-    let categories = {
-        let categories = playlist.songs.iter().flat_map(|s| s.all_categories()).fold(
-            HashMap::new(),
-            |mut acc, cat| {
-                *acc.entry(cat).or_insert(0) += 1;
-                acc
-            },
-        );
-        let mut categories = categories
-            .into_iter()
-            .filter(|(_, freq)| *freq > 3)
-            .map(|(c, freq)| Category {
-                mode: if query.disabled.contains(c) {
-                    CategoryFilterMode::CantHave
-                } else if query.must_have.contains(c) {
-                    CategoryFilterMode::MustHave
-                } else {
-                    CategoryFilterMode::Neutral
-                },
-                name: c.into(),
-                songs: freq,
-            })
-            .collect::<Vec<_>>();
-        categories.sort_by(|s0, s1| s0.cmp(s1).reverse());
-        categories
-    };
+    let free_categories = calculate_categories(
+        &playlist,
+        |s| s.categories.iter().map(|s| s.as_str()),
+        &filter.disabled.free,
+        &filter.must_have.free,
+    );
+    let artists = calculate_categories(
+        &playlist,
+        |s| s.artist.as_deref().into_iter(),
+        &filter.disabled.artists,
+        &filter.must_have.artists,
+    );
+    let genres = calculate_categories(
+        &playlist,
+        |s| s.genres.iter().map(|s| s.as_str()),
+        &filter.disabled.genres,
+        &filter.must_have.genres,
+    );
+    let liked_by = calculate_categories(
+        &playlist,
+        |s| {
+            s.liked_by
+                .iter()
+                .chain(&s.recommended_by)
+                .filter(|s| *s != "balao")
+                .map(|s| s.as_str())
+        },
+        &filter.disabled.liked_by,
+        &filter.must_have.liked_by,
+    );
+    let languages = calculate_categories(
+        &playlist,
+        |s| s.language.as_deref().into_iter(),
+        &filter.disabled.language,
+        &filter.must_have.language,
+    );
     let mut songs = playlist
         .songs
         .iter()
-        .filter(|s| include_song(s, &query))
+        .filter(|s| include_song(s, &filter))
         .map(song_map)
         .rev()
         .collect::<Vec<_>>();
@@ -135,12 +195,18 @@ async fn playlist(
     return Ok(Html(
         Playlist {
             shuffled: query.shuffle,
-            categories,
+            categories: Vec::from_iter([
+                ("artists", artists),
+                ("genres", genres),
+                ("liked_by", liked_by),
+                ("languages", languages),
+                ("other", free_categories),
+            ]),
             songs,
-            qstring: set_to_qstring(
-                'm',
-                query.must_have,
-                set_to_qstring('d', query.disabled, String::new()),
+            qstring: format!(
+                "b={}",
+                base64::engine::general_purpose::URL_SAFE
+                    .encode(serde_json::to_vec(&filter).unwrap())
             ),
         }
         .render()?,
@@ -159,22 +225,70 @@ async fn playlist(
         }
     }
 
-    fn include_song(s: &mlib::playlist::Song, query: &CategoryFilter) -> bool {
-        s.all_categories().all(|c| !query.disabled.contains(c))
-            && (query.must_have.is_empty()
-                || s.all_categories().any(|c| query.must_have.contains(c)))
+    fn include_song(s: &mlib::playlist::Song, filter: &CategoryFilter) -> bool {
+        let any = |f: &CategoryFilterFields| {
+            let CategoryFilterFields {
+                free,
+                artists,
+                genres,
+                language,
+                liked_by,
+            } = f;
+            s.categories.iter().any(|c| free.contains(c))
+                || s.artist.iter().any(|c| artists.contains(c))
+                || s.genres.iter().any(|c| genres.contains(c))
+                || s.language.iter().any(|c| language.contains(c))
+                || s.liked_by.iter().any(|c| liked_by.contains(c))
+                || s.recommended_by.iter().any(|c| liked_by.contains(c))
+        };
+        if any(&filter.disabled) {
+            return false;
+        }
+        let CategoryFilterFields {
+            free,
+            artists,
+            genres,
+            language,
+            liked_by,
+        } = &filter.must_have;
+
+        if [free, artists, genres, language, liked_by]
+            .into_iter()
+            .all(|s| s.is_empty())
+        {
+            return true;
+        }
+        any(&filter.must_have)
     }
 
-    fn set_to_qstring(param: char, set: HashSet<String>, buf: String) -> String {
-        set.iter().fold(buf, |mut s, c| {
-            if !s.is_empty() {
-                s.push('&');
-            }
-            s.push(param);
-            s.push('=');
-            s.push_str(&urlencode(c).unwrap().0.to_string());
-            s
-        })
+    fn calculate_categories<'p, F, I>(
+        playlist: &'p mlib::playlist::Playlist,
+        proj: F,
+        disabled: &HashSet<String>,
+        must_have: &HashSet<String>,
+    ) -> Vec<Category>
+    where
+        F: Fn(&'p mlib::playlist::Song) -> I,
+        I: Iterator<Item = &'p str>,
+    {
+        let categories = playlist.categories_of_kind(proj);
+        let mut categories = categories
+            .into_iter()
+            .filter(|(_, freq)| *freq > 2)
+            .map(|(c, freq)| Category {
+                mode: if disabled.contains(c) {
+                    CategoryFilterMode::CantHave
+                } else if must_have.contains(c) {
+                    CategoryFilterMode::MustHave
+                } else {
+                    CategoryFilterMode::Neutral
+                },
+                name: c.into(),
+                songs: freq,
+            })
+            .collect::<Vec<_>>();
+        categories.sort_by(|s0, s1| s0.cmp(s1).reverse());
+        categories
     }
 }
 

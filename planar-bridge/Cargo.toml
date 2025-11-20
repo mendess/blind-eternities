@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 askama.workspace = true
+axum-extra = { workspace = true, features = ["query"] }
 axum.workspace = true
 clap.workspace = true
 common = { path = "../common", features = ["metrics"] }
@@ -14,8 +15,10 @@ http.workspace = true
 mappable-rc.workspace = true
 mlib = { workspace = true, features = ["playlist"] }
 prometheus-client.workspace = true
+rand.workspace = true
 reqwest = { workspace = true, features = ["stream"] }
 serde.workspace = true
+serde_json.workspace = true
 spark-protocol = { path = "../spark-protocol" }
 thiserror.workspace = true
 tokio-util.workspace = true
@@ -25,5 +28,4 @@ tracing-subscriber.workspace = true
 tracing.workspace = true
 url = { workspace = true, features = ["serde"] }
 uuid.workspace = true
-axum-extra = { workspace = true, features = ["query"] }
-rand.workspace = true
+base64 = "0.22.1"
