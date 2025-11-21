@@ -139,7 +139,7 @@ where
 
         let Query(target) = Query::<Target>::from_request_parts(parts, state)
             .await
-            .map_err(|_| crate::Error::BadRequest)?;
+            .map_err(|e| crate::Error::BadRequest(format!("invalid query: {e:?}")))?;
         let header_map = match HeaderMap::from_request_parts(parts, state).await {
             Ok(m) => m,
             Err(e) => match e {}, // infalible

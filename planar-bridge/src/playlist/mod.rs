@@ -104,6 +104,14 @@ struct CategoryFilterFields {
     liked_by: HashSet<String>,
 }
 
+mod fields {
+    pub const OTHER: &str = "other";
+    pub const GENRES: &str = "genres";
+    pub const LANGUAGES: &str = "languages";
+    pub const LIKED_BY: &str = "liked_by";
+    pub const ARTISTS: &str = "artists";
+}
+
 async fn playlist(
     backend: State<Backend>,
     Query(mut query): Query<UserAction>,
@@ -123,18 +131,18 @@ async fn playlist(
         .and_then(|t| query.field.take().map(|f| (t, f)))
     {
         let (disabled, must_have) = match field.as_str() {
-            "other" => (&mut filter.disabled.free, &mut filter.must_have.free),
-            "genres" => (&mut filter.disabled.genres, &mut filter.must_have.genres),
-            "language" => (
+            fields::OTHER => (&mut filter.disabled.free, &mut filter.must_have.free),
+            fields::GENRES => (&mut filter.disabled.genres, &mut filter.must_have.genres),
+            fields::LANGUAGES => (
                 &mut filter.disabled.language,
                 &mut filter.must_have.language,
             ),
-            "liked_by" => (
+            fields::LIKED_BY => (
                 &mut filter.disabled.liked_by,
                 &mut filter.must_have.liked_by,
             ),
-            "artists" => (&mut filter.disabled.artists, &mut filter.must_have.artists),
-            _ => panic!(),
+            fields::ARTISTS => (&mut filter.disabled.artists, &mut filter.must_have.artists),
+            f => return Err(Error::BadRequest(format!("invalid field: {f}"))),
         };
         if disabled.contains(&toggle) {
             disabled.remove(&toggle);
@@ -196,11 +204,11 @@ async fn playlist(
         Playlist {
             shuffled: query.shuffle,
             categories: Vec::from_iter([
-                ("artists", artists),
-                ("genres", genres),
-                ("liked_by", liked_by),
-                ("languages", languages),
-                ("other", free_categories),
+                (fields::ARTISTS, artists),
+                (fields::GENRES, genres),
+                (fields::LANGUAGES, languages),
+                (fields::OTHER, free_categories),
+                (fields::LIKED_BY, liked_by),
             ]),
             songs,
             qstring: format!(

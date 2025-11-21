@@ -28,8 +28,8 @@ pub enum Error {
     Mlib(#[from] mlib::Error),
     #[error("unauthorized")]
     Unauthorized,
-    #[error("bad request")]
-    BadRequest,
+    #[error("bad request: {0}")]
+    BadRequest(String),
     #[error("not found")]
     NotFound,
     #[error("render error: {0}")]
@@ -44,7 +44,7 @@ impl Error {
             }
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::BadRequest => StatusCode::BAD_REQUEST,
+            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
         }
     }
 }
