@@ -96,7 +96,8 @@ pub async fn add_song_file(
         }
     };
     let audio = tempfile::Builder::new().tempfile()?;
-    extract_audio_and_embed_thumb_cli(path, audio.path(), title.clone(), artist, thumb).await?;
+    extract_audio_and_embed_thumb_cli(path, audio.path(), title.clone(), artist.as_deref(), thumb)
+        .await?;
     let audio_path = audio.into_temp_path();
     tracing::info!("uploading song");
     let response = client
@@ -143,6 +144,17 @@ pub async fn add_song_file(
     let song_uri = client.hostname().join("/playlist/song/audio/")?.join(&id)?;
 
     println!("{song_uri}");
+
+    let mut m = Command::new("m");
+    m.arg("new").arg(song_uri.as_str());
+    if let Some(artist) = artist {
+        m.args(["--artist", &artist]);
+    }
+    let mut proc = m.spawn()?;
+    let status = proc.wait().await?;
+    if !status.success() {
+        tracing::error!("failed to spawn `m`");
+    }
 
     Ok(())
 }
@@ -216,7 +228,7 @@ pub async fn extract_audio_and_embed_thumb_cli(
     input: &Path,
     output: &Path,
     title: String,
-    artist: Option<String>,
+    artist: Option<&str>,
     thumb: &Path,
 ) -> anyhow::Result<()> {
     tracing::info!("extracting audio");

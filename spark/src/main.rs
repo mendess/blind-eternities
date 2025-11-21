@@ -93,6 +93,7 @@ enum Backend {
     DeleteMusicSession { session: String },
     /// add a new song file
     AddSong {
+        #[arg(short, long)]
         title: String,
         uri: String,
         #[arg(short, long)]
