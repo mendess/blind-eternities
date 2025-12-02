@@ -35,6 +35,7 @@ pub enum Command {
 pub type Response = Result<SuccessfulResponse, ErrorResponse>;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum SuccessfulResponse {
     Unit,
     Version(String),

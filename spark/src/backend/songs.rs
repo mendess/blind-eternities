@@ -34,37 +34,49 @@ pub async fn add_song(
 #[tracing::instrument]
 pub async fn dl_song(uri: String) -> anyhow::Result<TempPath> {
     tracing::info!("downloading");
-    let response = reqwest::get("http://10.0.0.1:25500")
-        .await
-        .context("failed to connect to yt-dlp proxy")?
-        .error_for_status()
-        .context("request error")?;
+    let proxy = async {
+        let response = reqwest::get("http://10.0.0.1:25500")
+            .await
+            .context("failed to connect to yt-dlp proxy")?
+            .error_for_status()
+            .context("request error")?;
 
-    let region = response
-        .headers()
-        .get("x-region")
-        .and_then(|r| r.to_str().ok())
-        .map(str::to_owned);
+        let region = response
+            .headers()
+            .get("x-region")
+            .and_then(|r| r.to_str().ok())
+            .map(str::to_owned);
 
-    let port = response
-        .text()
-        .await
-        .context("failed to parse body of request")?
-        .parse::<u16>()
-        .context("failed to parse port")?;
+        let port = response
+            .text()
+            .await
+            .context("failed to parse body of request")?
+            .parse::<u16>()
+            .context("failed to parse port")?;
 
-    let proxy = format!("http://10.0.0.1:{port}");
+        anyhow::Ok((region, format!("http://10.0.0.1:{port}")))
+    }
+    .await;
+
+    let (region, proxy) = match proxy {
+        Err(e) => {
+            tracing::warn!(error = ?e, "failed to init proxy");
+            (None, None)
+        }
+        Ok((region, proxy)) => (region, Some(proxy)),
+    };
 
     tracing::info!(?region, ?proxy, ?uri, "launching yt-dlp");
-    let output = Command::new("yt-dlp")
+    let mut yt_dlp = Command::new("yt-dlp");
+    yt_dlp
         .arg(uri)
         .args(["--print", "after_move:filename"])
         .arg("--embed-thumbnail")
-        .arg("--embed-metadata")
-        .args(["--proxy", &proxy])
-        .output()
-        .await
-        .context("waiting for yt-dlp failed")?;
+        .arg("--embed-metadata");
+    if let Some(proxy) = proxy {
+        yt_dlp.args(["--proxy", &proxy]);
+    }
+    let output = yt_dlp.output().await.context("waiting for yt-dlp failed")?;
 
     eprintln!("{}", String::from_utf8_lossy(&output.stderr));
     anyhow::ensure!(output.status.success(), "yt-dlp returned a non 0 exit code");
@@ -176,7 +188,11 @@ async fn audio_duration(path: &Path) -> anyhow::Result<Duration> {
         .output()
         .await?;
 
-    anyhow::ensure!(output.status.success(), "ffprobe failed");
+    anyhow::ensure!(
+        output.status.success(),
+        "ffprobe failed: {:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     let stdout = String::from_utf8(output.stdout)?;
     let secs: f64 = stdout.trim().parse()?;
