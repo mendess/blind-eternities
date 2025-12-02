@@ -8,10 +8,10 @@ use reqwest::header::{self, HeaderValue};
 use std::{
     io::Write as _,
     ops::Not,
+    os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
     time::Duration,
 };
-use tempfile::TempPath;
 use tokio::{fs::File, process::Command};
 
 #[tracing::instrument(skip(client))]
@@ -25,14 +25,19 @@ pub async fn add_song(
     tracing::info!("adding a new song");
     if uri.contains("http") {
         let path = dl_song(uri).await?;
-        add_song_file(client, title, artist, &path, thumb).await
+        match add_song_file(client, title, artist, &path, thumb).await {
+            Ok(()) => tokio::fs::remove_file(path)
+                .await
+                .context("removing downloaded song file"),
+            Err(e) => return Err(e),
+        }
     } else {
         add_song_file(client, title, artist, Path::new(&uri), thumb).await
     }
 }
 
 #[tracing::instrument]
-pub async fn dl_song(uri: String) -> anyhow::Result<TempPath> {
+pub async fn dl_song(uri: String) -> anyhow::Result<PathBuf> {
     tracing::info!("downloading");
     let proxy = async {
         let response = reqwest::get("http://10.0.0.1:25500")
@@ -86,7 +91,27 @@ pub async fn dl_song(uri: String) -> anyhow::Result<TempPath> {
         file_name.pop();
     }
 
-    Ok(TempPath::from_path(file_name))
+    let mut file_name = PathBuf::from(file_name);
+
+    // yt-dlp sometimes lies about the file extension.
+    if !tokio::fs::try_exists(&file_name).await? {
+        let mut dir = tokio::fs::read_dir(".").await?;
+        let file_stem = file_name.file_stem().unwrap();
+        while let Some(f) = dir.next_entry().await? {
+            let path = f.path();
+            if path
+                .file_name()
+                .unwrap()
+                .as_bytes()
+                .starts_with(file_stem.as_bytes())
+            {
+                file_name = path;
+                break;
+            }
+        }
+    }
+
+    Ok(file_name)
 }
 
 #[tracing::instrument(skip(client))]
