@@ -149,21 +149,25 @@ pub async fn handle(cmd: spark_protocol::music::MusicCmd) -> spark_protocol::Res
                 let queue = Queue::load(player, amount.unwrap_or(20))
                     .await
                     .map_err(forward)?;
+                let playlist = mlib::playlist::Playlist::load().await.map_err(forward)?;
                 let (before, current, after) = join3(
                     stream::iter(queue.before())
-                        .then(|i| i.item.fetch_item_title().rust_pls())
-                        .collect(),
-                    queue.current_song().item.clone().fetch_item_title(),
-                    stream::iter(queue.after())
-                        .map(|i| i.item.fetch_item_title())
+                        .map(|i| i.item.fetch_item_title(&playlist).rust_pls())
                         .buffered(8)
+                        .map(|t| t.into_owned())
+                        .collect(),
+                    queue.current_song().item.fetch_item_title(&playlist),
+                    stream::iter(queue.after())
+                        .map(|i| i.item.fetch_item_title(&playlist))
+                        .buffered(8)
+                        .map(|t| t.into_owned())
                         .collect(),
                 )
                 .rust_pls()
                 .await;
                 Ok(MusicResponse::Now {
                     before,
-                    current,
+                    current: current.into_owned(),
                     after,
                 })
             }

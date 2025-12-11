@@ -605,8 +605,8 @@ checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 
 [[package]]
 name = "cli-daemon"
-version = "0.1.1"
-source = "git+https://github.com/mendess/m?rev=6ab26a10c1c725fafc204d618f10731a9097eec1#6ab26a10c1c725fafc204d618f10731a9097eec1"
+version = "0.1.2"
+source = "git+https://github.com/mendess/m?rev=c34933ba4b3114a38b00136da59a0ee846ec831d#c34933ba4b3114a38b00136da59a0ee846ec831d"
 dependencies = [
  "futures-util",
  "namespaced-tmp",
@@ -2328,8 +2328,8 @@ dependencies = [
 
 [[package]]
 name = "mlib"
-version = "0.19.2"
-source = "git+https://github.com/mendess/m?rev=6ab26a10c1c725fafc204d618f10731a9097eec1#6ab26a10c1c725fafc204d618f10731a9097eec1"
+version = "0.20.2"
+source = "git+https://github.com/mendess/m?rev=c34933ba4b3114a38b00136da59a0ee846ec831d#c34933ba4b3114a38b00136da59a0ee846ec831d"
 dependencies = [
  "arc-swap",
  "base64 0.22.1",
@@ -3730,7 +3730,7 @@ dependencies = [
 
 [[package]]
 name = "spark"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "arrayvec",

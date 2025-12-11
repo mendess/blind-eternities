@@ -21,6 +21,7 @@ where
 fn main() {
     let current = Current {
         title: "title".into(),
+        artist: None,
         chapter: Some((2, "chapter".into())),
         playing: true,
         volume: 54.,

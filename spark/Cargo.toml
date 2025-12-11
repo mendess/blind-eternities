@@ -1,6 +1,6 @@
 [package]
 name = "spark"
-version = "0.5.14"
+version = "0.5.15"
 edition.workspace = true
 
 [dependencies]
@@ -53,5 +53,5 @@ optional = true
 
 
 [features]
-default = []
+default = ["music-ctl"]
 music-ctl = ["dep:mlib"]

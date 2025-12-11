@@ -53,7 +53,8 @@
       currentIndex = index;
       const song = playlist[currentIndex];
       audio.src = `/playlist/audio/${song.id}`;
-      audio.play();
+      audio.load();            // ← Firefox requires this in some cases
+      audio.play().catch(err => console.warn("Play blocked:", err));
       playerBar.style.display = 'flex';
       playPauseBtn.textContent = '⏸';
       document.getElementById('song-title').textContent = song.title || '';
