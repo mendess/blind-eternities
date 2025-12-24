@@ -1,5 +1,5 @@
-use crate::routes;
-use common::telemetry::metrics::MetricsEndpoint;
+use crate::{configuration::Apis, routes};
+use common::{net::auth_client::Client, telemetry::metrics::MetricsEndpoint};
 use sqlx::PgPool;
 use std::{
     future::{self, Future, IntoFuture},
@@ -14,11 +14,19 @@ pub fn run(
     metrics_listener: impl Into<Option<TcpListener>>,
     db: PgPool,
     dirs: routes::dirs::Directories,
+    apis: Apis,
 ) -> io::Result<impl Future<Output = io::Result<()>>> {
     let db = Arc::new(db);
     let (ws_layer, io) = crate::persistent_connections::ws::socket_io_routes(db.clone());
 
-    let mut router = routes::router(db, io, dirs);
+    let mut router = routes::router(
+        db,
+        io,
+        dirs,
+        routes::Apis {
+            navidrome: Client::new(apis.navidrome).map_err(io::Error::other)?,
+        },
+    );
 
     if let Some(l) = metrics_listener.into() {
         let MetricsEndpoint { worker, layer } =

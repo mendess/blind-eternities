@@ -41,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
             .context("binding metrics listener port")?,
         connection,
         blind_eternities::routes::dirs::Directories::new(conf.data_dir),
+        conf.apis,
     )?
     .await
     .context("running blind_eternities")?;

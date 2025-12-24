@@ -7,7 +7,7 @@ pub type UrlParseError = url::ParseError;
 
 pub type Result<T> = std::result::Result<T, UrlParseError>;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Client {
     client: reqwest::Client,
     base: Arc<Url>,

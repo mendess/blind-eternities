@@ -8,3 +8,6 @@ port = 5432
 username = "postgres"
 password = "postgres"
 name = "blind_eternities"
+
+[apis]
+navidrome = "http://10.0.0.1:4533"

@@ -1,4 +1,5 @@
 use config::{Config, Environment, File};
+use reqwest::Url;
 use std::path::PathBuf;
 
 #[derive(Debug, serde::Deserialize)]
@@ -10,6 +11,12 @@ pub struct Settings {
     #[serde(default = "enabled")]
     pub enable_metrics: bool,
     pub data_dir: PathBuf,
+    pub apis: Apis,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct Apis {
+    pub navidrome: Url,
 }
 
 fn enabled() -> bool {

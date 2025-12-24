@@ -5,7 +5,7 @@ use blind_eternities::auth::music_session::MusicSession;
 use common::domain::Hostname;
 use fake::{Fake, Faker};
 use spark_protocol::SuccessfulResponse;
-use spark_protocol::music::{self, Current, MusicCmdKind};
+use spark_protocol::music::{self, Current, MusicCmdKind, UpNext};
 
 use crate::helpers::{Simulation, TestApp, fake_hostname};
 use crate::timeout;
@@ -214,6 +214,7 @@ async fn requesting_current_is_delivered() {
                 music::Response::Current {
                     current: Current {
                         title: "title".into(),
+                        artist: Faker.fake(),
                         chapter: Faker.fake(),
                         playing: Faker.fake(),
                         volume: Faker.fake(),
@@ -222,7 +223,7 @@ async fn requesting_current_is_delivered() {
                         duration: Duration::from_secs(Faker.fake()),
                         categories: Faker.fake(),
                         index: Faker.fake(),
-                        next: Faker.fake(),
+                        next: Some(fake_up_next()),
                     },
                 },
             )),
@@ -279,4 +280,12 @@ async fn creating_two_tokens_to_the_same_hostname_returns_the_same_token() {
     let session1 = app.create_session(&hostname).await;
 
     assert_eq!(session0, session1);
+}
+
+pub fn fake_up_next() -> UpNext {
+    UpNext {
+        title: Faker.fake(),
+        artist: Faker.fake(),
+        categories: Faker.fake(),
+    }
 }

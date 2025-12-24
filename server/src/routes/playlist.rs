@@ -2,13 +2,15 @@ use crate::{auth, routes::dirs::Directory, util::fs::named_file};
 use axum::{
     Json, Router,
     body::Body,
-    extract::{Path, State},
-    response::IntoResponse,
+    extract::{Path, Request, State},
+    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use common::playlist::{SONG_META_HEADER, SongId, SongMetadata};
 use futures::TryStreamExt;
 use http::{HeaderMap, StatusCode, header};
+use md5::Digest;
+use serde::Serialize;
 use std::{
     collections::HashMap,
     io,
@@ -23,6 +25,7 @@ pub fn routes() -> Router<super::RouterState> {
         .route("/mtogo/version", get(mtogo_version))
         .route("/mtogo/download", get(mtogo_download))
         .route("/song/audio", post(add_song))
+        .route("/song/navidrome/{id}", post(add_navidrome_song))
         .route("/song/audio/{id}", get(song_audio))
         .route("/song/thumb/{id}", get(song_thumb).post(add_thumb))
         .route("/song/metadata/{id}", get(song_meta))
@@ -37,12 +40,14 @@ enum Error {
     Io(#[from] io::Error),
     #[error("bad request: {0}")]
     BadRequest(&'static str),
+    #[error("sqlx: {0}")]
+    Sqlx(#[from] sqlx::Error),
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         let code = match self {
-            Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Io(_) | Self::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
         };
         (code, self.to_string()).into_response()
@@ -68,10 +73,80 @@ async fn playlist() -> Result<impl IntoResponse, Error> {
 async fn song_audio(
     State(st): State<super::RouterState>,
     Path(id): Path<SongId>,
+    mut request: Request,
 ) -> Result<impl IntoResponse, Error> {
     let audio_dir = st.dirs.music().audio();
-    let file = search(&AUDIO_PATH_CACHE, &audio_dir, &id).await?;
-    Ok((StatusCode::OK, file))
+    let record = sqlx::query!(
+        "SELECT id, navidrome_id FROM songs WHERE id = $1",
+        id.as_str()
+    )
+    .fetch_one(&*st.db)
+    .await?;
+    match record.navidrome_id {
+        Some(nav_id) => {
+            const SUBSONIC_USER: &str = "blind-eternities-api";
+            const SUBSONIC_PASS: &str = "?8@Rh~]6pe?AkS3";
+            const SUBSONIC_VERSION: &str = "1.16.1";
+            const SUBSONIC_CLIENT: &str = "blind-eternities";
+            const SUBSONIC_FORMAT: &str = "json";
+
+            #[derive(Serialize)]
+            struct NavidromeQuery<'s> {
+                #[serde(rename = "u")]
+                username: &'s str,
+                #[serde(rename = "t")]
+                token: &'s str,
+                #[serde(rename = "s")]
+                salt: &'s str,
+                #[serde(rename = "v")]
+                version: &'static str,
+                #[serde(rename = "c")]
+                client: &'static str,
+                #[serde(rename = "f")]
+                format: &'static str,
+                id: &'s str,
+            }
+            let hex =
+                |n: &mut dyn Iterator<Item = u8>| n.map(|n| format!("{n:02x}")).collect::<String>();
+            let salt = hex(&mut rand::random_iter::<u8>().take(6));
+            let salted_token = {
+                let mut md5 = md5::Md5::new();
+                md5.update(format!("{SUBSONIC_PASS}{salt}"));
+                hex(&mut md5.finalize().iter().copied())
+            };
+            let response = st
+                .apis
+                .navidrome
+                .get(&format!(
+                    "/rest/stream?{}",
+                    request.uri().query().unwrap_or_default()
+                ))
+                .unwrap()
+                .query(&NavidromeQuery {
+                    username: SUBSONIC_USER,
+                    token: &salted_token,
+                    salt: &salt,
+                    version: SUBSONIC_VERSION,
+                    client: SUBSONIC_CLIENT,
+                    format: SUBSONIC_FORMAT,
+                    id: &nav_id,
+                })
+                .headers(std::mem::take(request.headers_mut()))
+                .send()
+                .await
+                .map_err(|e| Error::Io(io::Error::other(e)))?;
+
+            let mut response_builder = Response::builder().status(response.status());
+            *response_builder.headers_mut().unwrap() = response.headers().clone();
+            Ok(response_builder
+                .body(Body::from_stream(response.bytes_stream()))
+                .map_err(|e| Error::Io(io::Error::other(e)))?)
+        }
+        None => {
+            let file = search(&AUDIO_PATH_CACHE, &audio_dir, &id).await?;
+            Ok((StatusCode::OK, file).into_response())
+        }
+    }
 }
 
 #[tracing::instrument(skip(st))]
@@ -115,6 +190,16 @@ async fn add_song(
         let id = SongId::generate();
         let mut path = audio_dir.file(&id);
         path.set_extension(ext);
+        match sqlx::query!("INSERT INTO songs (id) VALUES ($1)", id.as_str())
+            .execute(&*st.db)
+            .await
+        {
+            Ok(_) => {}
+            Err(sqlx::Error::Database(e)) if e.constraint() == Some("songs_unique_id") => {
+                continue;
+            }
+            Err(e) => return Err(e.into()),
+        };
         match File::create_new(path).await {
             Ok(f) => break (id, f),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
@@ -136,6 +221,71 @@ async fn add_song(
         serde_json::to_vec(&metadata).unwrap(),
     )
     .await?;
+
+    Ok((StatusCode::OK, Json(id)))
+}
+
+struct NavidromeId(String);
+
+impl<'de> serde::Deserialize<'de> for NavidromeId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct V;
+        impl<'v> serde::de::Visitor<'v> for V {
+            type Value = NavidromeId;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "navidrome_id")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                self.visit_string(v.to_owned())
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                if v.len() != "6x1qYGK5rD73Z8ZxxwtOs4".len() {
+                    Err(E::custom("invalid length"))
+                } else if !v.bytes().all(|c| c.is_ascii_alphanumeric()) {
+                    Err(E::custom("invalid char"))
+                } else {
+                    Ok(NavidromeId(v))
+                }
+            }
+        }
+        deserializer.deserialize_str(V)
+    }
+}
+
+async fn add_navidrome_song(
+    _: auth::Admin,
+    State(st): State<super::RouterState>,
+    Path(nav_id): Path<NavidromeId>,
+) -> Result<impl IntoResponse, Error> {
+    let id = loop {
+        let id = SongId::generate();
+        match sqlx::query!(
+            "INSERT INTO songs (id, navidrome_id) VALUES ($1, $2)",
+            id.as_str(),
+            nav_id.0
+        )
+        .execute(&*st.db)
+        .await
+        {
+            Ok(_) => break id,
+            Err(sqlx::Error::Database(e)) if e.constraint() == Some("songs_unique_id") => {
+                continue;
+            }
+            Err(e) => return Err(e.into()),
+        };
+    };
 
     Ok((StatusCode::OK, Json(id)))
 }

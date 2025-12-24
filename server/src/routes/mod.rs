@@ -11,6 +11,7 @@ use axum::{Router, extract::FromRef};
 use sqlx::PgPool;
 
 use crate::persistent_connections::ws::SocketIo;
+use common::net::auth_client::Client;
 
 pub mod dirs {
     #[derive(Debug)]
@@ -128,14 +129,20 @@ pub mod dirs {
     }
 }
 
+#[derive(Debug)]
+pub struct Apis {
+    pub navidrome: Client,
+}
+
 #[derive(Debug, Clone, FromRef)]
 pub struct RouterState {
     dirs: Arc<dirs::Directories>,
     db: Arc<PgPool>,
     socket_io: SocketIo,
+    apis: Arc<Apis>,
 }
 
-pub fn router(db: Arc<PgPool>, socket_io: SocketIo, dirs: dirs::Directories) -> Router {
+pub fn router(db: Arc<PgPool>, socket_io: SocketIo, dirs: dirs::Directories, apis: Apis) -> Router {
     Router::new()
         .nest("/admin", admin::routes())
         .nest("/machine", machine_status::routes())
@@ -147,5 +154,6 @@ pub fn router(db: Arc<PgPool>, socket_io: SocketIo, dirs: dirs::Directories) -> 
             db,
             socket_io,
             dirs: Arc::new(dirs),
+            apis: Arc::new(apis),
         })
 }

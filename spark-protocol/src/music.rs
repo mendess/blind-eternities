@@ -81,3 +81,4 @@ pub enum Response {
 }
 
 pub use mlib::queue::Current;
+pub use mlib::queue::UpNext;
