@@ -26,3 +26,8 @@ make_metric!(
         }
     }
 );
+make_metric!(
+    "number of audio streams",
+    playlist_audio_streams(metrics::counter::Counter),
+    { kind: &'static str }
+);

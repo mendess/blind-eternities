@@ -1,4 +1,4 @@
-use crate::{Backend, Error, cache};
+use crate::{Backend, Error, cache, metrics};
 use askama::Template;
 use axum::{
     Router,
@@ -323,12 +323,14 @@ async fn audio(
         .and_then(|h| h.to_str().ok())
         == Some("navidrome")
     {
+        metrics::playlist_audio_streams("navidrome").inc();
         let mut response_builder = Response::builder().status(response.status());
         *response_builder.headers_mut().unwrap() = std::mem::take(response.headers_mut());
         Ok(response_builder
             .body(Body::from_stream(response.bytes_stream()))
             .map_err(|e| Error::Io(io::Error::other(e)))?)
     } else {
+        metrics::playlist_audio_streams("ffmpeg").inc();
         // Spawn ffmpeg to transcode to mp3 (browser-friendly)
         let mut child = Command::new("ffmpeg")
             .args([
