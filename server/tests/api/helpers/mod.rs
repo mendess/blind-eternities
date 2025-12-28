@@ -8,7 +8,7 @@ use std::{
 
 use blind_eternities::{
     auth,
-    configuration::{DbSettings, Settings},
+    configuration::{Apis, DbSettings, Settings},
     routes::dirs::Directories,
     startup,
 };
@@ -103,6 +103,9 @@ impl TestApp {
             },
             persistent_conn_port,
             enable_metrics: true,
+            apis: Apis {
+                navidrome: "http://0.0.0.0:0".parse().unwrap(),
+            },
         };
 
         tracing::debug!("configuring database");
@@ -114,6 +117,7 @@ impl TestApp {
             None,
             connection.clone(),
             Directories::new(conf.data_dir),
+            conf.apis,
         )
         .expect("Failed to bind address");
         tokio::spawn(server.into_future());

@@ -317,53 +317,66 @@ async fn audio(
         .await?
         .error_for_status()?;
 
-    // Spawn ffmpeg to transcode to mp3 (browser-friendly)
-    let mut child = Command::new("ffmpeg")
-        .args([
-            "-i",
-            "pipe:0", // read input from stdin
-            "-f",
-            "mp3", // output format
-            "-codec:a",
-            "libmp3lame",
-            "pipe:1", // write output to stdout
-        ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null()) // silence ffmpeg logs
-        .spawn()?;
-
-    // Write input bytes into ffmpeg stdin
+    if response
+        .headers()
+        .get("x-audio-source")
+        .and_then(|h| h.to_str().ok())
+        == Some("navidrome")
     {
-        let mut stdin = child.stdin.take().unwrap();
-        tokio::spawn(async move {
-            loop {
-                let chunk = match response.chunk().await {
-                    Ok(Some(chunk)) => chunk,
-                    Ok(None) => break,
-                    Err(e) => {
-                        tracing::error!(error = ?e, "failed to read chunk");
-                        break;
-                    }
-                };
-                use tokio::io::AsyncWriteExt;
-                let _ = stdin.write_all(&chunk).await;
-            }
-        });
+        let mut response_builder = Response::builder().status(response.status());
+        *response_builder.headers_mut().unwrap() = std::mem::take(response.headers_mut());
+        Ok(response_builder
+            .body(Body::from_stream(response.bytes_stream()))
+            .map_err(|e| Error::Io(io::Error::other(e)))?)
+    } else {
+        // Spawn ffmpeg to transcode to mp3 (browser-friendly)
+        let mut child = Command::new("ffmpeg")
+            .args([
+                "-i",
+                "pipe:0", // read input from stdin
+                "-f",
+                "mp3", // output format
+                "-codec:a",
+                "libmp3lame",
+                "pipe:1", // write output to stdout
+            ])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null()) // silence ffmpeg logs
+            .spawn()?;
+
+        // Write input bytes into ffmpeg stdin
+        {
+            let mut stdin = child.stdin.take().unwrap();
+            tokio::spawn(async move {
+                loop {
+                    let chunk = match response.chunk().await {
+                        Ok(Some(chunk)) => chunk,
+                        Ok(None) => break,
+                        Err(e) => {
+                            tracing::error!(error = ?e, "failed to read chunk");
+                            break;
+                        }
+                    };
+                    use tokio::io::AsyncWriteExt;
+                    let _ = stdin.write_all(&chunk).await;
+                }
+            });
+        }
+
+        // Stream ffmpeg stdout back to client
+        let stdout = child.stdout.take().unwrap();
+        let stream = ReaderStream::new(stdout).map(|chunk| chunk.map_err(io::Error::other));
+
+        let mut res = Response::new(Body::from_stream(stream));
+        *res.status_mut() = StatusCode::OK;
+        res.headers_mut().insert(
+            header::CONTENT_TYPE,
+            header::HeaderValue::from_static("audio/mpeg"),
+        );
+
+        Ok(res)
     }
-
-    // Stream ffmpeg stdout back to client
-    let stdout = child.stdout.take().unwrap();
-    let stream = ReaderStream::new(stdout).map(|chunk| chunk.map_err(io::Error::other));
-
-    let mut res = Response::new(Body::from_stream(stream));
-    *res.status_mut() = StatusCode::OK;
-    res.headers_mut().insert(
-        header::CONTENT_TYPE,
-        header::HeaderValue::from_static("audio/mpeg"),
-    );
-
-    Ok(res)
 }
 
 pub async fn load_playlist(client: &Backend) -> Result<Marc<mlib::playlist::Playlist>, Error> {

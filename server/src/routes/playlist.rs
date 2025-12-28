@@ -8,7 +8,7 @@ use axum::{
 };
 use common::playlist::{SONG_META_HEADER, SongId, SongMetadata};
 use futures::TryStreamExt;
-use http::{HeaderMap, StatusCode, header};
+use http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header};
 use md5::Digest;
 use serde::Serialize;
 use std::{
@@ -114,7 +114,7 @@ async fn song_audio(
                 md5.update(format!("{SUBSONIC_PASS}{salt}"));
                 hex(&mut md5.finalize().iter().copied())
             };
-            let response = st
+            let mut response = st
                 .apis
                 .navidrome
                 .get(&format!(
@@ -137,7 +137,11 @@ async fn song_audio(
                 .map_err(|e| Error::Io(io::Error::other(e)))?;
 
             let mut response_builder = Response::builder().status(response.status());
-            *response_builder.headers_mut().unwrap() = response.headers().clone();
+            *response_builder.headers_mut().unwrap() = std::mem::take(response.headers_mut());
+            response_builder.headers_mut().unwrap().insert(
+                const { HeaderName::from_static("x-audio-source") },
+                const { HeaderValue::from_static("navidrome") },
+            );
             Ok(response_builder
                 .body(Body::from_stream(response.bytes_stream()))
                 .map_err(|e| Error::Io(io::Error::other(e)))?)
