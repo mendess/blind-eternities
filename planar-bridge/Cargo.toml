@@ -8,7 +8,7 @@ askama.workspace = true
 axum-extra = { workspace = true, features = ["query"] }
 axum.workspace = true
 clap.workspace = true
-common = { path = "../common", features = ["metrics"] }
+common = { path = "../common", features = ["metrics", "playlist"] }
 config.workspace = true
 futures.workspace = true
 http.workspace = true

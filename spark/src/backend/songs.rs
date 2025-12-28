@@ -1,9 +1,11 @@
-use anyhow::Context;
+use anyhow::{Context, bail};
 use common::{
-    net::AuthenticatedClient,
-    playlist::{SONG_META_HEADER, SongId, SongMetadata},
+    domain::playlist::{SONG_META_HEADER, SongId, SongMetadata},
+    net::{AuthenticatedClient, auth_client::Client},
+    subsonic::{self, SongResult},
 };
 use lofty::{file::TaggedFileExt as _, picture::Picture, probe::Probe};
+use mlib::{item::link::HasId as _, playlist::PartialSearchResult};
 use reqwest::header::{self, HeaderValue};
 use std::{
     io::Write as _,
@@ -13,6 +15,93 @@ use std::{
     time::Duration,
 };
 use tokio::{fs::File, process::Command};
+
+pub fn pick<T: std::fmt::Display>(items: &[T]) -> Option<&T> {
+    println!("Multiple matches found:");
+    for (i, item) in items.iter().enumerate() {
+        println!(" - [{i}] {item}");
+    }
+
+    let index: usize = loop {
+        eprint!("Pick: ");
+        let mut buf = String::new();
+        std::io::stdin().read_line(&mut buf).ok()?;
+        let buf = buf.trim();
+        if buf.is_empty() {
+            return None;
+        }
+        match buf.parse() {
+            Ok(i) => break i,
+            Err(_) => {
+                eprintln!("Invalid index")
+            }
+        }
+    };
+
+    Some(&items[index])
+}
+
+#[tracing::instrument(skip(client))]
+pub async fn upgrade_song(client: AuthenticatedClient, title: String) -> anyhow::Result<()> {
+    let nav_id = {
+        tracing::info!("searching for song in navidrome");
+        let client = Client::new("http://192.168.42.2:4533".parse().unwrap())?;
+
+        let mut songs = subsonic::search(&client, &title).await?;
+        if songs.len() == 1 {
+            songs.remove(0).id
+        } else {
+            struct DisplaySong(SongResult);
+            impl std::fmt::Display for DisplaySong {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, "{} - {} - {}", self.0.title, self.0.album, self.0.artist)
+                }
+            }
+            let songs = songs.into_iter().map(DisplaySong).collect::<Vec<_>>();
+            let Some(song) = pick(&songs) else {
+                return Ok(());
+            };
+            song.0.id.clone()
+        }
+    };
+
+    let playlist = mlib::playlist::Playlist::load().await?;
+    let id = {
+        tracing::info!("searching for song in playlist");
+        match playlist.partial_name_search(title.split_whitespace()) {
+            PartialSearchResult::None => {
+                bail!("no song matches {title:?}")
+            }
+            PartialSearchResult::One(s) => s,
+            PartialSearchResult::Many(items) => {
+                let Some(pick) = pick(&items) else {
+                    return Ok(());
+                };
+                let PartialSearchResult::One(song) =
+                    playlist.partial_name_search([pick.as_str()].into_iter())
+                else {
+                    panic!("this should always result in one result")
+                };
+
+                song
+            }
+        }
+    };
+
+    tracing::info!(?nav_id, id = ?id.link.id(), "upgrading song");
+
+    client
+        .patch(&format!(
+            "/playlist/song/navidrome/{}/{}",
+            id.link.id().as_str(),
+            nav_id.as_str(),
+        ))?
+        .send()
+        .await?
+        .error_for_status()?;
+
+    Ok(())
+}
 
 #[tracing::instrument(skip(client))]
 pub async fn add_song(

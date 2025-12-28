@@ -30,7 +30,7 @@ fn main() {
         duration: Duration::from_secs(60),
         categories: vec!["category".into()],
         index: 1,
-        next: Some("next song".into()),
+        next: None,
     };
     display(
         [Command::Reload, Command::Version, Command::Heartbeat]

@@ -461,7 +461,6 @@ dependencies = [
  "http 1.3.1",
  "httpdate",
  "itertools",
- "md-5",
  "mime_guess",
  "prometheus-client",
  "proptest",
@@ -607,7 +606,7 @@ checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 [[package]]
 name = "cli-daemon"
 version = "0.1.2"
-source = "git+https://github.com/mendess/m?rev=c34933ba4b3114a38b00136da59a0ee846ec831d#c34933ba4b3114a38b00136da59a0ee846ec831d"
+source = "git+https://github.com/mendess/m?rev=7c679a077691e15f877607a587347ecc71b4ecb5#7c679a077691e15f877607a587347ecc71b4ecb5"
 dependencies = [
  "futures-util",
  "namespaced-tmp",
@@ -635,6 +634,7 @@ dependencies = [
  "fake",
  "http 1.3.1",
  "itertools",
+ "md-5",
  "once_cell",
  "parking_lot",
  "petgraph",
@@ -2329,8 +2329,8 @@ dependencies = [
 
 [[package]]
 name = "mlib"
-version = "0.20.2"
-source = "git+https://github.com/mendess/m?rev=c34933ba4b3114a38b00136da59a0ee846ec831d#c34933ba4b3114a38b00136da59a0ee846ec831d"
+version = "0.20.3"
+source = "git+https://github.com/mendess/m?rev=7c679a077691e15f877607a587347ecc71b4ecb5#7c679a077691e15f877607a587347ecc71b4ecb5"
 dependencies = [
  "arc-swap",
  "base64 0.22.1",
@@ -3731,7 +3731,7 @@ dependencies = [
 
 [[package]]
 name = "spark"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "arrayvec",

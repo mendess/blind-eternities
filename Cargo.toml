@@ -35,6 +35,7 @@ humantime = "2.3.0"
 itertools = "0.14.0"
 lofty = "0.22.4"
 mappable-rc = "0.1.1"
+md-5 = "0.10.6"
 mime_guess = "2.0.5"
 namespaced-tmp.git = "https://github.com/mendess/namespaced-tmp"
 once_cell = "1.21.3"
@@ -55,8 +56,8 @@ socketioxide = "0.17"
 tempfile = "3.23.0"
 thiserror = "2"
 tokio = { version = "1.47.1", default-features = false }
-tokio-util = "0.7.16"
 tokio-stream = "0.1.17"
+tokio-util = "0.7.16"
 tower = "0.5"
 tower-http = "0.5"
 tracing = "0.1.41"
@@ -88,7 +89,7 @@ features = [
 [workspace.dependencies.mlib]
 git = "https://github.com/mendess/m"
 default-features = false
-rev = "c34933ba4b3114a38b00136da59a0ee846ec831d"
+rev = "7c679a077691e15f877607a587347ecc71b4ecb5"
 
 [profile.release]
 debug = 2

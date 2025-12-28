@@ -314,8 +314,13 @@ async fn audio(
         .get(&format!("/playlist/song/audio/{}", query.0.id))
         .expect("url should always parse")
         .send()
-        .await?
-        .error_for_status()?;
+        .await?;
+
+    if let Err(error) = response.error_for_status_ref() {
+        let body = response.text().await?;
+        tracing::error!(?error, %body, "audio request failed");
+        return Err(error.into());
+    };
 
     if response
         .headers()

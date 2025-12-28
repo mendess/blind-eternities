@@ -2,6 +2,8 @@ pub mod hostname;
 pub mod mac;
 pub mod machine_status;
 pub mod music_session;
+#[cfg(feature = "playlist")]
+pub mod playlist;
 
 pub use hostname::Hostname;
 pub use mac::MacAddr;
