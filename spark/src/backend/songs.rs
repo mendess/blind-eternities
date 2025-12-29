@@ -87,7 +87,7 @@ pub async fn upgrade_song(
             .json()
             .await?;
         if navidrome_id.is_some() {
-            bail!("already upgrading, skipping");
+            bail!("already upgraded, skipping");
         }
     }
 

@@ -24,12 +24,12 @@ COPY ./spark-protocol/Cargo.toml ./spark-protocol/Cargo.toml
 COPY ./common/src ./common/src
 COPY ./spark-protocol/src ./spark-protocol/src
 
-COPY ./server/.sqlx ./server/.sqlx
 RUN cargo build -p blind-eternities --release --bin blind-eternities
 RUN rm -r ./server/src
 
 # copy real source
 COPY ./server/src ./server/src
+COPY ./server/.sqlx ./server/.sqlx
 
 # build for release
 RUN rm ./target/release/blind-eternities*
