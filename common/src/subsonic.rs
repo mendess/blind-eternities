@@ -109,7 +109,7 @@ pub async fn search(client: &Client, query: &str) -> reqwest::Result<Vec<SongRes
 
     #[derive(Deserialize)]
     struct SearchResult {
-        song: Vec<SongResult>,
+        song: Option<Vec<SongResult>>,
     }
 
     let res = client
@@ -125,5 +125,9 @@ pub async fn search(client: &Client, query: &str) -> reqwest::Result<Vec<SongRes
         .json::<Response>()
         .await?;
 
-    Ok(res.subsonic_response.search_result_2.song)
+    Ok(res
+        .subsonic_response
+        .search_result_2
+        .song
+        .unwrap_or_default())
 }

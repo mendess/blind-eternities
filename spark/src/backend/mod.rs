@@ -39,8 +39,8 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
         } => {
             songs::add_song(client, title, artist, uri, thumb).await?;
         }
-        crate::Backend::UpgradeSong { title } => {
-            songs::upgrade_song(client, title).await?;
+        crate::Backend::UpgradeSong { title, strict } => {
+            songs::upgrade_song(client, title, strict).await?;
         }
     }
     Ok(())

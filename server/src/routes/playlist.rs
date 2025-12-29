@@ -140,9 +140,21 @@ async fn song_meta(
     State(st): State<super::RouterState>,
     Path(id): Path<SongId>,
 ) -> Result<impl IntoResponse, Error> {
-    let metadata = st.dirs.music().meta().file(&id).with_extension("json");
+    let mut metadata = serde_json::from_str::<serde_json::Value>(
+        &tokio::fs::read_to_string(st.dirs.music().meta().file(&id).with_extension("json")).await?,
+    )
+    .map_err(io::Error::from)?;
+    let nav_id = sqlx::query_scalar!("SELECT navidrome_id FROM songs WHERE id = $1", id.as_str())
+        .fetch_one(&*st.db)
+        .await?;
+    if let Some(nav_id) = nav_id {
+        metadata
+            .as_object_mut()
+            .unwrap()
+            .insert("navidrome_id".into(), serde_json::Value::String(nav_id));
+    }
 
-    Ok((StatusCode::OK, named_file(&metadata).await?))
+    Ok((StatusCode::OK, Json(metadata)))
 }
 
 #[tracing::instrument(skip(st, song))]

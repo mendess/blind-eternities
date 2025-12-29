@@ -1,12 +1,13 @@
 use anyhow::{Context, bail};
 use common::{
-    domain::playlist::{SONG_META_HEADER, SongId, SongMetadata},
+    domain::playlist::{NavidromeId, SONG_META_HEADER, SongId, SongMetadata},
     net::{AuthenticatedClient, auth_client::Client},
     subsonic::{self, SongResult},
 };
 use lofty::{file::TaggedFileExt as _, picture::Picture, probe::Probe};
 use mlib::{item::link::HasId as _, playlist::PartialSearchResult};
 use reqwest::header::{self, HeaderValue};
+use serde::Deserialize;
 use std::{
     io::Write as _,
     ops::Not,
@@ -42,29 +43,11 @@ pub fn pick<T: std::fmt::Display>(items: &[T]) -> Option<&T> {
 }
 
 #[tracing::instrument(skip(client))]
-pub async fn upgrade_song(client: AuthenticatedClient, title: String) -> anyhow::Result<()> {
-    let nav_id = {
-        tracing::info!("searching for song in navidrome");
-        let client = Client::new("http://192.168.42.2:4533".parse().unwrap())?;
-
-        let mut songs = subsonic::search(&client, &title).await?;
-        if songs.len() == 1 {
-            songs.remove(0).id
-        } else {
-            struct DisplaySong(SongResult);
-            impl std::fmt::Display for DisplaySong {
-                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    write!(f, "{} - {} - {}", self.0.title, self.0.album, self.0.artist)
-                }
-            }
-            let songs = songs.into_iter().map(DisplaySong).collect::<Vec<_>>();
-            let Some(song) = pick(&songs) else {
-                return Ok(());
-            };
-            song.0.id.clone()
-        }
-    };
-
+pub async fn upgrade_song(
+    client: AuthenticatedClient,
+    title: String,
+    strict: bool,
+) -> anyhow::Result<()> {
     let playlist = mlib::playlist::Playlist::load().await?;
     let id = {
         tracing::info!("searching for song in playlist");
@@ -84,6 +67,50 @@ pub async fn upgrade_song(client: AuthenticatedClient, title: String) -> anyhow:
                 };
 
                 song
+            }
+        }
+    };
+
+    if strict {
+        #[derive(Deserialize)]
+        struct NavId {
+            navidrome_id: Option<NavidromeId>,
+        }
+        let NavId { navidrome_id } = client
+            .get(&format!(
+                "/playlist/song/metadata/{}",
+                id.link.id().as_str()
+            ))?
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        if navidrome_id.is_some() {
+            bail!("already upgrading, skipping");
+        }
+    }
+
+    let nav_id = {
+        tracing::info!("searching for song in navidrome");
+        let client = Client::new("http://192.168.42.2:4533".parse().unwrap())?;
+
+        let mut songs = subsonic::search(&client, &title).await?;
+        match songs.len() {
+            0 => bail!("song '{title}' not in navidrome"),
+            1 => songs.remove(0).id,
+            _ => {
+                struct DisplaySong(SongResult);
+                impl std::fmt::Display for DisplaySong {
+                    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(f, "{} - {} - {}", self.0.title, self.0.album, self.0.artist)
+                    }
+                }
+                let songs = songs.into_iter().map(DisplaySong).collect::<Vec<_>>();
+                let Some(song) = pick(&songs) else {
+                    return Ok(());
+                };
+                song.0.id.clone()
             }
         }
     };

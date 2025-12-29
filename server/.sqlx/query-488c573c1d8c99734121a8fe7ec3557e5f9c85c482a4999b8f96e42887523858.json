@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT navidrome_id FROM songs WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "navidrome_id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bpchar"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "488c573c1d8c99734121a8fe7ec3557e5f9c85c482a4999b8f96e42887523858"
+}

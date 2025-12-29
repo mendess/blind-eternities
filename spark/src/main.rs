@@ -90,9 +90,7 @@ enum Backend {
         show_link: bool,
     },
     /// delete a music auth token
-    DeleteMusicSession {
-        session: String,
-    },
+    DeleteMusicSession { session: String },
     /// add a new song file
     AddSong {
         #[arg(short, long)]
@@ -105,6 +103,8 @@ enum Backend {
     },
     UpgradeSong {
         title: String,
+        #[arg(short, long)]
+        strict: bool,
     },
 }
 
