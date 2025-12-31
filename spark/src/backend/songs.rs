@@ -4,6 +4,7 @@ use common::{
     net::{AuthenticatedClient, auth_client::Client},
     subsonic::{self, SongResult},
 };
+use futures::StreamExt;
 use lofty::{file::TaggedFileExt as _, picture::Picture, probe::Probe};
 use mlib::{item::link::HasId as _, playlist::PartialSearchResult};
 use reqwest::header::{self, HeaderValue};
@@ -15,7 +16,7 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use tokio::{fs::File, process::Command};
+use tokio::{fs::File, io::AsyncWriteExt, process::Command};
 
 pub fn pick<T: std::fmt::Display>(items: &[T]) -> Option<&T> {
     println!("Multiple matches found:");
@@ -96,7 +97,7 @@ pub async fn upgrade_song(
         let client = Client::new("http://192.168.42.2:4533".parse().unwrap())?;
 
         let mut songs = subsonic::search(&client, &title).await?;
-        match songs.len() {
+        let nav_id = match songs.len() {
             0 => bail!("song '{title}' not in navidrome"),
             1 => songs.remove(0).id,
             _ => {
@@ -112,7 +113,40 @@ pub async fn upgrade_song(
                 };
                 song.0.id.clone()
             }
+        };
+        let stream =
+            subsonic::stream(&client, &nav_id, Default::default(), Default::default()).await?;
+        let mut mpv = Command::new("mpv")
+            .arg("-")
+            .stdin(std::process::Stdio::piped())
+            .spawn()?;
+        let mut stdin = mpv.stdin.take().unwrap();
+        tokio::spawn(async move {
+            let mut stream = stream.bytes_stream();
+            while let Some(bytes) = stream.next().await {
+                match bytes {
+                    Ok(b) => {
+                        if let Err(e) = stdin.write_all(&b).await {
+                            tracing::error!(error = ?e, "failed to write to mpv");
+                            if let std::io::ErrorKind::BrokenPipe = e.kind() {
+                                break;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!(error = ?e, "failed to read bytes from subsonic");
+                    }
+                }
+            }
+        });
+        let _ = mpv.wait().await?;
+        let mut buf = String::new();
+        eprint!("Correct? [Y/n] ");
+        std::io::stdin().read_line(&mut buf)?;
+        if let "n" | "N" = buf.trim() {
+            return Ok(());
         }
+        nav_id
     };
 
     tracing::info!(?nav_id, id = ?id.link.id(), "upgrading song");
