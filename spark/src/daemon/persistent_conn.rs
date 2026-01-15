@@ -4,7 +4,7 @@ use anyhow::Context;
 use common::{domain::Hostname, net::AuthenticatedClient, ws};
 use futures::FutureExt;
 use rust_socketio::{
-    AckId, Payload,
+    Payload,
     asynchronous::{Client, ClientBuilder},
 };
 use serde_json::json;
@@ -14,7 +14,8 @@ use crate::{config::Config, util::get_hostname};
 
 use super::handle_message;
 
-async fn handler(payload: Payload, socket: Client, ack: AckId) {
+#[tracing::instrument(skip(socket))]
+async fn handler(payload: Payload, socket: Client, ack: i32) {
     let [command]: [spark_protocol::Command; 1] = match payload {
         Payload::Text(values) => match serde_json::from_value(serde_json::Value::Array(values)) {
             Ok(v) => v,
@@ -39,6 +40,7 @@ async fn handler(payload: Payload, socket: Client, ack: AckId) {
     }
 }
 
+#[tracing::instrument(skip(token))]
 async fn run(config: &Config, hostname: &Hostname, token: uuid::Uuid) -> anyhow::Result<()> {
     let socket = ClientBuilder::new(format!("{}?h={}", config.backend_domain, hostname))
         .auth(json! {{ "token": token.to_string() }})
@@ -50,7 +52,8 @@ async fn run(config: &Config, hostname: &Hostname, token: uuid::Uuid) -> anyhow:
             async move { tracing::error!(error = ?err, "socket io error") }.boxed()
         })
         .connect()
-        .await?;
+        .await
+        .context("failed to connect to ws endpoint")?;
 
     std::future::pending::<()>().await;
     socket.disconnect().await?;
