@@ -6,7 +6,10 @@ use common::{
 };
 use futures::StreamExt;
 use lofty::{file::TaggedFileExt as _, picture::Picture, probe::Probe};
-use mlib::{item::link::HasId as _, playlist::PartialSearchResult};
+use mlib::{
+    item::link::{BangerId, HasId as _},
+    playlist::PartialSearchResult,
+};
 use reqwest::header::{self, HeaderValue};
 use serde::Deserialize;
 use std::{
@@ -47,30 +50,35 @@ pub fn pick<T: std::fmt::Display>(items: &[T]) -> Option<&T> {
 pub async fn upgrade_song(
     client: AuthenticatedClient,
     title: String,
+    id: Option<&BangerId>,
     strict: bool,
 ) -> anyhow::Result<()> {
     let playlist = mlib::playlist::Playlist::load().await?;
-    let id = {
-        tracing::info!("searching for song in playlist");
-        match playlist.partial_name_search(title.split_whitespace()) {
-            PartialSearchResult::None => {
-                bail!("no song matches {title:?}")
-            }
-            PartialSearchResult::One(s) => s,
-            PartialSearchResult::Many(items) => {
-                let Some(pick) = pick(&items) else {
-                    return Ok(());
-                };
-                let PartialSearchResult::One(song) =
-                    playlist.partial_name_search([pick.as_str()].into_iter())
-                else {
-                    panic!("this should always result in one result")
-                };
+    let song = match id.and_then(|id| playlist.find_by_id(id)) {
+        Some(song) => song,
+        None => {
+            tracing::info!("searching for song in playlist");
+            match playlist.partial_name_search(title.split_whitespace()) {
+                PartialSearchResult::None => {
+                    bail!("no song matches {title:?}")
+                }
+                PartialSearchResult::One(s) => s.get(),
+                PartialSearchResult::Many(items) => {
+                    let Some(pick) = pick(&items) else {
+                        return Ok(());
+                    };
+                    let PartialSearchResult::One(song) =
+                        playlist.partial_name_search([pick.as_str()].into_iter())
+                    else {
+                        panic!("this should always result in one result")
+                    };
 
-                song
+                    song.get()
+                }
             }
         }
     };
+    tracing::info!(%song, "found in playlist");
 
     if strict {
         #[derive(Deserialize)]
@@ -80,7 +88,7 @@ pub async fn upgrade_song(
         let NavId { navidrome_id } = client
             .get(&format!(
                 "/playlist/song/metadata/{}",
-                id.link.id().as_str()
+                song.link.id().as_str()
             ))?
             .send()
             .await?
@@ -149,12 +157,12 @@ pub async fn upgrade_song(
         nav_id
     };
 
-    tracing::info!(?nav_id, id = ?id.link.id(), "upgrading song");
+    tracing::info!(?nav_id, id = ?song.link.id(), "upgrading song");
 
     client
         .patch(&format!(
             "/playlist/song/navidrome/{}/{}",
-            id.link.id().as_str(),
+            song.link.id().as_str(),
             nav_id.as_str(),
         ))?
         .send()

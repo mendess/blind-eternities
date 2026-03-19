@@ -104,6 +104,8 @@ enum Backend {
     UpgradeSong {
         title: String,
         #[arg(short, long)]
+        id: Option<String>,
+        #[arg(short, long)]
         strict: bool,
     },
 }

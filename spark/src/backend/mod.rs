@@ -6,6 +6,7 @@ use common::{
     domain::{Hostname, music_session::ExpiresAt},
     net::AuthenticatedClient,
 };
+use mlib::item::link::BangerId;
 use std::time::Duration;
 
 pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Result<()> {
@@ -39,8 +40,8 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
         } => {
             songs::add_song(client, title, artist, uri, thumb).await?;
         }
-        crate::Backend::UpgradeSong { title, strict } => {
-            songs::upgrade_song(client, title, strict).await?;
+        crate::Backend::UpgradeSong { title, id, strict } => {
+            songs::upgrade_song(client, title, id.as_deref().map(BangerId::new), strict).await?;
         }
     }
     Ok(())
