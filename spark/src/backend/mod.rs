@@ -43,6 +43,9 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
         crate::Backend::UpgradeSong { title, id, strict } => {
             songs::upgrade_song(client, title, id.as_deref().map(BangerId::new), strict).await?;
         }
+        crate::Backend::SyncPlaylists => {
+            songs::sync_playlists(client).await?;
+        }
     }
     Ok(())
 }

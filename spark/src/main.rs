@@ -90,24 +90,34 @@ enum Backend {
         show_link: bool,
     },
     /// delete a music auth token
-    DeleteMusicSession { session: String },
+    DeleteMusicSession {
+        session: String,
+    },
     /// add a new song file
     AddSong {
+        /// The song's title
         #[arg(short, long)]
         title: String,
+        /// The uri of the song to add
         uri: String,
         #[arg(short, long)]
+        /// The artist
         artist: Option<String>,
         #[arg(long)]
+        /// Path to the thumbnail
         thumb: Option<PathBuf>,
     },
     UpgradeSong {
+        /// The song's title to search navidrome for
         title: String,
         #[arg(short, long)]
+        /// The id of the song in blind eternities
         id: Option<String>,
         #[arg(short, long)]
+        /// If true only upgrades if the song is not already linked to navidrome
         strict: bool,
     },
+    SyncPlaylists,
 }
 
 async fn app(args: Args) -> anyhow::Result<ExitStatus> {

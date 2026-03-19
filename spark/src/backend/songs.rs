@@ -1,8 +1,8 @@
 use anyhow::{Context, bail};
 use common::{
     domain::playlist::{NavidromeId, SONG_META_HEADER, SongId, SongMetadata},
-    net::{AuthenticatedClient, auth_client::Client},
-    subsonic::{self, SongResult},
+    net::{AuthenticatedClient, auth_client},
+    subsonic::{self, CreatePlaylist, SongResult},
 };
 use futures::StreamExt;
 use lofty::{file::TaggedFileExt as _, picture::Picture, probe::Probe};
@@ -13,6 +13,7 @@ use mlib::{
 use reqwest::header::{self, HeaderValue};
 use serde::Deserialize;
 use std::{
+    collections::HashMap,
     io::Write as _,
     ops::Not,
     os::unix::ffi::OsStrExt,
@@ -20,6 +21,9 @@ use std::{
     time::Duration,
 };
 use tokio::{fs::File, io::AsyncWriteExt, process::Command};
+
+const M_PLAYLIST_NAME: &str = "m";
+const M_PLAYLIST_COMMENT: &str = "the m playlist. strictly bangers";
 
 pub fn pick<T: std::fmt::Display>(items: &[T]) -> Option<&T> {
     println!("Multiple matches found:");
@@ -46,6 +50,24 @@ pub fn pick<T: std::fmt::Display>(items: &[T]) -> Option<&T> {
     Some(&items[index])
 }
 
+async fn navidrome_id_of(
+    client: &AuthenticatedClient,
+    banger: &BangerId,
+) -> anyhow::Result<Option<NavidromeId>> {
+    #[derive(Deserialize)]
+    struct NavId {
+        navidrome_id: Option<NavidromeId>,
+    }
+    let NavId { navidrome_id } = client
+        .get(&format!("/playlist/song/metadata/{}", banger.as_str(),))?
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    Ok(navidrome_id)
+}
+
 #[tracing::instrument(skip(client))]
 pub async fn upgrade_song(
     client: AuthenticatedClient,
@@ -53,6 +75,8 @@ pub async fn upgrade_song(
     id: Option<&BangerId>,
     strict: bool,
 ) -> anyhow::Result<()> {
+    let navidrome_client = subsonic::client();
+
     let playlist = mlib::playlist::Playlist::load().await?;
     let song = match id.and_then(|id| playlist.find_by_id(id)) {
         Some(song) => song,
@@ -80,31 +104,13 @@ pub async fn upgrade_song(
     };
     tracing::info!(%song, "found in playlist");
 
-    if strict {
-        #[derive(Deserialize)]
-        struct NavId {
-            navidrome_id: Option<NavidromeId>,
-        }
-        let NavId { navidrome_id } = client
-            .get(&format!(
-                "/playlist/song/metadata/{}",
-                song.link.id().as_str()
-            ))?
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
-        if navidrome_id.is_some() {
-            bail!("already upgraded, skipping");
-        }
+    if strict && navidrome_id_of(&client, song.link.id()).await?.is_some() {
+        bail!("already upgraded, skipping");
     }
 
     let nav_id = {
         tracing::info!("searching for song in navidrome");
-        let client = Client::new("http://192.168.42.2:4533".parse().unwrap())?;
-
-        let mut songs = subsonic::search(&client, &title).await?;
+        let mut songs = subsonic::search(&navidrome_client, &title).await?;
         let nav_id = match songs.len() {
             0 => bail!("song '{title}' not in navidrome"),
             1 => songs.remove(0).id,
@@ -122,8 +128,13 @@ pub async fn upgrade_song(
                 song.0.id.clone()
             }
         };
-        let stream =
-            subsonic::stream(&client, &nav_id, Default::default(), Default::default()).await?;
+        let stream = subsonic::stream(
+            &navidrome_client,
+            &nav_id,
+            Default::default(),
+            Default::default(),
+        )
+        .await?;
         let mut mpv = Command::new("mpv")
             .arg("-")
             .stdin(std::process::Stdio::piped())
@@ -168,6 +179,88 @@ pub async fn upgrade_song(
         .send()
         .await?
         .error_for_status()?;
+
+    subsonic::add_to_playlist(
+        &navidrome_client,
+        &get_m_playlist(&navidrome_client).await?,
+        &nav_id,
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn get_m_playlist(client: &auth_client::Client) -> anyhow::Result<NavidromeId> {
+    let m_playlist = subsonic::managed_playlists(client)
+        .await?
+        .into_iter()
+        .find(|p| p.name == M_PLAYLIST_NAME);
+    let id = match m_playlist {
+        Some(id) => id.id,
+        None => {
+            tracing::info!("Creating m playlist");
+            subsonic::create_playlist(
+                client,
+                CreatePlaylist {
+                    name: M_PLAYLIST_NAME,
+                    comment: M_PLAYLIST_COMMENT,
+                    public: true,
+                },
+            )
+            .await?
+        }
+    };
+    Ok(id)
+}
+
+#[tracing::instrument(skip(client))]
+pub async fn sync_playlists(client: AuthenticatedClient) -> anyhow::Result<()> {
+    let client = &client;
+    let playlist = futures::stream::iter(
+        mlib::playlist::Playlist::load()
+            .await?
+            .songs
+            .into_iter()
+            .map(|s| async move {
+                navidrome_id_of(client, s.link.id())
+                    .await
+                    .unwrap()
+                    .map(|id| (id, s))
+            }),
+    )
+    .buffer_unordered(usize::MAX)
+    .filter_map(std::future::ready)
+    .collect::<HashMap<_, _>>()
+    .await;
+    let subsonic_client = subsonic::client();
+    let playlist_id = get_m_playlist(&subsonic_client).await?;
+    let subsonic_playlist = subsonic::get_playlist_tracks(&subsonic_client, &playlist_id)
+        .await?
+        .into_iter()
+        .map(|s| (s.id.clone(), s))
+        .collect::<HashMap<NavidromeId, _>>();
+
+    for (local, local_song) in &playlist {
+        if !subsonic_playlist.contains_key(local) {
+            tracing::info!(
+                "Adding {} ({}) to playlist",
+                local_song.name,
+                local.as_str()
+            );
+            subsonic::add_to_playlist(&subsonic_client, &playlist_id, local).await?;
+        }
+    }
+
+    for (remote, remote_song) in &subsonic_playlist {
+        if !playlist.contains_key(remote) {
+            tracing::info!(
+                "Removing {} ({}) from playlist",
+                remote_song.title,
+                remote.as_str()
+            );
+            subsonic::remove_from_playlist(&subsonic_client, &playlist_id, remote).await?;
+        }
+    }
 
     Ok(())
 }

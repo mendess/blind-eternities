@@ -68,7 +68,7 @@ pub struct SongMetadata {
     pub duration: Duration,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NavidromeId(String);
 
 impl NavidromeId {

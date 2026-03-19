@@ -29,8 +29,8 @@ uuid.workspace = true
 whoami.workspace = true
 tower = { workspace = true, optional = true }
 axum = { workspace = true, optional = true }
-http = { workspace = true, optional = true }
 md-5 = { workspace = true }
+http = { workspace = true, optional = true }
 
 [dependencies.tracing-subscriber]
 workspace = true
@@ -48,8 +48,10 @@ features = ["json"]
 fake.workspace = true
 proptest.workspace = true
 rand.workspace = true
+tokio = { workspace = true, features = ["macros"] }
 
 [features]
+default = ["sqlx", "metrics", "subsonic", "playlist"]
 sqlx = ["dep:sqlx"]
 metrics = [
     "dep:prometheus-client",
@@ -59,5 +61,10 @@ metrics = [
     "dep:axum-prometheus"
 ]
 playlist = [
+    "dep:http"
+]
+subsonic = [
+    "playlist",
+
     "dep:http"
 ]
