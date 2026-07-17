@@ -1,4 +1,4 @@
-use crate::util;
+use crate::{RouterState, util};
 use askama::Template;
 use axum::{
     Router,
@@ -6,11 +6,10 @@ use axum::{
     response::{Html, IntoResponse},
     routing::get,
 };
-use common::net::auth_client::Client;
 use http::StatusCode;
 use std::io;
 
-pub fn routes() -> Router<Client> {
+pub fn routes() -> Router<RouterState> {
     Router::new()
         .route("/", get(index))
         .route("/{filename}", get(proxy_file::<false>))
@@ -48,17 +47,24 @@ struct Index {
     files: Vec<String>,
 }
 
-pub async fn index(client: State<Client>) -> Result<impl IntoResponse, Error> {
+pub async fn index(state: State<RouterState>) -> Result<impl IntoResponse, Error> {
     Ok(Html(
         Index {
-            files: client.get("/files").unwrap().send().await?.json().await?,
+            files: state
+                .client
+                .get("/files")
+                .unwrap()
+                .send()
+                .await?
+                .json()
+                .await?,
         }
         .render()?,
     ))
 }
 
 pub async fn proxy_file<const UNLISTED: bool>(
-    client: State<Client>,
+    state: State<RouterState>,
     Path(filename): Path<String>,
 ) -> Result<impl IntoResponse, Error> {
     let path = if UNLISTED {
@@ -67,6 +73,6 @@ pub async fn proxy_file<const UNLISTED: bool>(
         format!("/files/{filename}")
     };
     Ok(util::proxy_response(
-        client.get(&path).unwrap().send().await?,
+        state.client.get(&path).unwrap().send().await?,
     )?)
 }

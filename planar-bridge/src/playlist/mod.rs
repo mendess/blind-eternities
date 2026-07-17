@@ -1,4 +1,4 @@
-use crate::{Backend, Error, cache, metrics, util};
+use crate::{Error, RouterState, cache, metrics, util};
 use askama::Template;
 use axum::{
     Router,
@@ -19,7 +19,7 @@ use std::{collections::HashSet, io, process::Stdio, time::Duration};
 use tokio::process::Command;
 use tokio_util::io::ReaderStream;
 
-pub fn routes() -> Router<Backend> {
+pub fn routes() -> Router<RouterState> {
     Router::new()
         .route("/", get(index))
         .route("/playlist", get(playlist))
@@ -113,7 +113,7 @@ mod fields {
 }
 
 async fn playlist(
-    backend: State<Backend>,
+    backend: State<RouterState>,
     Query(query): Query<UserAction>,
 ) -> Result<impl IntoResponse, Error> {
     let mut filter = query
@@ -302,11 +302,12 @@ struct AudioQuery {
 }
 
 async fn audio(
-    client: State<Backend>,
+    state: State<RouterState>,
     query: Path<AudioQuery>,
 ) -> Result<impl IntoResponse, Error> {
     // Fetch the original .mka file into memory
-    let mut response = client
+    let mut response = state
+        .client
         .get(&format!("/playlist/song/audio/{}", query.0.id))
         .expect("url should always parse")
         .send()
@@ -363,7 +364,7 @@ async fn audio(
             });
         }
 
-        // Stream ffmpeg stdout back to client
+        // Stream ffmpeg stdout back to state
         let stdout = child.stdout.take().unwrap();
         let stream = ReaderStream::new(stdout).map(|chunk| chunk.map_err(io::Error::other));
 
@@ -378,16 +379,16 @@ async fn audio(
     }
 }
 
-pub async fn load_playlist(client: &Backend) -> Result<Marc<mlib::playlist::Playlist>, Error> {
+pub async fn load_playlist(state: &RouterState) -> Result<Marc<mlib::playlist::Playlist>, Error> {
     const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
 
-    async fn init(client: &Backend) -> Result<mlib::playlist::Playlist, Error> {
-        let playlist_request = client.get("/playlist").unwrap().send().await?;
+    async fn init(state: &RouterState) -> Result<mlib::playlist::Playlist, Error> {
+        let playlist_request = state.client.get("/playlist").unwrap().send().await?;
 
         let text = playlist_request.text().await.map_err(io::Error::other)?;
 
         Ok(mlib::playlist::Playlist::load_from_str(&text)?)
     }
 
-    cache::get_or_init(Default::default(), || init(client), ONE_HOUR).await
+    cache::get_or_init(Default::default(), || init(state), ONE_HOUR).await
 }

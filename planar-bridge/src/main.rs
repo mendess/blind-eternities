@@ -1,5 +1,6 @@
 mod cache;
 mod files;
+mod games;
 mod metrics;
 mod music;
 mod playlist;
@@ -69,6 +70,7 @@ struct Config {
     backend_url: Url,
     #[serde(default = "default_metrics_port")]
     metrics_port: u16,
+    games: games::Config,
 }
 
 fn default_metrics_port() -> u16 {
@@ -95,35 +97,51 @@ struct Args {
     config: Option<String>,
 }
 
+#[derive(Clone)]
+struct RouterState {
+    client: Client,
+}
+
 #[tokio::main]
 async fn main() -> io::Result<()> {
     let Args { config } = Args::parse();
     let config = load_config(config.as_deref()).map_err(io::Error::other)?;
 
     init_subscriber(get_subscriber_no_bunny(
-        config.log_level.unwrap_or_else(|| "info".to_string()),
+        config.log_level.as_deref().unwrap_or("info"),
     ));
 
-    let client = Client::new(config.backend_url).map_err(io::Error::other)?;
+    let client = Client::new(config.backend_url.clone()).map_err(io::Error::other)?;
 
     let MetricsEndpoint { worker, layer } = common::telemetry::metrics::start_metrics_endpoint(
         "planar_bridge",
         TcpListener::bind((std::net::Ipv4Addr::UNSPECIFIED, config.metrics_port)).await?,
     );
+    let state = RouterState { client };
     tokio::spawn(worker);
     let router = Router::new()
+        .route("/", axum::routing::get(index))
         .nest("/music", music::routes())
         .nest("/playlist", playlist::routes())
         .merge(util::append_slash_router(&["/walls"]))
         .nest("/walls/", walls::routes())
         .nest("/files", files::routes())
+        .nest("/games", games::router(config.games))
         .nest_service("/assets", ServeDir::new("planar-bridge/assets"))
         .fallback(not_found)
         .layer(layer)
-        .with_state(client);
+        .with_state(state);
 
     println!("running on http://localhost:{}/playlist", config.port);
     axum::serve(TcpListener::bind(("0.0.0.0", config.port)).await?, router).await
+}
+
+async fn index() -> impl IntoResponse {
+    #[derive(Template)]
+    #[template(path = "index.html")]
+    struct Index;
+
+    Html(Index.render().unwrap())
 }
 
 async fn not_found() -> impl IntoResponse {

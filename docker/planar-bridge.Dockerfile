@@ -1,6 +1,6 @@
 # inspiration: https://dev.to/rogertorres/first-steps-with-docker-rust-30oi
 
-FROM rust:1.89-bookworm AS build
+FROM rust:1.97.1-bookworm AS build
 
 # create an empty shell project
 RUN USER=root cargo new --bin blind-eternities
@@ -42,6 +42,7 @@ FROM debian:bookworm-slim
 RUN apt update -yyq && apt install -yyq ffmpeg
 COPY --from=build /blind-eternities/target/release/planar-bridge bridge
 COPY ./planar-bridge/assets ./planar-bridge/assets
-RUN chmod 644 ./planar-bridge/assets/* -v
+RUN find ./planar-bridge/assets -type f | xargs chmod 644 -v
+RUN find ./planar-bridge/assets -type d | xargs chmod 755 -v
 
 ENTRYPOINT ["./bridge"]

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/assets/icons/games/bg3-favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/assets/styles/games/bg3.css"></link>
+  <title>List of all Spells (Melee Filter) - BG3</title>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Melee only rules</h1>
+    </header>
+    <section class="rules">
+      <ul>
+        <li><span class="damage-Force">No</span> <a href="https://bg3.wiki/wiki/Consumables">consumables</a> (potions, scrolls, grenades) except when part of the class.
+          <ul>
+            <li><span class="damage-Healing">Exception:</span> Dyes, Camp Supplies and Tools.</li>
+            <li><span class="damage-Healing">Exception:</span> Wizards can learn from scrolls and drunk monks can drink alcohol.</li>
+          </ul>
+        </li>
+        <li><span class="damage-Force">Can't</span> change gear in the middle of a fight.</li>
+        <li><span class="damage-Force">Can't</span> equip more than 3 items of rarity 'rare' or above.</li>
+        <li>Must use a melee character:
+          <ul>
+            <li><span class="damage-Necrotic">Can</span> use any spell that deals 0 damage.</li>
+            <li><span class="damage-Necrotic">Can</span> only use spells and cantrips that deal damage if range is below 10 m.</li>
+            <li><span class="damage-Necrotic">Can</span> use any spell provided by an item.</li>
+            <li><span class="damage-Force">Can't</span> equip a ranged weapon.</li>
+            <li><span class="damage-Force">Can't</span> use <em>Produce Flame</em>, <em>Lightning Bolt</em> or <em>Sunbeam</em>.
+              <ul>
+                <li>Small <span class="damage-Healing">exceptions</span> can be made for class features and always prepared spells.</li>
+              </ul>
+            </li>
+            <li><span class="damage-Force">Can't</span> use illithid powers.</li>
+          </ul>
+        </li>
+      </ul>
+    </section>
+    <div class="toggle-banned">
+      <button>
+        <a href="?banned={{banned}}">
+          {%- if banned %}
+          Show Banned Spells
+          {%- else %}
+          Hide Banned Spells
+          {%- endif %}
+        </a>
+      </button>
+    </div>
+
+    <section>
+      <h2>Allowed Spells and Cantrips</h2>
+
+      {% for (level, spells) in spells.iter().enumerate() %}
+      <section id="Level {{level}} spells">
+        <h2>Level {{level}} spells</h2>
+        <ul class="spell-list">
+      {% for spell in spells %}
+          {% if spell.banned %}
+          <li class="crossed-out">
+          {% else %}
+          <li>
+          {% endif %}
+            <img src="{{spell.icon_url}}"/>
+            <span class="spell-name"><a href="{{spell.url}}">{{spell.name}}</a></span>
+            {% if spell.range as u8 == 0 %}
+            <span><img height="30em" src="https://bg3.wiki/w/images/2/2a/Melee_Range_Icon.png"/></span>
+            {% else %}
+            <span><img height="25em" src="https://bg3.wiki/w/images/0/08/Range_Icon.png"/>{{spell.range as u8}}m</span>
+            {% endif %}
+            {% if let Some(damage) = spell.damage %}
+            {% if let Some(damage_ty) = spell.damage_type %}
+            <span class="damage-{{damage_ty}}">{{damage}} {{damage_ty}}</span>
+            {% endif %}
+            {% endif %}
+          </li>
+      {% endfor %}
+        </ul>
+      </section>
+    </section>
+    {% endfor %}
+    <footer>
+      <p>Data sourced from <a href="https://bg3.wiki/wiki/List_of_all_spells" target="_blank" rel="noopener">bg3.wiki</a>.</p>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/assets/icons/games/minecraft-favicon.ico" type="image/x-icon">
+    <title>Skill Issues</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <style>body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0; /* Remove default body margin */
+        padding: 20px;
+        background-color: #f4f4f9; /* Light background for contrast */
+    }
+    h1 {
+        color: #333;
+        margin-bottom: 20px;
+    }
+
+    /* Styles for the tab navigation (kept the same) */
+    .tab-nav-years {
+        display: flex;
+        justify-content: left;
+        border-bottom: 2px solid #ccc;
+        width: 100%; /* Ensure tabs span full width of the view */
+        max-width: 1200px;
+    }
+    /* Styles for the tab navigation (kept the same) */
+    .tab-nav-players {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #ccc;
+        width: 100%; /* Ensure tabs span full width of the view */
+        max-width: 1200px;
+    }
+    a.tab-button {
+      text-decoration: none;
+      color: black;
+    }
+    .tab-button {
+        padding: 10px 20px;
+        cursor: pointer;
+        border: none;
+        background-color: transparent;
+        font-size: 16px;
+        font-weight: bold;
+        transition: color 0.3s, border-bottom 0.3s;
+    }
+    .tab-button:hover {
+        color: #1E90FF;
+    }
+    .tab-button.active {
+        color: #1E90FF;
+        border-bottom: 3px solid #1E90FF;
+    }
+
+    /* Container for all tab contents (General and Player tabs) */
+    #content-general, .content-player {
+        width: 100%;
+        display: flex;
+        justify-content: center; /* Center the charts container inside the tab content */
+    }
+
+    /* Hide/Show logic for tab content */
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+        width: 100%;
+    }
+
+    /* Chart Container: Holds the two charts and centers them */
+    .chart-container {
+        display: flex;
+        justify-content: center; /* Center the chart boxes horizontally */
+        gap: 40px; /* Space between the two charts */
+        width: 90vw; /* Use 90% of viewport width */
+        max-width: 1200px;
+        margin: 20px 0;
+    }
+
+    /* Chart Box: Sets the fixed width for each chart */
+    .chart-box {
+        /* Calculates 45% of the viewport width */
+        width: 45vw;
+        max-width: 540px; /* Optional cap to prevent charts from getting too massive */
+        background-color: white; /* White background for the chart area */
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    .chart-box h2 {
+        margin-top: 0;
+        font-size: 1.2em;
+        color: #555;
+    }
+    /* ... (Add this inside your <style> block) ... */
+
+    .stats-box {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        text-align: left; /* Align text within the box */
+        font-size: 0.9em;
+        background-color: #fcfcfc;
+    }
+    .stats-box h3 {
+        margin: 0 0 10px 0;
+        color: #1E90FF;
+        font-size: 1.1em;
+    }
+    .stats-box ul {
+        padding-left: 20px;
+        margin: 5px 0;
+    }
+    .stats-table {
+        width: 100%;
+        justify-content: center;
+    }
+    </style>
+</head>
+<body>
+
+    <h1>Skill Issues</h1>
+
+    {% if years.len() > 1 %}
+    <div class="tab-nav-years" id="year-tabs">
+      {%- if no_year_enabled %}
+      <a class="tab-button active" href="/deaths">All Time</a>
+      {%- else %}
+      <a class="tab-button" href="/deaths">All Time</a>
+      {%- endif %}
+      {%- for y in years %}
+      {%- if y.enabled %}
+      <a class="tab-button active" href="/deaths?year={{y.number}}">{{y.number}}</a>
+      {%- else %}
+      <a class="tab-button" href="/deaths?year={{y.number}}">{{y.number}}</a>
+      {%- endif %}
+      {%- endfor %}
+    </div>
+    {% endif %}
+    <div class="tab-nav-players" id="player-tabs">
+      {% for p in players %}
+      <button class="tab-button" data-player='{{p.name}}'
+        onclick="switchTab('{{p.name}}')">{{p.name}}</button>
+      {% endfor %}
+    </div>
+
+    <div id="content-general" class="tab-content active">
+      <div class="chart-container">
+        <div class="chart-box">
+          <h2>Server-Wide Cause of Death</h2>
+          <canvas id="generalCauseOfDeathChart"></canvas>
+        </div>
+        <div class="chart-box" style="display: flex; flex-direction: column;">
+          <h2>Server-Wide Deaths Per Day</h2>
+          <canvas id="generalTimeSeriesChart"></canvas>
+          <div class="stats-box" id="generalStatsBox">
+            <h3>Summary Statistics:</h3>
+            <table class="stats-table">
+              <tr><th>Total Deaths</th><th>Distinct deaths</th><th>Death Diversity</th></tr>
+              <tr>
+                <td>{{total_deaths}}</td>
+                <td>{{unique_deaths.len()}}</td>
+                <td>{{((unique_deaths.len() as f64 / total_deaths as f64) * 100.0) | fmt("{:.02}")}}%</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="player-tabs-content">
+      {% for p in players %}
+      <div id='content-{{p.name}}' class='tab-content content-player'>
+          <div class="chart-container">
+              <div class="chart-box">
+                  <h2>{{p.name}}'s Causes of Death</h2>
+                  <canvas id="{{p.name}}CauseOfDeathChart"></canvas>
+              </div>
+              <div class="chart-box" style="display: flex; flex-direction: column;">
+                <h2>{{p.name}}'s Deaths Over Time</h2>
+                  <canvas id="{{p.name}}TimeSeriesChart"></canvas>
+                  <div class="stats-box" id="{{p.name}}StatsBox">
+                    <h3>Summary Statistics:</h3>
+                    <table class="stats-table">
+                      <tr><th>Total Deaths</th><th>Distinct deaths</th><th>Death Diversity</th></tr>
+                      <tr>
+                        <td>{{p.total_deaths}}</td>
+                        <td>{{p.unique_deaths.len()}}</td>
+                        <td>{{((p.unique_deaths.len() as f64 / p.total_deaths as f64) * 100.0) | fmt("{:.02}") }}%</td>
+                      </tr>
+                    </table>
+                    {% if p.exclusive_deaths.len() > 0 %}
+                    <h4>Stuff that only {{p.name}} was dumb enough to die to:</h4>
+                    <ul>
+                      {% for d in p.exclusive_deaths %}
+                      <li>{{d}}</li>
+                      {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p>No causes of death are exclusive to {{p.name}}</p>
+                    {% endif %}
+                  </div>
+              </div>
+          </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <script>
+
+const PIE_COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+    '#FF9F40', '#C9CBCE', '#008080', '#DC143C', '#32CD32',
+    '#000080', '#FFD700', '#8B008B', '#87CEEB', '#D2691E',
+    '#808000', '#FF69B4', '#40E0D0', '#A0522D', '#4B0082',
+    '#FF7F50', '#228B22', '#6A5ACD', '#BDB76B', '#BC8F8F',
+    '#EE82EE', '#191970', '#FF8C00', '#00FF7F', '#B22222'];
+
+const player_charts = {
+  {% for p in players %}'{{p.name}}': {
+    unique_deaths: {
+      labels: [
+        {%- for l in p.unique_deaths.labels %}'{{l}}',
+        {% endfor %}],
+      values: [
+        {%- for v in p.unique_deaths.values %}{{v}},
+        {% endfor %}]
+    },
+    deaths_over_time: {
+      labels: [
+        {%- for l in p.deaths_over_time.labels %}'{{l}}',
+        {% endfor %}],
+      values: [
+        {%- for v in p.deaths_over_time.values %}{{v}},
+        {% endfor %}]
+    }
+  },
+  {% endfor %}
+};
+
+const general_charts = {
+  unique_deaths: {
+    labels: [
+      {%- for l in unique_deaths.labels %}'{{l}}',
+      {%- endfor %}
+    ],
+    values: [
+      {% for v in unique_deaths.values %}{{v}},
+      {%- endfor %}
+    ]
+  },
+  deaths_over_time: {
+    labels: [
+      {%- for l in deaths_over_time.labels %}'{{l}}',
+      {%- endfor %}
+    ],
+    values: [
+      {%- for v in deaths_over_time.values %}{{v}},
+      {%- endfor %}
+    ]
+  }
+};
+
+function renderPieChart(ctx, data) {
+  return new Chart(ctx, {
+      type: 'pie',
+      data: {
+          labels: data.labels,
+          datasets: [{
+              label: 'Total Deaths',
+              data: data.values,
+              backgroundColor: data.labels.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]),
+              hoverOffset: 4
+          }]
+      },
+      options: {
+          responsive: true,
+          plugins: {
+              title: { display: true },
+              legend: {
+                  position: 'bottom', // Sets legend below the chart
+              }
+          }
+      }
+  });
+}
+
+function renderBarChart(ctx, data) {
+  new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Daily Deaths',
+                backgroundColor: '#1E90FF',
+                borderColor: '#1E90FF',
+                data: data.values,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: { display: true },
+                // === LEGEND CHANGE HERE ===
+                legend: {
+                    display: false, // Since there is only one bar series, it's usually cleaner to hide the legend
+                    position: 'bottom' // Keeping this here just in case you enable the legend later
+                }
+            },
+            scales: {
+                x: {
+                    type: 'category',
+                    title: { display: true, text: 'Date' }
+                },
+                y: { beginAtZero: true, title: { display: true, text: 'Number of Deaths' } }
+            }
+        }
+    });
+}
+
+/**
+ * --- CHART RENDERING FUNCTION ---
+ * Renders the two charts using aggregated data and specific canvas IDs.
+ */
+function renderCharts(player) {
+    const data = player === 'general' ? general_charts : player_charts[player];
+
+    if (!window[`${player}PieChart`]) {
+      const pieCtx = document.getElementById(`${player}CauseOfDeathChart`).getContext('2d');
+      window[`${player}PieChart`] = renderPieChart(pieCtx, data.unique_deaths);
+    }
+
+    if (!window[`${player}BarChart`]) {
+        const barCtx = document.getElementById(`${player}TimeSeriesChart`).getContext('2d');
+        window[`${player}BarChart`] = renderBarChart(barCtx, data.deaths_over_time);
+    }
+
+}
+
+function switchTab(player) {
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`[data-player="${player}"]`).classList.add('active');
+
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    document.getElementById(`content-${player}`).classList.add('active');
+
+    renderCharts(player);
+}
+
+// Run the initialization when the window loads
+window.onload = () => renderCharts('general');
+    </script>
+</body>
+</html>

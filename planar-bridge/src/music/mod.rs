@@ -19,12 +19,12 @@ use spark_protocol::{
 };
 use uuid::Uuid;
 
-use crate::{Backend, cache, metrics, playlist::load_playlist};
+use crate::{Backend, RouterState, cache, metrics, playlist::load_playlist};
 
 use self::request_coalescing::{SharedError, request_coalesced};
 use askama::Template;
 
-pub fn routes() -> Router<Backend> {
+pub fn routes() -> Router<RouterState> {
     Router::new()
         .route("/", get(index))
         .route("/current", get(now_playing))
@@ -183,12 +183,12 @@ struct NowPlaying {
 }
 
 async fn now_playing(
-    backend: State<Backend>,
+    state: State<RouterState>,
     target: Target,
 ) -> Result<impl IntoResponse, SharedError> {
     Ok(Html(
         NowPlaying {
-            current: get_current(backend, target.clone()).await?,
+            current: get_current(state, target.clone()).await?,
             target,
         }
         .render()?,
@@ -196,10 +196,10 @@ async fn now_playing(
 }
 
 async fn play_pause_button(
-    backend: State<Backend>,
+    state: State<RouterState>,
     target: Target,
 ) -> Result<impl IntoResponse, SharedError> {
-    let current = get_current(backend, target).await?;
+    let current = get_current(state, target).await?;
     Ok(Html(
         PlayPause {
             playing: current.playing,
@@ -215,12 +215,12 @@ struct PlayPause {
 }
 
 async fn ctl(
-    backend: State<Backend>,
+    state: State<RouterState>,
     target: Target,
     Json(cmd): Json<MusicCmd>,
 ) -> Result<impl IntoResponse, Error> {
     tracing::info!(?cmd, "ctl");
-    let response = request_from_backend(&backend, &target, cmd.command).await?;
+    let response = request_from_backend(&state.client, &target, cmd.command).await?;
     let res = match response {
         Response::PlayState { paused: _ } => (
             StatusCode::OK,
@@ -240,8 +240,8 @@ async fn ctl(
     Ok(res)
 }
 
-async fn volume(backend: State<Backend>, target: Target) -> Result<String, SharedError> {
-    Ok(format!("{:.0}", get_current(backend, target).await?.volume))
+async fn volume(state: State<RouterState>, target: Target) -> Result<String, SharedError> {
+    Ok(format!("{:.0}", get_current(state, target).await?.volume))
 }
 
 enum Tab {
@@ -271,13 +271,16 @@ struct Now {
     now: Marc<(Vec<String>, String, Vec<String>)>,
 }
 
-async fn now(backend: State<Backend>, target: Target) -> Result<impl IntoResponse, Error> {
+async fn now(state: State<RouterState>, target: Target) -> Result<impl IntoResponse, Error> {
     let now = cache::get_or_init(
         &target.to_query_string(),
         || async {
-            let response =
-                request_from_backend(&backend, &target, MusicCmdKind::Now { amount: Some(20) })
-                    .await?;
+            let response = request_from_backend(
+                &state.client,
+                &target,
+                MusicCmdKind::Now { amount: Some(20) },
+            )
+            .await?;
             let Response::Now {
                 before,
                 current,
@@ -307,11 +310,11 @@ struct SearchFormData {
 }
 
 async fn search(
-    backend: State<Backend>,
+    state: State<RouterState>,
     target: Target,
     Form(SearchFormData { search }): Form<SearchFormData>,
 ) -> Result<impl IntoResponse, Error> {
-    let playlist = load_playlist(&backend).await?;
+    let playlist = load_playlist(&state).await?;
     let mut songs = if search.is_empty() {
         playlist.songs.iter().map(|s| s.name.clone()).collect()
     } else {
@@ -328,17 +331,17 @@ async fn search(
 }
 
 async fn get_current(
-    backend: State<Backend>,
+    state: State<RouterState>,
     target: Target,
 ) -> Result<Marc<Current>, SharedError> {
     cache::get_or_init(
         &target.to_query_string(),
         || async {
-            let response = request_coalesced(&backend, target, MusicCmdKind::Current).await;
+            let response = request_coalesced(&state.client, target, MusicCmdKind::Current).await;
             match response {
                 Ok(Response::Current { current }) => Ok(current.clone()),
                 Ok(_) => {
-                    tracing::error!(?response, "unexpected backend response");
+                    tracing::error!(?response, "unexpected state response");
                     Err(Arc::new(Error::UnexpectedBackendResponse(format!("{response:?}"))).into())
                 }
                 Err(e) => Err(e),
@@ -365,12 +368,16 @@ struct QueueSummary {
 }
 
 async fn queue(
-    backend: State<Backend>,
+    state: State<RouterState>,
     target: Target,
     Json(QueueCommand { query, search }): Json<QueueCommand>,
 ) -> Result<impl IntoResponse, Error> {
-    let response =
-        request_from_backend(&backend, &target, MusicCmdKind::Queue { query, search }).await?;
+    let response = request_from_backend(
+        &state.client,
+        &target,
+        MusicCmdKind::Queue { query, search },
+    )
+    .await?;
     let Response::QueueSummary {
         moved_to, current, ..
     } = response

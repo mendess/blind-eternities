@@ -29,7 +29,7 @@ pub fn get_subscriber<W: for<'a> MakeWriter<'a> + Send + Sync + 'static>(
         .with(formatting_layer)
 }
 
-pub fn get_subscriber_no_bunny(env_filter: String) -> impl Subscriber + Sync + Send {
+pub fn get_subscriber_no_bunny(env_filter: &str) -> impl Subscriber + Sync + Send {
     LogTracer::init().expect("Failed to set logger");
 
     let env_filter =

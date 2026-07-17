@@ -1,4 +1,4 @@
-use crate::util;
+use crate::{RouterState, util};
 use askama::Template;
 use axum::{
     Router,
@@ -6,28 +6,27 @@ use axum::{
     response::{Html, IntoResponse},
     routing::get,
 };
-use common::net::auth_client::Client;
 use http::StatusCode;
 use serde::Deserialize;
 use std::io;
 
-pub fn routes() -> Router<Client> {
-    let make_router = |dir: &'static str| -> Router<Client> {
+pub fn routes() -> Router<RouterState> {
+    let make_router = |dir: &'static str| -> Router<RouterState> {
         Router::new()
-            .route("/", get(async move |client| index(dir, client).await))
+            .route("/", get(async move |state| index(dir, state).await))
             .route("/random", get(random))
             .route(
                 "/random-file",
-                get(async move |client| proxy_wallpaper(dir, client, None).await),
+                get(async move |state| proxy_wallpaper(dir, state, None).await),
             )
             .route(
                 "/thumb/{filename}",
-                get(async move |client, path| thumb(dir, client, path).await),
+                get(async move |state, path| thumb(dir, state, path).await),
             )
             .route(
                 "/{filename}",
-                get(async move |client: State<Client>, path| {
-                    proxy_wallpaper(dir, client, Some(path)).await
+                get(async move |state: State<RouterState>, path| {
+                    proxy_wallpaper(dir, state, Some(path)).await
                 }),
             )
     };
@@ -36,7 +35,7 @@ pub fn routes() -> Router<Client> {
         .merge(make_router("walls/small"))
         .route(
             "/small/{filename}",
-            get(async move |client, path| proxy_wallpaper("walls/small", client, Some(path)).await),
+            get(async move |state, path| proxy_wallpaper("walls/small", state, Some(path)).await),
         )
         .nest("/all/", make_router("walls/all"))
         .nest("/phone/", make_router("walls/phone"))
@@ -88,10 +87,11 @@ struct Index {
     walls: Vec<Wallpaper>,
 }
 
-async fn index(dir: &'static str, client: State<Client>) -> Result<impl IntoResponse, Error> {
+async fn index(dir: &'static str, state: State<RouterState>) -> Result<impl IntoResponse, Error> {
     Ok(Html(
         Index {
-            walls: client
+            walls: state
+                .client
                 .get(dir.trim_end_matches('/'))
                 .unwrap()
                 .send()
@@ -132,7 +132,7 @@ async fn random() -> Result<impl IntoResponse, Error> {
 
 async fn proxy_wallpaper(
     dir: &'static str,
-    client: State<Client>,
+    state: State<RouterState>,
     filename: Option<Path<String>>,
 ) -> Result<impl IntoResponse, Error> {
     let filename = filename
@@ -141,7 +141,8 @@ async fn proxy_wallpaper(
         .unwrap_or("random");
     let Ok(filename) = askama::filters::urlencode(filename);
     Ok(util::proxy_response(
-        client
+        state
+            .client
             .get(&format!("{dir}/{filename}"))
             .unwrap()
             .send()
@@ -151,12 +152,13 @@ async fn proxy_wallpaper(
 
 async fn thumb(
     dir: &'static str,
-    client: State<Client>,
+    state: State<RouterState>,
     Path(filename): Path<String>,
 ) -> Result<impl IntoResponse, Error> {
     let Ok(filename) = askama::filters::urlencode(filename);
     Ok(util::proxy_response(
-        client
+        state
+            .client
             .get(&format!("{dir}/thumb/{filename}"))
             .unwrap()
             .send()
