@@ -8,7 +8,11 @@ mod walls;
 
 use std::io;
 
-use axum::{Router, response::IntoResponse};
+use askama::Template;
+use axum::{
+    Router,
+    response::{Html, IntoResponse},
+};
 use clap::Parser;
 use common::{
     net::auth_client::Client,
@@ -18,7 +22,7 @@ use config::File;
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
-use tower_http::services::{ServeDir, ServeFile};
+use tower_http::services::ServeDir;
 use url::Url;
 
 #[derive(Debug, thiserror::Error)]
@@ -114,10 +118,18 @@ async fn main() -> io::Result<()> {
         .nest("/walls/", walls::routes())
         .nest("/files", files::routes())
         .nest_service("/assets", ServeDir::new("planar-bridge/assets"))
-        .fallback_service(ServeFile::new("planar-bridge/assets/not-found.html"))
+        .fallback(not_found)
         .layer(layer)
         .with_state(client);
 
     println!("running on http://localhost:{}/playlist", config.port);
     axum::serve(TcpListener::bind(("0.0.0.0", config.port)).await?, router).await
+}
+
+async fn not_found() -> impl IntoResponse {
+    #[derive(Template)]
+    #[template(path = "not-found.html")]
+    struct NotFound;
+
+    Html(NotFound.render().unwrap())
 }
