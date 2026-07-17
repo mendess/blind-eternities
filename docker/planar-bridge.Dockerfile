@@ -42,5 +42,6 @@ FROM debian:bookworm-slim
 RUN apt update -yyq && apt install -yyq ffmpeg
 COPY --from=build /blind-eternities/target/release/planar-bridge bridge
 COPY ./planar-bridge/assets ./planar-bridge/assets
+RUN chmod 644 ./planar-bridge/assets/* -v
 
 ENTRYPOINT ["./bridge"]

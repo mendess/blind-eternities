@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="/assets/walls.css"/>
+    <title>Wallpapers</title>
+  </head>
+  <body>
+    <div class="gallery">
+      {% for w in walls %}
+        {% decl div_class -%}
+        {% decl desc_class -%}
+        {% decl wallpaper_class -%}
+        {% if w.path.contains("vertical") %}
+          {% let wallpaper_class = "wallpaper vertical" %}
+          {% let div_class = "center-cropped-tall" %}
+          {% let desc_class = "desc-tall" %}
+        {% else if w.path.contains("wide") %}
+          {% let wallpaper_class = "wallpaper" %}
+          {% let div_class = "center-cropped-wide" %}
+          {% let desc_class = "desc-wide" %}
+        {% else %}
+          {% let wallpaper_class = "wallpaper" %}
+          {% let div_class = "center-cropped" %}
+          {% let desc_class = "desc" %}
+        {% endif %}
+      <div class="{{ wallpaper_class }}">
+        <a target="_blank" href="{{w.path | urlencode}}">
+          <div class="{{ div_class }}">
+            <img
+              loading="lazy"
+              src="{{w.thumb | urlencode}}"
+              alt="{{w.name}}"
+            />
+          </div>
+        </a>
+        <div class="{{desc_class}}">{{w.name}}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+  </body>
+</html>
+

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    {% if let Some(name) = name %}
+    <title>{{name}}</title>
+    {% else %}
+    <title>Random Wallpaper</title>
+    {% endif %}
+    <style>
+    body {
+      background: black;
+      background-repeat: no-repeat;
+      background-size: cover;
+      background-position: center;
+      background-image: url({{url}});
+      object-fit: cover;
+      overflow: hidden;
+      width: 99%;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    </style>
+  </head>
+  <body></body>
+</html>
+

@@ -2,6 +2,8 @@ mod cache;
 mod metrics;
 mod music;
 mod playlist;
+mod util;
+mod walls;
 
 use std::io;
 
@@ -15,7 +17,7 @@ use config::File;
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use url::Url;
 
 #[derive(Debug, thiserror::Error)]
@@ -107,7 +109,10 @@ async fn main() -> io::Result<()> {
     let router = Router::new()
         .nest("/music", music::routes())
         .nest("/playlist", playlist::routes())
+        .merge(util::append_slash_router(&["/walls"]))
+        .nest("/walls/", walls::routes())
         .nest_service("/assets", ServeDir::new("planar-bridge/assets"))
+        .fallback_service(ServeFile::new("planar-bridge/assets/not-found.html"))
         .layer(layer)
         .with_state(client);
 

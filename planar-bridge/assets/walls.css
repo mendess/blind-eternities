@@ -1,0 +1,107 @@
+* {
+  padding-top: 0px;
+}
+
+body {
+  background-color:#181A1C;
+  color:white;
+  margin: 0 auto;
+}
+
+.gallery {
+  text-align: center;
+  font-size: 0px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 357.5px);
+  justify-content: center;
+}
+
+div.wallpaper {
+  margin: 0px;
+  font-size: 15px;
+  border: 1px solid rgba(0,0,0,0);
+  display: inline-block;
+}
+
+div.vertical {
+  grid-row: span 2;
+}
+
+div.wallpaper:hover {
+  border: 1px solid #7cafc2;
+}
+
+div.center-cropped {
+  font-size: 0px;
+  width: 355.5px;
+  height: 200px;
+  overflow:hidden;
+}
+
+div.center-cropped img {
+  height: 100%;
+  width: 100%;
+  left: 50%;
+  position: relative;
+  transform: translateX(-50%);
+  object-fit: cover;
+}
+
+div.desc {
+  padding: 5px;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+div.center-cropped-wide {
+  font-size: 0px;
+  width: 713px;
+  height: 200px;
+  overflow:hidden;
+}
+
+div.center-cropped-wide img {
+  height: 100%;
+  width: 100%;
+  left: 50%;
+  position: relative;
+  transform: translateX(-50%);
+  object-fit: cover;
+}
+
+div.desc-wide {
+  padding: 5px;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+div.center-cropped-tall {
+  font-size: 0px;
+  width: 355.5px;
+  height: 440px;
+  overflow:hidden;
+}
+
+div.center-cropped-tall img {
+  height: 100%;
+  width: 100%;
+  left: 50%;
+  position: relative;
+  transform: translateX(-50%);
+  object-fit: cover;
+}
+
+div.desc-tall {
+  padding: 5px;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
