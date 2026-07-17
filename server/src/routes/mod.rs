@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod files;
 pub mod machine_status;
 pub mod music;
 pub mod persistent_connections;
@@ -52,6 +53,16 @@ pub mod dirs {
                         pub(super) parent: std::path::PathBuf
                     }
 
+                    impl $crate::routes::dirs::Directory for $node {
+                        fn get(&self) -> ::std::path::PathBuf {
+                            static CREATE_DIR: std::sync::Once = std::sync::Once::new();
+                            let path = self.parent.join(::std::stringify!($node));
+                            CREATE_DIR.call_once(|| {
+                                std::fs::create_dir_all(&path).unwrap();
+                            });
+                            path
+                        }
+                    }
 
                     impl $node {
                         fn build(mut self) -> std::path::PathBuf {
@@ -127,6 +138,9 @@ pub mod dirs {
             all
             thumb
         }
+        files/ {
+            unlisted
+        }
     }
 }
 
@@ -151,6 +165,7 @@ pub fn router(db: Arc<PgPool>, socket_io: SocketIo, dirs: dirs::Directories, api
         .nest("/music", music::routes())
         .nest("/playlist", playlist::routes())
         .nest("/walls", walls::routes())
+        .nest("/files", files::routes())
         .with_state(RouterState {
             db,
             socket_io,

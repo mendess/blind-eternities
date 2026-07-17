@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="/assets/files.css"/>
+    <title>Files</title>
+  </head>
+  <body>
+  <ul>
+    {% for f in files %}
+      <li><a class="file-list-link" href='/files/{{f}}'>{{f}}</a></li>
+    {% endfor %}
+  </ul>
+  </body>
+</html>
+

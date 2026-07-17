@@ -1,0 +1,19 @@
+body {
+  background: #222222;
+  display: flex;
+  justify-content: center;
+}
+li {
+  padding: 2px;
+}
+.file-list-link:link {
+  color: white;
+}
+
+.file-list-link:visited {
+  color: #ccc;
+}
+
+.file-list-link:hover {
+  color: grey;
+}

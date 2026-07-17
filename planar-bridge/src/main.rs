@@ -1,4 +1,5 @@
 mod cache;
+mod files;
 mod metrics;
 mod music;
 mod playlist;
@@ -111,6 +112,7 @@ async fn main() -> io::Result<()> {
         .nest("/playlist", playlist::routes())
         .merge(util::append_slash_router(&["/walls"]))
         .nest("/walls/", walls::routes())
+        .nest("/files", files::routes())
         .nest_service("/assets", ServeDir::new("planar-bridge/assets"))
         .fallback_service(ServeFile::new("planar-bridge/assets/not-found.html"))
         .layer(layer)
