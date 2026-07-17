@@ -125,6 +125,7 @@ pub mod dirs {
             phone
             small
             all
+            thumb
         }
     }
 }

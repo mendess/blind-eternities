@@ -16,6 +16,7 @@ config.workspace = true
 futures.workspace = true
 http.workspace = true
 httpdate.workspace = true
+image.workspace = true
 itertools.workspace = true
 mime_guess.workspace = true
 prometheus-client.workspace = true
@@ -30,8 +31,8 @@ spark-protocol = { path = "../spark-protocol" }
 sqlx.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-tokio-util = { workspace = true, features = ["io", "compat"] }
 tokio-stream = { workspace = true }
+tokio-util = { workspace = true, features = ["io", "compat"] }
 tower-http = { workspace = true, features = ["trace", "auth"] }
 tracing = { workspace = true, features = ["log"] }
 tracing-bunyan-formatter.workspace = true
