@@ -114,7 +114,7 @@ mod fields {
 
 async fn playlist(
     backend: State<Backend>,
-    Query(mut query): Query<UserAction>,
+    Query(query): Query<UserAction>,
 ) -> Result<impl IntoResponse, Error> {
     let mut filter = query
         .category_blob
@@ -125,11 +125,7 @@ async fn playlist(
             .ok()
         })
         .unwrap_or_default();
-    if let Some((toggle, field)) = query
-        .toggle
-        .take()
-        .and_then(|t| query.field.take().map(|f| (t, f)))
-    {
+    if let Some((toggle, field)) = query.toggle.zip(query.field) {
         let (disabled, must_have) = match field.as_str() {
             fields::OTHER => (&mut filter.disabled.free, &mut filter.must_have.free),
             fields::GENRES => (&mut filter.disabled.genres, &mut filter.must_have.genres),

@@ -1,7 +1,7 @@
 {% let query_string = target.to_query_string() %}
 {% let unselected_css = "tab-button-unselected" %}
-{% let now_css %}
-{% let queue_css %}
+{% decl now_css %}
+{% decl queue_css %}
 {% match tab %}
   {% when Tab::Now %}
     {% let now_css = "bottom-left-glow" %}
