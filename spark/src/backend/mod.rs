@@ -85,7 +85,7 @@ async fn create_music_session(
         .await?;
 
     if show_link {
-        println!("url: https://planar-bridge.mendess.xyz/music?session={token}");
+        println!("url: https://mendess.xyz/music?session={token}");
     } else {
         println!("session id is: {token}");
     }
