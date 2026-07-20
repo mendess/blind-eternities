@@ -2,18 +2,21 @@ use crate::{RouterState, util};
 use askama::Template;
 use axum::{
     Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::{Html, IntoResponse},
     routing::get,
 };
 use http::StatusCode;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io;
 
 pub fn routes() -> Router<RouterState> {
     let make_router = |dir: &'static str| -> Router<RouterState> {
         Router::new()
-            .route("/", get(async move |state| index(dir, state).await))
+            .route(
+                "/",
+                get(async move |state, query| index(dir, state, query).await),
+            )
             .route("/random", get(random))
             .route(
                 "/random-file",
@@ -87,13 +90,24 @@ struct Index {
     walls: Vec<Wallpaper>,
 }
 
-async fn index(dir: &'static str, state: State<RouterState>) -> Result<impl IntoResponse, Error> {
+#[derive(Serialize, Deserialize)]
+struct IndexQuery {
+    #[serde(default)]
+    mtg: bool,
+}
+
+async fn index(
+    dir: &'static str,
+    state: State<RouterState>,
+    query: Query<IndexQuery>,
+) -> Result<impl IntoResponse, Error> {
     Ok(Html(
         Index {
             walls: state
                 .client
                 .get(dir.trim_end_matches('/'))
                 .unwrap()
+                .query(&query.0)
                 .send()
                 .await?
                 .json::<Vec<Wallpaper>>()
