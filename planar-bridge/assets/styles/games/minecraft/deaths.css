@@ -23,6 +23,9 @@ div.container {
 }
 /* Styles for the tab navigation (kept the same) */
 .tab-nav-players {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   margin-bottom: 20px;
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
@@ -71,6 +74,7 @@ a.tab-button {
 /* Chart Container: Holds the two charts and centers them */
 .chart-container {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center; /* Center the chart boxes horizontally */
   gap: 40px; /* Space between the two charts */
   width: 90vw; /* Use 90% of viewport width */
