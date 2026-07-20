@@ -1,32 +1,66 @@
 body {
-  background-color: #e8ecf4; /* A cooler, modern light blue/gray background */
+  background: url(/assets/bg/aggressive-mining.jpg) center/cover no-repeat fixed;
 }
 
 div.container {
-  line-height: 1.6;
+  margin-top: 2.5em;
+  width: 100%;
   display: flex;
-  flex-direction: column;
-  min-height: 100vh;
   text-align: center;
   align-items: center;
+  justify-content: center;
+}
+
+div.content {
+  line-height: 1.6;
+  min-width: 60em;
+  max-width: 40%;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  align-items: center;
+  background-color: transparent;
+  padding-top: 2em;
+  padding-bottom: 2em;
+  border-radius: 20px;
+  background-color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(5px);
 }
 
 hr {
+  width: 90%;
   margin-top: 2em;
   margin-bottom: 2em;
 }
 
 .mod-table {
   width: 100%;
-  padding-left: 30%;
-  padding-right: 30%;
+}
+
+a {
+  color: black;
+}
+
+.mod-table tr th {
+  width: 50%;
+  text-align: start;
+  padding-left: 3em;
+}
+.mod-table tr th:nth-child(1) {
+  text-align: end;
+  padding-right: 3em;
 }
 
 .mod-table tr td {
   width: 50%;
   text-align: start;
-  padding-left: 5em;
+  padding-left: 3em;
 }
+.mod-table tr td:nth-child(1) {
+  text-align: end;
+  padding-right: 3em;
+}
+
 .modpack-dl {
   width: 100%;
   display: flex;

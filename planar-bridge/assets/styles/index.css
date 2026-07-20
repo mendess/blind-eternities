@@ -1,10 +1,11 @@
 body {
-  background: url(/assets/planar-bridge.jpg) center/cover no-repeat fixed;
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-color: #1e2430;
-  color: white;
+  background: url(/assets/bg/planar-bridge.jpg) center/cover no-repeat fixed;
 }
 
-.big-page-buttons li { background: #4e75b7; border: 1px solid #335e77; }
-.big-page-buttons li:hover { background: #324a72; }
+.big-page-buttons li {
+  background-color: rgba(78, 117, 183, 0.2);
+  border: 1px solid #335e77;
+}
+.big-page-buttons li:hover {
+  background-color: rgba(78, 117, 183, 0.3);
+}

@@ -7,13 +7,18 @@
 <body>
     {% include "../../title.html" %}
     <div class="container">
-        <h2>Required Mods</h2>
+      <div class="content">
+        <h2>Mod Loader</h2>
         <table class="mod-table">
           <tr><th>Mod Loader</th><th>Version</th></tr>
           <tr>
             <td><a href="https://neoforged.net/">NeoForge</a></td>
             <td>{{neoforge_version}}</td>
           </tr>
+        </table>
+        <hr/>
+        <h2>Required Mods</h2>
+        <table class="mod-table">
           <tr><th>Mod</th><th>Version</th></tr>
           {% for m in required %}
           <tr>
@@ -22,7 +27,7 @@
           </tr>
           {% endfor %}
         </table>
-        <hr width="50%">
+        <hr/>
         <h2>Recommended Server Supported Mods</h2>
         <table class="mod-table">
           <tr><th>Mod</th><th>Version</th></tr>
@@ -33,7 +38,7 @@
           </tr>
           {% endfor %}
         </table>
-        <hr width="50%">
+        <hr/>
         <h2>Recommended Client Side Mods</h2>
         <table class="mod-table">
           <tr><th>Mod</th><th>Version</th></tr>
@@ -44,7 +49,7 @@
           </tr>
           {% endfor %}
         </table>
-        <hr width="50%">
+        <hr/>
         <div class="modpack-dl">
           <div class="modpack-dl-url">
             <button
@@ -55,6 +60,7 @@
           </div>
           <a class="modpack-dl-button" href="/mods/large-biomes.mrpack">Download Modpack</a>
         </div>
+      </div>
     </div>
 </body>
 <script>
