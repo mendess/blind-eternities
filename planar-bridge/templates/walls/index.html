@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <link rel="icon" href="/assets/icons/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="/assets/styles/walls.css"/>
-    <title>Wallpapers</title>
-  </head>
+  {% let head_title = "Wallpapers" %}
+  {% let head_stylesheet = "/assets/styles/walls.css" %}
+  {% include "../head.html" %}
   <body>
+    {% include "../title.html" %}
     <div class="gallery">
       {% for w in walls %}
         {% decl div_class -%}

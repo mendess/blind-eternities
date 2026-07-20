@@ -42,7 +42,7 @@ impl IntoResponse for Error {
 }
 
 #[derive(Template)]
-#[template(path = "files/index.html")]
+#[template(path = "files.html")]
 struct Index {
     files: Vec<String>,
 }

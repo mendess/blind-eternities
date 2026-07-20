@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 {% let head_scripts = ["/assets/json-enc.2.0.1.js"] %}
-{% let head_title = "m web" %}
+{% let head_title = "Playlist" %}
 {% let head_stylesheet = "/assets/styles/playlist.css" %}
 {% include "../head.html" %}
 <body>
+  {% include "../title.html" %}
   <!-- Playlist container -->
   <div id="playlist"
        hx-get="/playlist/playlist"

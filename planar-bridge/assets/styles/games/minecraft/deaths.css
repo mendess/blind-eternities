@@ -1,0 +1,117 @@
+body {
+  background-color: #f4f4f9; /* Light background for contrast */
+}
+
+div.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-color: #f4f4f9; /* Light background for contrast */
+}
+
+/* Styles for the tab navigation (kept the same) */
+.tab-nav-years {
+  display: flex;
+  justify-content: left;
+  border-bottom: 2px solid #ccc;
+  width: 100%; /* Ensure tabs span full width of the view */
+  max-width: 1200px;
+}
+/* Styles for the tab navigation (kept the same) */
+.tab-nav-players {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #ccc;
+  width: 100%; /* Ensure tabs span full width of the view */
+  max-width: 1200px;
+}
+a.tab-button {
+text-decoration: none;
+color: black;
+}
+.tab-button {
+  padding: 10px 20px;
+  cursor: pointer;
+  border: none;
+  background-color: transparent;
+  font-size: 16px;
+  font-weight: bold;
+  transition: color 0.3s, border-bottom 0.3s;
+}
+.tab-button:hover {
+  color: #1E90FF;
+}
+.tab-button.active {
+  color: #1E90FF;
+  border-bottom: 3px solid #1E90FF;
+}
+
+/* Container for all tab contents (General and Player tabs) */
+#content-general, .content-player {
+  width: 100%;
+  display: flex;
+  justify-content: center; /* Center the charts container inside the tab content */
+}
+
+/* Hide/Show logic for tab content */
+.tab-content {
+  display: none;
+}
+.tab-content.active {
+  display: block;
+  width: 100%;
+}
+
+/* Chart Container: Holds the two charts and centers them */
+.chart-container {
+  display: flex;
+  justify-content: center; /* Center the chart boxes horizontally */
+  gap: 40px; /* Space between the two charts */
+  width: 90vw; /* Use 90% of viewport width */
+  max-width: 1200px;
+  margin: 20px 0;
+}
+
+/* Chart Box: Sets the fixed width for each chart */
+.chart-box {
+  /* Calculates 45% of the viewport width */
+  width: 45vw;
+  max-width: 540px; /* Optional cap to prevent charts from getting too massive */
+  background-color: white; /* White background for the chart area */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.chart-box h2 {
+  margin-top: 0;
+  font-size: 1.2em;
+  color: #555;
+}
+/* ... (Add this inside your <style> block) ... */
+
+.stats-box {
+  margin-top: 20px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  text-align: left; /* Align text within the box */
+  font-size: 0.9em;
+  background-color: #fcfcfc;
+}
+.stats-box h3 {
+  margin: 0 0 10px 0;
+  color: #1E90FF;
+  font-size: 1.1em;
+}
+.stats-box ul {
+  padding-left: 20px;
+  margin: 5px 0;
+}
+.stats-table {
+  width: 100%;
+  justify-content: center;
+}

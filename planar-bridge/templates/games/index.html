@@ -1,56 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="/assets/icons/favicon.ico" type="image/x-icon">
-    <title>Mendess Gaming</title>
-    <style>
-        body {
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: url('https://mendess.xyz/walls/small/hercules.png') center/cover no-repeat fixed;
-        }
-
-        ul {
-            list-style: none;
-            padding: 0;
-            display: flex;
-            gap: 24px;
-        }
-
-        li {
-            border-radius: 14px;
-        }
-
-        li:nth-child(1) { background: #b8d8ba; border: 1px solid #a0c8a2; }
-        li:nth-child(1):hover { background: #a8ccaa; }
-        li:nth-child(2) { background: #e0c4a8; border: 1px solid #d4b494; }
-        li:nth-child(2):hover { background: #d6b89c; }
-
-        a {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 120px;
-            height: 120px;
-            padding: 20px;
-        }
-
-        a img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-    </style>
-</head>
+{% let head_scripts = ["/assets/json-enc.2.0.1.js"] %}
+{% let head_title = "Gaming" %}
+{% let head_stylesheet = "/assets/styles/games/index.css" %}
+{% include "../head.html" %}
 <body>
-    <ul>
-        <li><a href="./games/minecraft/"><img src="/assets/icons/games/mc-logo.png" alt="Minecraft"></a></li>
-        <li><a href="./games/bg3/"><img src="/assets/icons/games/bg3-logo.png" alt="Baldur's Gate 3"></a></li>
+  {% let title = "Gaming" %}
+  {% include "../title.html" %}
+  <div class="big-page-buttons">
+    <ul class="big-page-buttons">
+      <li><a href="./games/minecraft/"><img src="/assets/icons/games/mc-logo.png" alt="Minecraft"></a></li>
+      <li><a href="./games/bg3/"><img src="/assets/icons/games/bg3-logo.png" alt="Baldur's Gate 3"></a></li>
     </ul>
+  </div>
 </body>
 </html>

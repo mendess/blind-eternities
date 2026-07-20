@@ -1,0 +1,65 @@
+body {
+  background-color: #e8ecf4; /* A cooler, modern light blue/gray background */
+}
+
+div.container {
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  text-align: center;
+  align-items: center;
+}
+
+hr {
+  margin-top: 2em;
+  margin-bottom: 2em;
+}
+
+.mod-table {
+  width: 100%;
+  padding-left: 30%;
+  padding-right: 30%;
+}
+
+.mod-table tr td {
+  width: 50%;
+  text-align: start;
+  padding-left: 5em;
+}
+.modpack-dl {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.modpack-dl-button {
+  background-color: DodgerBlue;
+  border: none;
+  color: white;
+  padding: 12px 30px;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.modpack-dl-button:hover {
+  background-color: RoyalBlue;
+}
+
+.modpack-dl-url {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  width: auto;
+  padding-left: 2em;
+  padding-right: 2em;
+  background-color: #dddddd;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+.modpack-dl-url-copy-button {
+  height: 2em;
+  margin-right: 1em;
+}

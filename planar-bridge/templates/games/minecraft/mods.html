@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+{% let head_title = "The Largest Biomes Minecraft Server - Mods" %}
+{% let head_icon = "/assets/icons/games/minecraft-favicon.ico" %}
+{% let head_stylesheet = "/assets/styles/games/minecraft/mods.css" %}
+{% include "../../head.html" %}
+<body>
+    {% include "../../title.html" %}
+    <div class="container">
+        <h2>Required Mods</h2>
+        <table class="mod-table">
+          <tr><th>Mod Loader</th><th>Version</th></tr>
+          <tr>
+            <td><a href="https://neoforged.net/">NeoForge</a></td>
+            <td>{{neoforge_version}}</td>
+          </tr>
+          <tr><th>Mod</th><th>Version</th></tr>
+          {% for m in required %}
+          <tr>
+            <td><a href="https://modrinth.com/mod/{{m.name}}">{{m.name}}</a></td>
+            <td>{{m.version}}</td>
+          </tr>
+          {% endfor %}
+        </table>
+        <hr width="50%">
+        <h2>Recommended Server Supported Mods</h2>
+        <table class="mod-table">
+          <tr><th>Mod</th><th>Version</th></tr>
+          {% for m in recommended %}
+          <tr>
+            <td><a href="https://modrinth.com/mod/{{m.name}}">{{m.name}}</a></td>
+            <td>{{m.version}}</td>
+          </tr>
+          {% endfor %}
+        </table>
+        <hr width="50%">
+        <h2>Recommended Client Side Mods</h2>
+        <table class="mod-table">
+          <tr><th>Mod</th><th>Version</th></tr>
+          {% for m in client_side %}
+          <tr>
+            <td><a href="https://modrinth.com/mod/{{m.name}}">{{m.name}}</a></td>
+            <td>{{m.version}}</td>
+          </tr>
+          {% endfor %}
+        </table>
+        <hr width="50%">
+        <div class="modpack-dl">
+          <div class="modpack-dl-url">
+            <button
+              class="modpack-dl-url-copy-button"
+              onclick="copyText()"
+              id="modpack-dl-url-copy-button">📋</button>
+            <p id="modpack-dl-url">https://minecraft.mendess.xyz/mods/large-biomes.mrpack</p>
+          </div>
+          <a class="modpack-dl-button" href="/mods/large-biomes.mrpack">Download Modpack</a>
+        </div>
+    </div>
+</body>
+<script>
+  async function copyText() {
+    const p = document.getElementById("modpack-dl-url");
+    try {
+      await navigator.clipboard.writeText(p.textContent);
+      const copy_button = document.getElementById("modpack-dl-url-copy-button");
+      copy_button.innerText = "✅"
+      setTimeout(() => { copy_button.innerText = "📋"; }, 1500);
+    } catch (err) {
+      alert("failed to copy" + err);
+    }
+  }
+</script>
+</html>

@@ -114,7 +114,7 @@ struct Year {
 }
 
 #[derive(Debug, Template, Default)]
-#[template(path = "games/minecraft/deaths/index.html")]
+#[template(path = "games/minecraft/deaths.html")]
 struct DeathsTemplate {
     years: Vec<Year>,
     no_year_enabled: bool,

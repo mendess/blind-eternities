@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+{% let head_title = "Files" %}
+{% let head_stylesheet = "/assets/styles/files.css" %}
+{% include "./head.html" %}
+  <body>
+    {% include "./title.html" %}
+    <div class="file-list">
+      <ul>
+        {% for f in files %}
+        <li><a class="file-list-link" href='/files/{{f}}'>{{f}}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </body>
+</html>
+

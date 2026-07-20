@@ -15,7 +15,7 @@ use tokio_stream::{StreamExt as _, wrappers::ReadDirStream};
 use zip::write::SimpleFileOptions;
 
 #[derive(Debug, Default, Template)]
-#[template(path = "games/minecraft/mods/index.html")]
+#[template(path = "games/minecraft/mods.html")]
 pub struct Mods {
     neoforge_version: String,
     required: Vec<Mod>,

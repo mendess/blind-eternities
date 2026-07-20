@@ -97,7 +97,7 @@ async fn index() -> Result<impl IntoResponse, Error> {
 }
 
 #[derive(Debug, Template)]
-#[template(path = "games/minecraft/maps/index.html")]
+#[template(path = "games/minecraft/maps.html")]
 struct Maps;
 
 async fn maps() -> Result<impl IntoResponse, Error> {

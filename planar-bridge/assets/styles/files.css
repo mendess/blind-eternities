@@ -1,9 +1,11 @@
 body {
   background: #222222;
+}
+.file-list {
   display: flex;
   justify-content: center;
 }
-li {
+.file-list li {
   padding: 2px;
 }
 .file-list-link:link {

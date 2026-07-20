@@ -1,12 +1,24 @@
 <head>
   <meta charset="UTF-8">
-  <title>{{ head_title }}</title>
+  {% if head_title is defined %}
+  <title>Planar Bridge - {{ head_title }}</title>
+  {% else %}
+  <title>Planar Bridge</title>
+  {% endif %}
   <script src="/assets/htmx.2.0.7.min.js"></script>
-  {% for script in head_scripts %}
-  <script src="{{ script }}"></script>
-  {% endfor %}
+  {% if head_scripts is defined %}
+    {% for script in head_scripts %}
+    <script src="{{ script }}"></script>
+    {% endfor %}
+  {% endif %}
+  {% if head_icon is defined %}
+  <link rel="icon" href="{{ head_icon }}" type="image/x-icon">
+  {% else %}
   <link rel="icon" href="/assets/icons/favicon.ico" type="image/x-icon">
+  {% endif %}
   <link rel="stylesheet" href="/assets/styles/base.css"/>
+  {% if head_stylesheet is defined %}
   <link rel="stylesheet" href="{{ head_stylesheet }}"/>
+  {% endif %}
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>

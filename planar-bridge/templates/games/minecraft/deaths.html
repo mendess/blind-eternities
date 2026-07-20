@@ -1,149 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="/assets/icons/games/minecraft-favicon.ico" type="image/x-icon">
-    <title>Skill Issues</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
-    <style>body {
-        font-family: sans-serif;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin: 0; /* Remove default body margin */
-        padding: 20px;
-        background-color: #f4f4f9; /* Light background for contrast */
-    }
-    h1 {
-        color: #333;
-        margin-bottom: 20px;
-    }
-
-    /* Styles for the tab navigation (kept the same) */
-    .tab-nav-years {
-        display: flex;
-        justify-content: left;
-        border-bottom: 2px solid #ccc;
-        width: 100%; /* Ensure tabs span full width of the view */
-        max-width: 1200px;
-    }
-    /* Styles for the tab navigation (kept the same) */
-    .tab-nav-players {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 20px;
-        border-bottom: 2px solid #ccc;
-        width: 100%; /* Ensure tabs span full width of the view */
-        max-width: 1200px;
-    }
-    a.tab-button {
-      text-decoration: none;
-      color: black;
-    }
-    .tab-button {
-        padding: 10px 20px;
-        cursor: pointer;
-        border: none;
-        background-color: transparent;
-        font-size: 16px;
-        font-weight: bold;
-        transition: color 0.3s, border-bottom 0.3s;
-    }
-    .tab-button:hover {
-        color: #1E90FF;
-    }
-    .tab-button.active {
-        color: #1E90FF;
-        border-bottom: 3px solid #1E90FF;
-    }
-
-    /* Container for all tab contents (General and Player tabs) */
-    #content-general, .content-player {
-        width: 100%;
-        display: flex;
-        justify-content: center; /* Center the charts container inside the tab content */
-    }
-
-    /* Hide/Show logic for tab content */
-    .tab-content {
-        display: none;
-    }
-    .tab-content.active {
-        display: block;
-        width: 100%;
-    }
-
-    /* Chart Container: Holds the two charts and centers them */
-    .chart-container {
-        display: flex;
-        justify-content: center; /* Center the chart boxes horizontally */
-        gap: 40px; /* Space between the two charts */
-        width: 90vw; /* Use 90% of viewport width */
-        max-width: 1200px;
-        margin: 20px 0;
-    }
-
-    /* Chart Box: Sets the fixed width for each chart */
-    .chart-box {
-        /* Calculates 45% of the viewport width */
-        width: 45vw;
-        max-width: 540px; /* Optional cap to prevent charts from getting too massive */
-        background-color: white; /* White background for the chart area */
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        text-align: center;
-    }
-
-    .chart-box h2 {
-        margin-top: 0;
-        font-size: 1.2em;
-        color: #555;
-    }
-    /* ... (Add this inside your <style> block) ... */
-
-    .stats-box {
-        margin-top: 20px;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        text-align: left; /* Align text within the box */
-        font-size: 0.9em;
-        background-color: #fcfcfc;
-    }
-    .stats-box h3 {
-        margin: 0 0 10px 0;
-        color: #1E90FF;
-        font-size: 1.1em;
-    }
-    .stats-box ul {
-        padding-left: 20px;
-        margin: 5px 0;
-    }
-    .stats-table {
-        width: 100%;
-        justify-content: center;
-    }
-    </style>
-</head>
+{% let head_title = "The Largest Biomes Minecraft Server - Skill Issues" %}
+{% let head_scripts = ["https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"] %}
+{% let head_icon = "/assets/icons/games/minecraft-favicon.ico" %}
+{% let head_stylesheet = "/assets/styles/games/minecraft/deaths.css" %}
+{% include "../../head.html" %}
 <body>
+  {% include "../../title.html" %}
 
-    <h1>Skill Issues</h1>
-
+  <div class="container">
     {% if years.len() > 1 %}
     <div class="tab-nav-years" id="year-tabs">
       {%- if no_year_enabled %}
-      <a class="tab-button active" href="/deaths">All Time</a>
+      <a class="tab-button active" href="./deaths">All Time</a>
       {%- else %}
-      <a class="tab-button" href="/deaths">All Time</a>
+      <a class="tab-button" href="./deaths">All Time</a>
       {%- endif %}
       {%- for y in years %}
       {%- if y.enabled %}
-      <a class="tab-button active" href="/deaths?year={{y.number}}">{{y.number}}</a>
+      <a class="tab-button active" href="./deaths?year={{y.number}}">{{y.number}}</a>
       {%- else %}
-      <a class="tab-button" href="/deaths?year={{y.number}}">{{y.number}}</a>
+      <a class="tab-button" href="./deaths?year={{y.number}}">{{y.number}}</a>
       {%- endif %}
       {%- endfor %}
     </div>
@@ -216,6 +93,7 @@
       </div>
       {% endfor %}
     </div>
+  </div>
 
     <script>
 
