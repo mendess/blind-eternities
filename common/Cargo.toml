@@ -60,6 +60,9 @@ metrics = [
     "dep:tower",
     "dep:axum-prometheus"
 ]
+proxy-utils = [
+    "dep:axum",
+]
 playlist = [
     "dep:http"
 ]

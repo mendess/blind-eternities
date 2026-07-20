@@ -48,14 +48,27 @@ enum Error {
     Reqwest(#[from] reqwest::Error),
     #[error("bad request: {0}")]
     BadRequest(&'static str),
+    #[error("not found")]
+    NotFound,
     #[error("sqlx: {0}")]
-    Sqlx(#[from] sqlx::Error),
+    Sqlx(sqlx::Error),
+}
+
+impl From<sqlx::Error> for Error {
+    fn from(value: sqlx::Error) -> Self {
+        match value {
+            sqlx::Error::RowNotFound => Self::NotFound,
+            e => Self::Sqlx(e),
+        }
+    }
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         let code = match self {
-            Self::Io(_) | Self::Reqwest(_) | Self::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Io(_) | Self::Reqwest(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
         };
         (code, self.to_string()).into_response()
@@ -131,8 +144,30 @@ async fn song_thumb(
     Path(id): Path<SongId>,
 ) -> Result<impl IntoResponse, Error> {
     let thumb_dir = st.dirs.music().thumb();
-    let file = search(&THUMB_PATH_CACHE, &thumb_dir, &id).await?;
-    Ok((StatusCode::OK, file))
+    match search(&THUMB_PATH_CACHE, &thumb_dir, &id).await {
+        Ok(file) => Ok((StatusCode::OK, file).into_response()),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            let record = sqlx::query!(
+                "SELECT id, navidrome_id FROM songs WHERE id = $1",
+                id.as_str()
+            )
+            .fetch_one(&*st.db)
+            .await?;
+            let Some(navidrome_id) = record.navidrome_id else {
+                return Err(e.into());
+            };
+
+            tracing::info!(?navidrome_id, "requesting thumbnail from navidrome");
+            Ok(common::net::proxy::reqwest_to_axum(
+                subsonic::get_cover_art(
+                    &st.apis.navidrome,
+                    &navidrome_id.try_into().map_err(io::Error::other)?,
+                )
+                .await?,
+            )?)
+        }
+        Err(e) => return Err(e.into()),
+    }
 }
 
 #[tracing::instrument(skip(st))]

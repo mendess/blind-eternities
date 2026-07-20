@@ -1,4 +1,4 @@
-use crate::{RouterState, util};
+use crate::RouterState;
 use askama::Template;
 use axum::{
     Router,
@@ -72,7 +72,7 @@ pub async fn proxy_file<const UNLISTED: bool>(
     } else {
         format!("/files/{filename}")
     };
-    Ok(util::proxy_response(
+    Ok(common::net::proxy::reqwest_to_axum(
         state.client.get(&path).unwrap().send().await?,
     )?)
 }

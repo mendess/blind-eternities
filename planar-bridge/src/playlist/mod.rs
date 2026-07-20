@@ -1,4 +1,4 @@
-use crate::{Error, RouterState, cache, metrics, util};
+use crate::{Error, RouterState, cache, metrics};
 use askama::Template;
 use axum::{
     Router,
@@ -326,7 +326,7 @@ async fn audio(
         == Some("navidrome")
     {
         metrics::playlist_audio_streams("navidrome").inc();
-        Ok(util::proxy_response(response).map_err(io::Error::other)?)
+        Ok(common::net::proxy::reqwest_to_axum(response).map_err(io::Error::other)?)
     } else {
         metrics::playlist_audio_streams("ffmpeg").inc();
         // Spawn ffmpeg to transcode to mp3 (browser-friendly)

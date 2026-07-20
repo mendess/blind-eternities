@@ -1,4 +1,5 @@
 pub mod auth_client;
+pub mod proxy;
 
 use std::{
     fmt::{Debug, Display},

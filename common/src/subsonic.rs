@@ -168,6 +168,27 @@ pub async fn get_playlist_tracks(
     Ok(res.playlist.entry)
 }
 
+pub async fn get_cover_art(
+    client: &Client,
+    song_id: &NavidromeId,
+) -> reqwest::Result<reqwest::Response> {
+    #[derive(Serialize)]
+    struct NavidromeQuery<'s> {
+        #[serde(flatten)]
+        base: BaseNavidromeQuery,
+        id: &'s str,
+    }
+    client
+        .get("/rest/getCoverArt")
+        .unwrap()
+        .query(&NavidromeQuery {
+            base: BaseNavidromeQuery::base(),
+            id: song_id.as_str(),
+        })
+        .send()
+        .await
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("reqwest error: {0}")]

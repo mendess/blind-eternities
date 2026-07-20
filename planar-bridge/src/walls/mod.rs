@@ -140,7 +140,7 @@ async fn proxy_wallpaper(
         .map(|Path(path)| path.as_str())
         .unwrap_or("random");
     let Ok(filename) = askama::filters::urlencode(filename);
-    Ok(util::proxy_response(
+    Ok(common::net::proxy::reqwest_to_axum(
         state
             .client
             .get(&format!("{dir}/{filename}"))
@@ -156,7 +156,7 @@ async fn thumb(
     Path(filename): Path<String>,
 ) -> Result<impl IntoResponse, Error> {
     let Ok(filename) = askama::filters::urlencode(filename);
-    Ok(util::proxy_response(
+    Ok(common::net::proxy::reqwest_to_axum(
         state
             .client
             .get(&format!("{dir}/thumb/{filename}"))

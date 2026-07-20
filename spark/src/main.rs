@@ -188,9 +188,11 @@ fn show_response(response: spark_protocol::Response) {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    init_subscriber(get_subscriber_no_bunny(
-        if args.verbose { "debug" } else { "info" }.into(),
-    ));
+    init_subscriber(get_subscriber_no_bunny(if args.verbose {
+        "debug"
+    } else {
+        "info"
+    }));
 
     let status = app(args).await?;
     std::process::exit(status.code().unwrap_or(139))
