@@ -121,11 +121,11 @@ where
 }
 
 async fn random(dir: impl Directory) -> Result<impl IntoResponse, Error> {
-    Ok(util::fs::named_file(&util::fs::random_file(dir.get()).await?.path()).await?)
+    Ok(common::web_server::named_file(util::fs::random_file(dir.get()).await?.path()).await?)
 }
 
 async fn specific(dir: impl Directory, filename: Path<String>) -> Result<impl IntoResponse, Error> {
-    Ok(util::fs::named_file(&dir.file(&filename.0)).await?)
+    Ok(common::web_server::named_file(dir.file(&filename.0)).await?)
 }
 
 fn name_from_path(path: &std::path::Path) -> io::Result<String> {
@@ -158,14 +158,17 @@ async fn thumb(
     filename: Path<String>,
 ) -> Result<impl IntoResponse, Error> {
     let thumb_path = st.dirs.walls().thumb().file(&filename);
-    match util::fs::named_file(&thumb_path).await {
+    match common::web_server::named_file(&thumb_path).await {
         Ok(file) => Ok(file.into_response()),
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
-            Ok(create_thumb(dir.file(&filename), thumb_path)
-                .await
-                .map_err(io::Error::other)?
-                .map(IntoResponse::into_response)
-                .ok_or_else(|| Error::BadRequest("unsupported extension".to_string()))?)
+            Ok(
+                // TODO improve named file when use<> is allowed
+                create_thumb(dir.file(&filename), thumb_path.clone())
+                    .await
+                    .map_err(io::Error::other)?
+                    .map(IntoResponse::into_response)
+                    .ok_or_else(|| Error::BadRequest("unsupported extension".to_string()))?,
+            )
         }
         Err(e) => Err(e.into()),
     }
@@ -187,13 +190,13 @@ async fn create_thumb(source: PathBuf, dest: PathBuf) -> io::Result<Option<impl 
             compress_gif(source, &dest)
                 .await
                 .map_err(io::Error::other)?;
-            Ok(Some(util::fs::named_file(&dest).await?))
+            Ok(Some(common::web_server::named_file(dest).await?))
         }
         "jpg" | "jpeg" | "png" | "bmp" => {
             compress_image(source, &dest)
                 .await
                 .map_err(io::Error::other)?;
-            Ok(Some(util::fs::named_file(&dest).await?))
+            Ok(Some(common::web_server::named_file(dest).await?))
         }
         _ => Ok(None),
     }

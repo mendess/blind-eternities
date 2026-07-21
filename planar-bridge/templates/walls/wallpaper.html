@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <link rel="icon" href="/assets/icons/favicon.ico" type="image/x-icon">
+    {% decl head_title %}
     {% if let Some(name) = name %}
-    <title>{{name}}</title>
+    {% let head_title = name.as_str() %}
     {% else %}
-    <title>Random Wallpaper</title>
+    {% let head_title = "Random Wallpaper" %}
     {% endif %}
+    {% include "../head.html" %}
     <style>
     body {
       background: black;

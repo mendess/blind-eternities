@@ -1,4 +1,4 @@
-use crate::{auth, routes::dirs::Directory, util::fs::named_file};
+use crate::{auth, routes::dirs::Directory};
 use axum::{
     Json, Router,
     body::Body,
@@ -6,6 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, patch, post},
 };
+use common::web_server::named_file;
 use common::{
     domain::playlist::{NavidromeId, SONG_META_HEADER, SongId, SongMetadata},
     subsonic,
@@ -158,7 +159,7 @@ async fn song_thumb(
             };
 
             tracing::info!(?navidrome_id, "requesting thumbnail from navidrome");
-            Ok(common::net::proxy::reqwest_to_axum(
+            Ok(common::web_server::reqwest_to_axum(
                 subsonic::get_cover_art(
                     &st.apis.navidrome,
                     &navidrome_id.try_into().map_err(io::Error::other)?,
@@ -368,7 +369,7 @@ async fn search(
             }
         }
     }
-    named_file(&path).await
+    named_file(path).await
 }
 
 async fn mtogo_version(State(st): State<super::RouterState>) -> Result<impl IntoResponse, Error> {
@@ -408,5 +409,5 @@ async fn mtogo_version(State(st): State<super::RouterState>) -> Result<impl Into
 }
 
 async fn mtogo_download(State(st): State<super::RouterState>) -> Result<impl IntoResponse, Error> {
-    Ok(named_file(&st.dirs.music().mtogo().file("mtogo.apk")).await?)
+    Ok(named_file(st.dirs.music().mtogo().file("mtogo.apk")).await?)
 }

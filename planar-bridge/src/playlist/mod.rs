@@ -326,7 +326,7 @@ async fn audio(
         == Some("navidrome")
     {
         metrics::playlist_audio_streams("navidrome").inc();
-        Ok(common::net::proxy::reqwest_to_axum(response).map_err(io::Error::other)?)
+        Ok(common::web_server::reqwest_to_axum(response).map_err(io::Error::other)?)
     } else {
         metrics::playlist_audio_streams("ffmpeg").inc();
         // Spawn ffmpeg to transcode to mp3 (browser-friendly)

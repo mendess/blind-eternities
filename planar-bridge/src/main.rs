@@ -23,7 +23,7 @@ use config::File;
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use url::Url;
 
 #[derive(Debug, thiserror::Error)]
@@ -127,6 +127,10 @@ async fn main() -> io::Result<()> {
         .nest("/walls/", walls::routes())
         .nest("/files", files::routes())
         .nest("/games", games::router(config.games))
+        .nest_service(
+            "/favicon.ico",
+            ServeFile::new("planar-bridge/assets/icons/favicon.ico"),
+        )
         .nest_service("/assets", ServeDir::new("planar-bridge/assets"))
         .fallback(not_found)
         .layer(layer)

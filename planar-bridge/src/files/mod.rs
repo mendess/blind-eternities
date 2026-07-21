@@ -69,7 +69,7 @@ pub async fn proxy_file<const UNLISTED: bool>(
     } else {
         format!("/files/{filename}")
     };
-    Ok(common::net::proxy::reqwest_to_axum(
+    Ok(common::web_server::reqwest_to_axum(
         state.client.get(&path).unwrap().send().await?,
     )?)
 }

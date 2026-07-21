@@ -7,10 +7,15 @@ edition.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+axum = { workspace = true, optional = true }
 axum-prometheus = { workspace = true, optional = true }
 chrono = { workspace = true, features = ["serde"] }
 either.workspace = true
+http = { workspace = true, optional = true }
+httpdate = { workspace = true, optional = true }
 itertools.workspace = true
+md-5 = { workspace = true }
+mime_guess = { workspace = true, optional = true }
 once_cell.workspace = true
 parking_lot.workspace = true
 petgraph.workspace = true
@@ -21,16 +26,14 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tokio-util = { workspace = true, optional = true, features = ["io", "compat"] }
+tower = { workspace = true, optional = true }
 tracing-bunyan-formatter.workspace = true
 tracing-log.workspace = true
 tracing.workspace = true
 url.workspace = true
 uuid.workspace = true
 whoami.workspace = true
-tower = { workspace = true, optional = true }
-axum = { workspace = true, optional = true }
-md-5 = { workspace = true }
-http = { workspace = true, optional = true }
 
 [dependencies.tracing-subscriber]
 workspace = true
@@ -51,7 +54,7 @@ rand.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 
 [features]
-default = ["sqlx", "metrics", "subsonic", "playlist"]
+default = ["sqlx", "metrics", "subsonic", "playlist", "web-server-utils"]
 sqlx = ["dep:sqlx"]
 metrics = [
     "dep:prometheus-client",
@@ -60,8 +63,11 @@ metrics = [
     "dep:tower",
     "dep:axum-prometheus"
 ]
-proxy-utils = [
+web-server-utils = [
     "dep:axum",
+    "dep:mime_guess",
+    "dep:httpdate",
+    "dep:tokio-util",
 ]
 playlist = [
     "dep:http"

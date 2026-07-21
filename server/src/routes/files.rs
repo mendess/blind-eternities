@@ -57,7 +57,7 @@ pub async fn load_file<const UNLISTED: bool>(
         state.dirs.files().file(&filename)
     };
 
-    match util::fs::named_file(&file_path).await {
+    match common::web_server::named_file(file_path).await {
         Ok(f) => Ok(f),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Err(Error::NotFound),
         Err(e) => Err(e.into()),

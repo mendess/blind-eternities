@@ -5,4 +5,6 @@ pub mod net;
 pub mod subsonic;
 #[cfg(feature = "metrics")]
 pub mod telemetry;
+#[cfg(feature = "web-server-utils")]
+pub mod web_server;
 pub mod ws;
