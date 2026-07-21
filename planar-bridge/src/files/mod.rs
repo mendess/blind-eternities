@@ -48,19 +48,16 @@ struct Index {
 }
 
 pub async fn index(state: State<RouterState>) -> Result<impl IntoResponse, Error> {
-    Ok(Html(
-        Index {
-            files: state
-                .client
-                .get("/files")
-                .unwrap()
-                .send()
-                .await?
-                .json()
-                .await?,
-        }
-        .render()?,
-    ))
+    let mut files: Vec<String> = state
+        .client
+        .get("/files")
+        .unwrap()
+        .send()
+        .await?
+        .json()
+        .await?;
+    files.sort();
+    Ok(Html(Index { files }.render()?))
 }
 
 pub async fn proxy_file<const UNLISTED: bool>(
