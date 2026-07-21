@@ -132,7 +132,7 @@ async fn main() -> io::Result<()> {
         .layer(layer)
         .with_state(state);
 
-    println!("running on http://localhost:{}/playlist", config.port);
+    println!("running on http://localhost:{}", config.port);
     axum::serve(TcpListener::bind(("0.0.0.0", config.port)).await?, router).await
 }
 

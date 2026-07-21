@@ -27,6 +27,10 @@ div.vertical {
   grid-row: span 2;
 }
 
+div.wide {
+  grid-column: span 2;
+}
+
 div.wallpaper:hover {
   border: 1px solid #7cafc2;
 }
