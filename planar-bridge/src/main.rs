@@ -18,6 +18,7 @@ use clap::Parser;
 use common::{
     net::auth_client::Client,
     telemetry::{get_subscriber_no_bunny, init_subscriber, metrics::MetricsEndpoint},
+    web_server::crawlers,
 };
 use config::File;
 use http::StatusCode;
@@ -121,6 +122,7 @@ async fn main() -> io::Result<()> {
     tokio::spawn(worker);
     let router = Router::new()
         .route("/", axum::routing::get(index))
+        .route("/robots.txt", crawlers::robots_txt())
         .nest("/music", music::routes())
         .nest("/playlist", playlist::routes())
         .merge(util::append_slash_router(&["/walls"]))
@@ -134,6 +136,7 @@ async fn main() -> io::Result<()> {
         .nest_service("/assets", ServeDir::new("planar-bridge/assets"))
         .fallback(not_found)
         .layer(layer)
+        .layer(crawlers::no_index())
         .with_state(state);
 
     println!("running on http://localhost:{}", config.port);

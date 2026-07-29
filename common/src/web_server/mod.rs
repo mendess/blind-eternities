@@ -1,3 +1,5 @@
+pub mod crawlers;
+
 use axum::{
     body::Body,
     response::{AppendHeaders, IntoResponse, Response},

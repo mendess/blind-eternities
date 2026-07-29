@@ -1,5 +1,5 @@
 use crate::{configuration::Apis, routes};
-use common::{net::auth_client::Client, telemetry::metrics::MetricsEndpoint};
+use common::{net::auth_client::Client, telemetry::metrics::MetricsEndpoint, web_server::crawlers};
 use sqlx::PgPool;
 use std::{
     future::{self, Future, IntoFuture},
@@ -37,7 +37,10 @@ pub fn run(
 
     Ok(axum::serve(
         server_listener,
-        router.layer(ws_layer).layer(TraceLayer::new_for_http()),
+        router
+            .layer(crawlers::no_index())
+            .layer(ws_layer)
+            .layer(TraceLayer::new_for_http()),
     )
     .with_graceful_shutdown(async {
         if let Err(e) = tokio::signal::ctrl_c().await {

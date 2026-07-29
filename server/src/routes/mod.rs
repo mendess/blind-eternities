@@ -12,7 +12,7 @@ use axum::{Router, extract::FromRef};
 use sqlx::PgPool;
 
 use crate::persistent_connections::ws::SocketIo;
-use common::net::auth_client::Client;
+use common::{net::auth_client::Client, web_server};
 
 pub mod dirs {
     #[derive(Debug)]
@@ -159,6 +159,7 @@ pub struct RouterState {
 
 pub fn router(db: Arc<PgPool>, socket_io: SocketIo, dirs: dirs::Directories, apis: Apis) -> Router {
     Router::new()
+        .route("/robots.txt", web_server::crawlers::robots_txt())
         .nest("/admin", admin::routes())
         .nest("/machine", machine_status::routes())
         .nest("/persistent-connections", persistent_connections::routes())
