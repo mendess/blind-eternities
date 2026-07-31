@@ -4,6 +4,7 @@ use anyhow::Context as _;
 use axum::{extract::FromRequestParts, http::request::Parts, response::IntoResponse};
 use http::StatusCode;
 use sqlx::PgPool;
+use std::sync::{Arc, OnceLock};
 use uuid::Uuid;
 
 #[derive(thiserror::Error, Debug)]
@@ -180,3 +181,43 @@ macro_rules! gen_role_extractor {
 
 gen_role_extractor!(Admin);
 gen_role_extractor!(Music);
+
+pub struct YtDlAuth();
+impl<S> FromRequestParts<S> for YtDlAuth
+where
+    S: Send + Sync,
+    Arc<crate::routes::dirs::Directories>: axum::extract::FromRef<S>,
+{
+    type Rejection = AuthError;
+
+    async fn from_request_parts(req: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let bearer = req
+            .headers
+            .get(axum::http::header::AUTHORIZATION)
+            .ok_or(AuthError::UnauthorizedToken)?
+            .to_str()
+            .map_err(|_| AuthError::InvalidToken)?
+            .strip_prefix("Bearer ")
+            .ok_or(AuthError::InvalidToken)?;
+
+        use crate::routes::dirs::{Directories, Directory};
+        use axum::extract::FromRef;
+
+        static BEARER_TOKEN: OnceLock<Result<String, String>> = OnceLock::new();
+        BEARER_TOKEN
+            .get_or_init(|| {
+                let dirs = Arc::<Directories>::from_ref(state);
+                let key_path = dirs.auth().file("ytdl-key");
+                std::fs::read_to_string(key_path).map_err(|e| e.to_string())
+            })
+            .as_ref()
+            .map_err(|e| AuthError::UnexpectedError(anyhow::anyhow!("missing server token: {e}")))
+            .and_then(|token| {
+                if token.trim() == bearer {
+                    Ok(Self())
+                } else {
+                    Err(AuthError::UnauthorizedToken)
+                }
+            })
+    }
+}

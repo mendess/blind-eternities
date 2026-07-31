@@ -41,8 +41,13 @@ RUN cargo build -p blind-eternities --release --bin create_token
 # executing image
 FROM debian:bookworm-slim
 
+RUN apt update && apt install wget -y
+
 COPY --from=build /blind-eternities/target/release/blind-eternities .
 COPY --from=build /blind-eternities/target/release/create_token .
+
+RUN wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp && \
+    chmod +x /usr/local/bin/yt-dlp
 
 ENTRYPOINT ["/blind-eternities"]
 CMD ["--config=configuration.toml"]

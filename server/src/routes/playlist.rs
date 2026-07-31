@@ -36,6 +36,7 @@ pub fn routes() -> Router<super::RouterState> {
         .route("/song/audio/{id}", get(song_audio))
         .route("/song/thumb/{id}", get(song_thumb).post(add_thumb))
         .route("/song/metadata/{id}", get(song_meta))
+        .route("/yt-search/{query}", get(yt_search))
 }
 
 static AUDIO_PATH_CACHE: LazyLock<Mutex<HashMap<String, String>>> = LazyLock::new(Mutex::default);
@@ -410,4 +411,30 @@ async fn mtogo_version(State(st): State<super::RouterState>) -> Result<impl Into
 
 async fn mtogo_download(State(st): State<super::RouterState>) -> Result<impl IntoResponse, Error> {
     Ok(named_file(st.dirs.music().mtogo().file("mtogo.apk")).await?)
+}
+
+async fn yt_search(
+    _: auth::YtDlAuth,
+    Path(query): Path<String>,
+) -> Result<impl IntoResponse, Error> {
+    let id = match Command::new("/usr/local/bin/yt-dlp")
+        .arg("--get-id")
+        .arg(format!("ytsearch:{query}"))
+        .output()
+        .await
+    {
+        Ok(child) => {
+            if child.status.success() {
+                String::from_utf8(child.stdout).map_err(io::Error::other)?
+            } else {
+                return Err(io::Error::other(format!(
+                    "yt-dlp returned non 0 exit code {:?}",
+                    child.status
+                ))
+                .into());
+            }
+        }
+        Err(e) => return Err(io::Error::other(format!("failed to run yt-dlp: {e:?}")).into()),
+    };
+    Ok(id.trim().to_string())
 }

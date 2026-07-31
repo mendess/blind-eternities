@@ -64,6 +64,7 @@ pub mod dirs {
                         }
                     }
 
+                    #[allow(unused)]
                     impl $node {
                         fn build(mut self) -> std::path::PathBuf {
                             self.parent.push(std::stringify!($node));
@@ -126,6 +127,7 @@ pub mod dirs {
     }
 
     directories! {
+        auth/ {}
         music/ {
             audio
             meta
