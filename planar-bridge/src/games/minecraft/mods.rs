@@ -261,19 +261,19 @@ pub async fn server_mods(config: &super::Config) -> Result<Vec<Mod>, Error> {
                 let p = s.ok()?.path();
                 let p = p.file_name().unwrap();
                 let m = p.to_str().unwrap();
-                fn parse_version(sufix: &str) -> Option<&str> {
-                    sufix.strip_suffix(".jar")?.strip_prefix("-")
+                fn parse_version(suffix: &str) -> Option<&str> {
+                    suffix.strip_suffix(".jar")?.strip_prefix("-")
                 }
                 let (name, version, mandatory): (&str, &str, bool) = MANDATORY_MODS
                     .iter()
                     .find_map(|mod_name| {
                         m.strip_prefix(*mod_name)
-                            .and_then(|sufix| Some((*mod_name, parse_version(sufix)?, true)))
+                            .and_then(|suffix| Some((*mod_name, parse_version(suffix)?, true)))
                     })
                     .or_else(|| {
                         SERVER_SUPPORTED_MODS.iter().find_map(|mod_name| {
                             m.strip_prefix(*mod_name)
-                                .and_then(|sufix| Some((*mod_name, parse_version(sufix)?, false)))
+                                .and_then(|suffix| Some((*mod_name, parse_version(suffix)?, false)))
                         })
                     })?;
                 let name = match name {

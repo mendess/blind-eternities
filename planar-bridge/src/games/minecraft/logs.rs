@@ -87,7 +87,7 @@ pub async fn parse_logs(config: &Config) -> Result<impl Stream<Item = LogLine>, 
         .collect::<Result<_, _>>()
         .map_err(io::Error::other)?;
     files.sort();
-    files.pop(); // this one is the same as lattest.log so we don't want to cache it
+    files.pop(); // this one is the same as latest.log so we don't want to cache it
     let death_record_futures = {
         let whitelist = whitelist.clone();
         futures::stream::iter(files)
@@ -142,7 +142,7 @@ pub async fn parse_logs(config: &Config) -> Result<impl Stream<Item = LogLine>, 
             match std::fs::read_to_string(latest_log_path) {
                 Ok(contents) => parse_log(&contents, &whitelist).into_iter(),
                 Err(e) => {
-                    tracing::error!(error = ?e, "failed to read lattest log");
+                    tracing::error!(error = ?e, "failed to read latest log");
                     vec![].into_iter()
                 }
             }

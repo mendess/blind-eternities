@@ -6,7 +6,7 @@ use axum::{
     response::{Html, IntoResponse},
     routing::get,
 };
-use http::StatusCode;
+use http::{HeaderName, HeaderValue, StatusCode, header};
 use serde::{Deserialize, Serialize};
 use std::io;
 
@@ -154,14 +154,19 @@ async fn proxy_wallpaper(
         .map(|Path(path)| path.as_str())
         .unwrap_or("random");
     let Ok(filename) = askama::filters::urlencode(filename);
-    Ok(common::web_server::reqwest_to_axum(
+    let mut resp = common::web_server::reqwest_to_axum(
         state
             .client
             .get(&format!("{dir}/{filename}"))
             .unwrap()
             .send()
             .await?,
-    )?)
+    )?;
+    resp.headers_mut().insert(
+        header::CACHE_CONTROL,
+        const { HeaderValue::from_static("no-store") },
+    );
+    Ok(resp)
 }
 
 async fn thumb(
