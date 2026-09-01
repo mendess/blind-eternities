@@ -102,6 +102,9 @@ mod mod_pack {
                                 .await
                         }
                         .await
+                        .inspect_err(|e| {
+                            tracing::error!(?e, "failed to get versions for {}", m.slug)
+                        })
                         .map_err(io::Error::other)?;
 
                         #[derive(Deserialize)]
@@ -165,7 +168,10 @@ mod mod_pack {
                     })
                     .buffered(usize::MAX)
                     .try_collect()
-                    .await?,
+                    .await
+                    .inspect_err(|e| {
+                        tracing::error!(?e, "failed to calculate file list for mod pack")
+                    })?,
                 dependencies: Dependencies {
                     minecraft: "1.21.1".to_owned(),
                     neoforge: neoforge_version,
@@ -216,14 +222,15 @@ pub async fn generate_mod_pack(config: State<Arc<Config>>) -> Result<impl IntoRe
         server_mods.into_iter().chain(recommended_mods),
         neoforge_version,
     )
-    .await?;
+    .await
+    .inspect_err(|e| tracing::error!(?e, "failed to create modpack"))?;
     let json_data = serde_json::to_vec_pretty(&modpack).unwrap();
 
     // 2. Create a buffer in memory
     let mut buffer = Vec::new();
 
     // 3. Scope the ZipWriter so it returns ownership of the buffer when dropped/finished
-    {
+    async {
         let mut zip = zip::ZipWriter::new(Cursor::new(&mut buffer));
 
         let options =
@@ -237,14 +244,17 @@ pub async fn generate_mod_pack(config: State<Arc<Config>>) -> Result<impl IntoRe
         zip.start_file("overrides/servers.dat", options)
             .map_err(io::Error::other)?;
         zip.write_all(
-            tokio::fs::read_to_string("./assets/servers.dat")
+            tokio::fs::read_to_string("planar-bridge/assets/servers.dat")
                 .await?
                 .as_bytes(),
         )?;
 
         // Explicitly finish to write the central directory to the buffer
         zip.finish().map_err(io::Error::other)?;
+        io::Result::Ok(())
     }
+    .await
+    .inspect_err(|e| tracing::error!(?e, "failed to create in memory zip file"))?;
 
     tracing::info!(len = buffer.len(), "serving modpack");
 
