@@ -6,7 +6,7 @@ use axum::{
     response::{Html, IntoResponse},
     routing::get,
 };
-use http::{HeaderName, HeaderValue, StatusCode, header};
+use http::{HeaderValue, StatusCode, header};
 use serde::{Deserialize, Serialize};
 use std::io;
 

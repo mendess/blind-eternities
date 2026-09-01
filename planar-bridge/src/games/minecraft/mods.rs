@@ -205,9 +205,13 @@ mod mod_pack {
 }
 
 pub async fn generate_mod_pack(config: State<Arc<Config>>) -> Result<impl IntoResponse, Error> {
-    let server_mods = server_mods(&config).await?;
-    let recommended_mods = recommended_mods().await?;
-    let neoforge_version = neoforge_version(&config).await?;
+    let server_mods = server_mods(&config)
+        .await
+        .inspect_err(|e| tracing::error!(?e, "failed to read server mods"))?;
+    let recommended_mods = recommended_mods();
+    let neoforge_version = neoforge_version(&config)
+        .await
+        .inspect_err(|e| tracing::error!(?e, "failed to read neoforge version"))?;
     let modpack = mod_pack::ModPack::new(
         server_mods.into_iter().chain(recommended_mods),
         neoforge_version,
@@ -293,7 +297,7 @@ pub async fn server_mods(config: &super::Config) -> Result<Vec<Mod>, Error> {
     )
 }
 
-pub async fn recommended_mods() -> Result<Vec<Mod>, Error> {
+pub fn recommended_mods() -> Vec<Mod> {
     static CLIENT_SIDE_MODS: LazyLock<Vec<Mod>> = LazyLock::new(|| {
         [
             "sodium",
@@ -316,7 +320,7 @@ pub async fn recommended_mods() -> Result<Vec<Mod>, Error> {
         .to_vec()
     });
 
-    Ok(CLIENT_SIDE_MODS.clone())
+    CLIENT_SIDE_MODS.clone()
 }
 
 async fn neoforge_version(config: &super::Config) -> Result<String, Error> {
@@ -329,10 +333,14 @@ async fn neoforge_version(config: &super::Config) -> Result<String, Error> {
 }
 
 pub async fn get_mods(config: State<Arc<Config>>) -> Result<impl IntoResponse, Error> {
-    let mut server_mods = server_mods(&config).await?;
-    let recommended_mods = recommended_mods().await?;
+    let mut server_mods = server_mods(&config)
+        .await
+        .inspect_err(|e| tracing::error!(?e, "failed to read server mods"))?;
+    let recommended_mods = recommended_mods();
     let mut mods = Mods {
-        neoforge_version: neoforge_version(&config).await?,
+        neoforge_version: neoforge_version(&config)
+            .await
+            .inspect_err(|e| tracing::error!(?e, "failed to read neoforge version"))?,
         required: server_mods.extract_if(.., |m| m.mandatory).collect(),
         recommended: server_mods,
         client_side: recommended_mods,
