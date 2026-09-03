@@ -13,6 +13,7 @@ use spark_protocol::music::MusicCmdKind;
 use crate::{config::Config, util::get_hostname};
 
 use super::handle_message;
+use reqwest::header;
 
 #[tracing::instrument(skip(socket))]
 async fn handler(payload: Payload, socket: Client, ack: i32) {
@@ -43,6 +44,10 @@ async fn handler(payload: Payload, socket: Client, ack: i32) {
 #[tracing::instrument(skip(token))]
 async fn run(config: &Config, hostname: &Hostname, token: uuid::Uuid) -> anyhow::Result<()> {
     let socket = ClientBuilder::new(format!("{}?h={}", config.backend_domain, hostname))
+        .opening_header(
+            header::USER_AGENT.to_string(),
+            format!("spark/{}", env!("CARGO_PKG_VERSION")),
+        )
         .auth(json! {{ "token": token.to_string() }})
         .namespace(ws::NS)
         .on_with_ack(ws::COMMAND, |payload, socket, ack| {

@@ -19,7 +19,10 @@ impl Client {
             return Err(UrlParseError::SetHostOnCannotBeABaseUrl);
         }
         Ok(Self {
-            client: reqwest::Client::new(),
+            client: reqwest::ClientBuilder::new()
+                .user_agent(format!("spark/{}", env!("CARGO_PKG_VERSION")))
+                .build()
+                .unwrap(),
             base: Arc::new(base),
         })
     }
