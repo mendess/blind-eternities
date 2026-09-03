@@ -156,5 +156,5 @@ async fn not_found() -> impl IntoResponse {
     #[template(path = "not-found.html")]
     struct NotFound;
 
-    Html(NotFound.render().unwrap())
+    (StatusCode::NOT_FOUND, Html(NotFound.render().unwrap()))
 }
