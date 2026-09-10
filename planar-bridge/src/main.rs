@@ -112,7 +112,8 @@ async fn main() -> io::Result<()> {
         config.log_level.as_deref().unwrap_or("info"),
     ));
 
-    let client = Client::new(config.backend_url.clone()).map_err(io::Error::other)?;
+    let client = Client::new(config.backend_url.clone(), env!("CARGO_PKG_NAME"))
+        .map_err(io::Error::other)?;
 
     let MetricsEndpoint { worker, layer } = common::telemetry::metrics::start_metrics_endpoint(
         "planar_bridge",

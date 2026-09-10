@@ -14,13 +14,13 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(base: Url) -> Result<Self> {
+    pub fn new(base: Url, user_agent: &str) -> Result<Self> {
         if base.cannot_be_a_base() {
             return Err(UrlParseError::SetHostOnCannotBeABaseUrl);
         }
         Ok(Self {
             client: reqwest::ClientBuilder::new()
-                .user_agent(format!("spark/{}", env!("CARGO_PKG_VERSION")))
+                .user_agent(format!("{user_agent}/{}", env!("CARGO_PKG_VERSION")))
                 .build()
                 .unwrap(),
             base: Arc::new(base),
@@ -65,9 +65,9 @@ pub struct AuthenticatedClient {
 }
 
 impl AuthenticatedClient {
-    pub fn new(token: uuid::Uuid, base: Url) -> Result<Self> {
+    pub fn new(token: uuid::Uuid, base: Url, user_agent: &str) -> Result<Self> {
         Ok(Self {
-            client: Client::new(base)?,
+            client: Client::new(base, user_agent)?,
             token,
         })
     }

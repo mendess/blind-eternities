@@ -138,7 +138,7 @@ pub async fn upgrade_song(
     id: Option<&BangerId>,
     strict: bool,
 ) -> anyhow::Result<()> {
-    let navidrome_client = subsonic::client();
+    let navidrome_client = subsonic::client(env!("CARGO_PKG_NAME"));
 
     let playlist = mlib::playlist::Playlist::load().await?;
     let song = match id.and_then(|id| playlist.find_by_id(id)) {
@@ -239,7 +239,7 @@ pub async fn sync_playlists(client: AuthenticatedClient) -> anyhow::Result<()> {
     .filter_map(std::future::ready)
     .collect::<HashMap<_, _>>()
     .await;
-    let subsonic_client = subsonic::client();
+    let subsonic_client = subsonic::client(env!("CARGO_PKG_NAME"));
     let playlist_id = get_m_playlist(&subsonic_client).await?;
     let subsonic_playlist = subsonic::get_playlist_tracks(&subsonic_client, &playlist_id)
         .await?
@@ -297,7 +297,7 @@ pub async fn add_song(
 }
 
 async fn add_navidrome_song(client: AuthenticatedClient, title: String) -> anyhow::Result<()> {
-    let navidrome_client = subsonic::client();
+    let navidrome_client = subsonic::client(env!("CARGO_PKG_NAME"));
 
     let Some(nav_id) = search_song_in_navidrome(&navidrome_client, &title).await? else {
         return Ok(());

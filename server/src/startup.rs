@@ -24,7 +24,8 @@ pub fn run(
         io,
         dirs,
         routes::Apis {
-            navidrome: Client::new(apis.navidrome).map_err(io::Error::other)?,
+            navidrome: Client::new(apis.navidrome, env!("CARGO_PKG_NAME"))
+                .map_err(io::Error::other)?,
         },
     );
 

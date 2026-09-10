@@ -75,8 +75,8 @@ async fn api<T: Serialize, R: DeserializeOwned>(
         .subsonic_response)
 }
 
-pub fn client() -> Client {
-    Client::new("https://navidrome.mendess.xyz".parse().unwrap()).unwrap()
+pub fn client(user_agent: &str) -> Client {
+    Client::new("https://navidrome.mendess.xyz".parse().unwrap(), user_agent).unwrap()
 }
 
 #[derive(Debug, Deserialize)]
@@ -424,7 +424,7 @@ mod tests {
                     .build()
                     .unwrap()
                     .block_on(async move {
-                        let client = client();
+                        let client = client("blind-eternities-unit-test");
 
                         let res = api::<_, serde_json::Value>(
                             &client,
@@ -460,7 +460,7 @@ mod tests {
 
     #[tokio::test]
     async fn add_and_remove() {
-        let client = client();
+        let client = client("blind-eternities-unit-test");
         let playlist = create_test_playlist(&client).await;
 
         let test_song = test_song();
@@ -484,7 +484,7 @@ mod tests {
 
     #[tokio::test]
     async fn adding_invalid_id_fails() {
-        let client = client();
+        let client = client("blind-eternities-unit-test");
         let playlist = create_test_playlist(&client).await;
 
         let test_song = test_bad_song();

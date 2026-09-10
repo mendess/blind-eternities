@@ -53,7 +53,7 @@ pub struct Networking {
 impl TryFrom<&Config> for AuthenticatedClient {
     type Error = UrlParseError;
     fn try_from(c: &Config) -> Result<Self, Self::Error> {
-        AuthenticatedClient::new(c.token, c.backend_domain.clone())
+        AuthenticatedClient::new(c.token, c.backend_domain.clone(), env!("CARGO_PKG_NAME"))
     }
 }
 
