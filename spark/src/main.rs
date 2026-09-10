@@ -99,7 +99,7 @@ enum Backend {
         #[arg(short, long)]
         title: String,
         /// The uri of the song to add
-        uri: String,
+        uri: Option<String>,
         #[arg(short, long)]
         /// The artist
         artist: Option<String>,

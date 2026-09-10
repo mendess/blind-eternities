@@ -76,7 +76,7 @@ async fn api<T: Serialize, R: DeserializeOwned>(
 }
 
 pub fn client() -> Client {
-    Client::new("http://navidrome.pendrellvale.home".parse().unwrap()).unwrap()
+    Client::new("https://navidrome.mendess.xyz".parse().unwrap()).unwrap()
 }
 
 #[derive(Debug, Deserialize)]

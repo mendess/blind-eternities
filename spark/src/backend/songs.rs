@@ -68,6 +68,69 @@ async fn navidrome_id_of(
     Ok(navidrome_id)
 }
 
+async fn search_song_in_navidrome(
+    navidrome_client: &auth_client::Client,
+    title: &str,
+) -> anyhow::Result<Option<NavidromeId>> {
+    tracing::info!("searching for song in navidrome");
+    let mut songs = subsonic::search(navidrome_client, title).await?;
+    let nav_id = match songs.len() {
+        0 => bail!("song '{title}' not in navidrome"),
+        1 => songs.remove(0).id,
+        _ => {
+            struct DisplaySong(SongResult);
+            impl std::fmt::Display for DisplaySong {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, "{} - {} - {}", self.0.title, self.0.album, self.0.artist)
+                }
+            }
+            let songs = songs.into_iter().map(DisplaySong).collect::<Vec<_>>();
+            let Some(song) = pick(&songs) else {
+                return Ok(None);
+            };
+            song.0.id.clone()
+        }
+    };
+    let stream = subsonic::stream(
+        navidrome_client,
+        &nav_id,
+        Default::default(),
+        Default::default(),
+    )
+    .await?;
+    let mut mpv = Command::new("mpv")
+        .arg("-")
+        .stdin(std::process::Stdio::piped())
+        .spawn()?;
+    let mut stdin = mpv.stdin.take().unwrap();
+    tokio::spawn(async move {
+        let mut stream = stream.bytes_stream();
+        while let Some(bytes) = stream.next().await {
+            match bytes {
+                Ok(b) => {
+                    if let Err(e) = stdin.write_all(&b).await {
+                        tracing::error!(error = ?e, "failed to write to mpv");
+                        if let std::io::ErrorKind::BrokenPipe = e.kind() {
+                            break;
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::error!(error = ?e, "failed to read bytes from subsonic");
+                }
+            }
+        }
+    });
+    let _ = mpv.wait().await?;
+    let mut buf = String::new();
+    eprint!("Correct? [Y/n] ");
+    std::io::stdin().read_line(&mut buf)?;
+    if let "n" | "N" = buf.trim() {
+        return Ok(None);
+    }
+    Ok(Some(nav_id))
+}
+
 #[tracing::instrument(skip(client))]
 pub async fn upgrade_song(
     client: AuthenticatedClient,
@@ -108,64 +171,8 @@ pub async fn upgrade_song(
         bail!("already upgraded, skipping");
     }
 
-    let nav_id = {
-        tracing::info!("searching for song in navidrome");
-        let mut songs = subsonic::search(&navidrome_client, &title).await?;
-        let nav_id = match songs.len() {
-            0 => bail!("song '{title}' not in navidrome"),
-            1 => songs.remove(0).id,
-            _ => {
-                struct DisplaySong(SongResult);
-                impl std::fmt::Display for DisplaySong {
-                    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                        write!(f, "{} - {} - {}", self.0.title, self.0.album, self.0.artist)
-                    }
-                }
-                let songs = songs.into_iter().map(DisplaySong).collect::<Vec<_>>();
-                let Some(song) = pick(&songs) else {
-                    return Ok(());
-                };
-                song.0.id.clone()
-            }
-        };
-        let stream = subsonic::stream(
-            &navidrome_client,
-            &nav_id,
-            Default::default(),
-            Default::default(),
-        )
-        .await?;
-        let mut mpv = Command::new("mpv")
-            .arg("-")
-            .stdin(std::process::Stdio::piped())
-            .spawn()?;
-        let mut stdin = mpv.stdin.take().unwrap();
-        tokio::spawn(async move {
-            let mut stream = stream.bytes_stream();
-            while let Some(bytes) = stream.next().await {
-                match bytes {
-                    Ok(b) => {
-                        if let Err(e) = stdin.write_all(&b).await {
-                            tracing::error!(error = ?e, "failed to write to mpv");
-                            if let std::io::ErrorKind::BrokenPipe = e.kind() {
-                                break;
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!(error = ?e, "failed to read bytes from subsonic");
-                    }
-                }
-            }
-        });
-        let _ = mpv.wait().await?;
-        let mut buf = String::new();
-        eprint!("Correct? [Y/n] ");
-        std::io::stdin().read_line(&mut buf)?;
-        if let "n" | "N" = buf.trim() {
-            return Ok(());
-        }
-        nav_id
+    let Some(nav_id) = search_song_in_navidrome(&navidrome_client, &title).await? else {
+        return Ok(());
     };
 
     tracing::info!(?nav_id, id = ?song.link.id(), "upgrading song");
@@ -270,21 +277,43 @@ pub async fn add_song(
     client: AuthenticatedClient,
     title: String,
     artist: Option<String>,
-    uri: String,
+    uri: Option<String>,
     thumb: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     tracing::info!("adding a new song");
-    if uri.contains("http") {
-        let path = dl_song(uri).await?;
-        match add_song_file(client, title, artist, &path, thumb).await {
-            Ok(()) => tokio::fs::remove_file(path)
-                .await
-                .context("removing downloaded song file"),
-            Err(e) => return Err(e),
+    match uri {
+        Some(uri) if uri.contains("http") => {
+            let path = dl_song(uri).await?;
+            match add_song_file(client, title, artist, &path, thumb).await {
+                Ok(()) => tokio::fs::remove_file(path)
+                    .await
+                    .context("removing downloaded song file"),
+                Err(e) => return Err(e),
+            }
         }
-    } else {
-        add_song_file(client, title, artist, Path::new(&uri), thumb).await
+        Some(uri) => add_song_file(client, title, artist, Path::new(&uri), thumb).await,
+        None => add_navidrome_song(client, title).await,
     }
+}
+
+async fn add_navidrome_song(client: AuthenticatedClient, title: String) -> anyhow::Result<()> {
+    let navidrome_client = subsonic::client();
+
+    let Some(nav_id) = search_song_in_navidrome(&navidrome_client, &title).await? else {
+        return Ok(());
+    };
+
+    let id = client
+        .post(&format!("/playlist/song/navidrome/{}", nav_id.as_str()))?
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<SongId>()
+        .await?;
+
+    println!("Song id: {}", id.as_str());
+
+    Ok(())
 }
 
 #[tracing::instrument]
