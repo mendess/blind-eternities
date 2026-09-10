@@ -119,6 +119,34 @@ pub async fn stream(
 }
 
 #[derive(Debug, Deserialize)]
+pub struct NavidromeSong {
+    pub title: String,
+    pub album: String,
+    pub artist: String,
+    pub duration: u64,
+}
+
+pub async fn song_info(client: &Client, id: &NavidromeId) -> reqwest::Result<NavidromeSong> {
+    #[derive(Serialize)]
+    struct Id<'s> {
+        id: &'s str,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct SongOut {
+        song: NavidromeSong,
+    }
+
+    let res = api::<_, serde_json::Value>(client, "/rest/getSong", Id { id: id.as_str() }).await?;
+
+    tracing::info!("res: {res}");
+
+    let res = api::<_, SongOut>(client, "/rest/getSong", Id { id: id.as_str() }).await?;
+
+    Ok(res.song)
+}
+
+#[derive(Debug, Deserialize)]
 pub struct SongResult {
     pub id: NavidromeId,
     pub title: String,

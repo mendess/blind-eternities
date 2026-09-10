@@ -46,6 +46,8 @@ static THUMB_PATH_CACHE: LazyLock<Mutex<HashMap<String, String>>> = LazyLock::ne
 enum Error {
     #[error("io: {0}")]
     Io(#[from] io::Error),
+    #[error("internal server error")]
+    Internal,
     #[error("reqwest: {0}")]
     Reqwest(#[from] reqwest::Error),
     #[error("bad request: {0}")]
@@ -68,9 +70,10 @@ impl From<sqlx::Error> for Error {
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         let code = match self {
-            Self::Io(_) | Self::Reqwest(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Io(_) | Self::Reqwest(_) | Self::Sqlx(_) | Self::Internal => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
             Self::NotFound => StatusCode::NOT_FOUND,
-            Self::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
         };
         (code, self.to_string()).into_response()
@@ -177,19 +180,38 @@ async fn song_meta(
     State(st): State<super::RouterState>,
     Path(id): Path<SongId>,
 ) -> Result<impl IntoResponse, Error> {
-    let mut metadata = serde_json::from_str::<serde_json::Value>(
-        &tokio::fs::read_to_string(st.dirs.music().meta().file(&id).with_extension("json")).await?,
-    )
-    .map_err(io::Error::from)?;
     let nav_id = sqlx::query_scalar!("SELECT navidrome_id FROM songs WHERE id = $1", id.as_str())
         .fetch_one(&*st.db)
-        .await?;
-    if let Some(nav_id) = nav_id {
-        metadata
-            .as_object_mut()
-            .unwrap()
-            .insert("navidrome_id".into(), serde_json::Value::String(nav_id));
-    }
+        .await?
+        .map(NavidromeId::try_from)
+        .transpose()
+        .inspect_err(|id| tracing::error!(?id, "invalid navidrome id"))
+        .map_err(|_| Error::Internal)?;
+    let metadata = match nav_id {
+        Some(nav_id) => {
+            let metadata = subsonic::song_info(&st.apis.navidrome, &nav_id)
+                .await
+                .inspect_err(
+                    |e| tracing::error!(error = ?e, "failed to get song info from navidrome"),
+                )?;
+            serde_json::json!({
+                "title": &metadata.title,
+                "duration": std::time::Duration::from_secs(metadata.duration),
+                "navidrome_id": nav_id.as_str()
+            })
+        }
+        None => {
+            match tokio::fs::read_to_string(st.dirs.music().meta().file(&id).with_extension("json"))
+                .await
+            {
+                Ok(metadata) => {
+                    serde_json::from_str::<serde_json::Value>(&metadata).map_err(io::Error::from)?
+                }
+                Err(e) if e.kind() == io::ErrorKind::NotFound => return Err(Error::NotFound),
+                Err(e) => return Err(e.into()),
+            }
+        }
+    };
 
     Ok((StatusCode::OK, Json(metadata)))
 }

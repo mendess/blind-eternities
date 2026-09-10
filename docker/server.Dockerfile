@@ -1,6 +1,6 @@
 # inspiration: https://dev.to/rogertorres/first-steps-with-docker-rust-30oi
 
-FROM rust:1.89-bookworm AS build
+FROM rust:1.98.1-bookworm AS build
 
 # create an empty shell project
 RUN USER=root cargo new --bin blind-eternities
