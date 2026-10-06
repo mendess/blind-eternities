@@ -15,18 +15,19 @@ http = { workspace = true, optional = true }
 httpdate = { workspace = true, optional = true }
 itertools.workspace = true
 md-5 = { workspace = true }
+metrics-process = { workspace = true, optional = true }
+metrics = { workspace = true, optional = true }
 mime_guess = { workspace = true, optional = true }
 once_cell.workspace = true
 parking_lot.workspace = true
 petgraph.workspace = true
-prometheus-client = { workspace = true, optional = true }
 rand.workspace = true
 regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
 tokio-util = { workspace = true, optional = true, features = ["io", "compat"] }
+tokio.workspace = true
 tower = { workspace = true, optional = true }
 tracing-bunyan-formatter.workspace = true
 tracing-log.workspace = true
@@ -57,7 +58,8 @@ tokio = { workspace = true, features = ["macros"] }
 default = ["sqlx", "metrics", "subsonic", "playlist", "web-server-utils"]
 sqlx = ["dep:sqlx"]
 metrics = [
-    "dep:prometheus-client",
+    "dep:metrics",
+    "dep:metrics-process",
     "dep:axum",
     "dep:http",
     "dep:tower",

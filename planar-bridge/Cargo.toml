@@ -18,7 +18,6 @@ glob.workspace = true
 http.workspace = true
 mappable-rc.workspace = true
 mlib = { workspace = true, features = ["playlist"] }
-prometheus-client.workspace = true
 rand.workspace = true
 regex.workspace = true
 reqwest = { workspace = true, features = ["stream"] }

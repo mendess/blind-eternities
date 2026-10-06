@@ -1,4 +1,4 @@
-use crate::{Error, RouterState, cache, metrics};
+use crate::{Error, RouterState, cache};
 use askama::Template;
 use axum::{
     Router,
@@ -9,6 +9,7 @@ use axum::{
 };
 use axum_extra::extract::Query;
 use base64::Engine;
+use common::telemetry::metrics;
 use futures::StreamExt as _;
 use http::{Response, StatusCode, header};
 use mappable_rc::Marc;
@@ -319,16 +320,22 @@ async fn audio(
         return Err(error.into());
     };
 
+    metrics::describe_counter!(
+        "playlist_audio_streams_total",
+        metrics::Unit::Count,
+        "number of audio streams"
+    );
+
     if response
         .headers()
         .get("x-audio-source")
         .and_then(|h| h.to_str().ok())
         == Some("navidrome")
     {
-        metrics::playlist_audio_streams("navidrome").inc();
+        metrics::counter!("playlist_audio_streams_total", "kind" => "navidrome").increment(1);
         Ok(common::web_server::reqwest_to_axum(response).map_err(io::Error::other)?)
     } else {
-        metrics::playlist_audio_streams("ffmpeg").inc();
+        metrics::counter!("playlist_audio_streams_total", "kind" => "ffmpeg").increment(1);
         // Spawn ffmpeg to transcode to mp3 (browser-friendly)
         let mut child = Command::new("ffmpeg")
             .args([

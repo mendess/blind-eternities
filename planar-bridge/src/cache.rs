@@ -9,7 +9,7 @@ use std::{
 use mappable_rc::Marc;
 use tokio::sync::Mutex;
 
-use crate::metrics;
+use common::telemetry::metrics;
 
 struct CacheEntry {
     t: Marc<dyn Any + Send + Sync>,
@@ -61,17 +61,21 @@ where
 {
     tracing::trace!(ty = std::any::type_name::<T>(), key, "looking up in cache");
     let tid = TypeId::of::<T>();
+    metrics::describe_counter!(
+        "music_cache_total",
+        metrics::Unit::Count,
+        "number of times the music cache is used",
+    );
+    if let Some(t) = cache()
+        .lock()
+        .await
+        .get(&(tid, key.to_string()))
+        .and_then(|entry| entry.get())
     {
-        let cache = cache().lock().await;
-        if let Some(t) = cache
-            .get(&(tid, key.to_string()))
-            .and_then(|entry| entry.get())
-        {
-            metrics::music_cache_hit().inc();
-            return Ok(t);
-        }
-        metrics::music_cache_miss().inc();
+        metrics::counter!("music_cache_total", "result" => "hit").increment(1);
+        return Ok(t);
     }
+    metrics::counter!("music_cache_total", "result" => "miss").increment(1);
     let new_t = Marc::new(default().await?);
     let mut cache = cache().lock().await;
     cache.insert(

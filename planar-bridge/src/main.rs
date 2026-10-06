@@ -1,7 +1,6 @@
 mod cache;
 mod files;
 mod games;
-mod metrics;
 mod music;
 mod playlist;
 mod util;
@@ -116,7 +115,6 @@ async fn main() -> io::Result<()> {
         .map_err(io::Error::other)?;
 
     let MetricsEndpoint { worker, layer } = common::telemetry::metrics::start_metrics_endpoint(
-        "planar_bridge",
         TcpListener::bind((std::net::Ipv4Addr::UNSPECIFIED, config.metrics_port)).await?,
     );
     let state = RouterState { client };

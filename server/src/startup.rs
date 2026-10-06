@@ -31,7 +31,7 @@ pub fn run(
 
     if let Some(l) = metrics_listener.into() {
         let MetricsEndpoint { worker, layer } =
-            common::telemetry::metrics::start_metrics_endpoint("blind_eternities", l);
+            common::telemetry::metrics::start_metrics_endpoint(l);
         tokio::spawn(worker);
         router = router.layer(layer);
     }

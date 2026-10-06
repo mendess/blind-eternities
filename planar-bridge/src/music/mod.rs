@@ -9,6 +9,7 @@ use axum::{
     routing::{get, post},
 };
 use common::domain::{Hostname, music_session::MusicSession};
+use common::telemetry::metrics;
 use http::{HeaderMap, StatusCode, header};
 use mappable_rc::Marc;
 use mlib::{playlist::PartialSearchResult, queue::Current};
@@ -19,7 +20,7 @@ use spark_protocol::{
 };
 use uuid::Uuid;
 
-use crate::{Backend, RouterState, cache, metrics, playlist::load_playlist};
+use crate::{Backend, RouterState, cache, playlist::load_playlist};
 
 use self::request_coalescing::{SharedError, request_coalesced};
 use askama::Template;
@@ -77,7 +78,21 @@ async fn request_from_backend(
     target: &Target,
     cmd: MusicCmdKind,
 ) -> Result<spark_protocol::music::Response, Error> {
-    metrics::music_backend_request(&cmd).inc();
+    metrics::counter!(
+        description: "number of backend music requests",
+        unit: metrics::Unit::Count,
+        "music_backend_request_total",
+        "cmd" => match cmd {
+            spark_protocol::music::MusicCmdKind::Frwd => "Frwd",
+            spark_protocol::music::MusicCmdKind::Back => "Back",
+            spark_protocol::music::MusicCmdKind::CyclePause => "CyclePause",
+            spark_protocol::music::MusicCmdKind::ChangeVolume { .. } => "ChangeVolume",
+            spark_protocol::music::MusicCmdKind::Current => "Current",
+            spark_protocol::music::MusicCmdKind::Queue { .. } => "Queue",
+            spark_protocol::music::MusicCmdKind::Now { .. } => "Now",
+        }
+    )
+    .increment(1);
     let request = match target {
         Target::Host { hostname, auth } => client
             .post(&format!("/persistent-connections/ws/send/{hostname}"))

@@ -39,7 +39,7 @@ pub struct Device {
     read: mpsc::Receiver<(
         rust_socketio::Payload,
         rust_socketio::asynchronous::Client,
-        rust_socketio::AckId,
+        i32,
     )>,
     write: rust_socketio::asynchronous::Client,
 }
@@ -65,7 +65,7 @@ impl Device {
 
 pub struct Reply {
     socket: rust_socketio::asynchronous::Client,
-    ack_id: rust_socketio::AckId,
+    ack_id: i32,
 }
 
 impl Reply {

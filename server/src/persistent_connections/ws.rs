@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use common::{domain::Hostname, ws};
+use common::{domain::Hostname, telemetry::metrics, ws};
 use serde::Deserialize;
 use socketioxide::{
     extract::{Data, Extension, SocketRef, State},
@@ -9,7 +9,7 @@ use socketioxide::{
 };
 use sqlx::PgPool;
 
-use crate::{metrics, persistent_connections::Generation};
+use crate::persistent_connections::Generation;
 
 pub type SocketIo = socketioxide::SocketIo<socketioxide::adapter::LocalAdapter>;
 
@@ -28,7 +28,7 @@ async fn hostname_middleware(s: SocketRef) -> Result<(), &'static str> {
         })
     {
         tracing::info!("hostname connected {hostname}");
-        metrics::persistent_connections().inc();
+        metrics::gauge!("persistent_connections").increment(1);
         s.extensions.insert(hostname);
         s.extensions.insert(Generation::next());
         Ok(())
@@ -58,7 +58,7 @@ fn on_connect(socket: SocketRef, hostname: Extension<SHostname>) {
 
     socket.on_disconnect(
         |s: SocketRef, reason: DisconnectReason, hostname: Extension<SHostname>| {
-            metrics::persistent_connections().dec();
+            metrics::gauge!("persistent_connections").decrement(1);
             tracing::info!(
                 hostname = %*hostname,
                 sid = %s.id,
