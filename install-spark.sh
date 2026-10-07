@@ -2,16 +2,16 @@
 
 set -e
 
-
 extra_args=()
 case "$(hostname)" in
-    tolaria|weatherlight|pendrellvale)
+    tolaria | weatherlight | pendrellvale)
         extra_args+=("--features" "music-ctl")
         ;;
+    argentum) ;;
     *)
         read -r -p "Enable music control? [N/y] "
         case "$REPLY" in
-            y|Y|yes|Yes)
+            y | Y | yes | Yes)
                 extra_args+=("--features" "music-ctl")
                 ;;
         esac
@@ -22,11 +22,11 @@ cargo build -p spark --bin spark --release "${extra_args[@]}"
 
 target=~/../usr/bin
 if [ ! -d $target ]; then
-	target=/usr/bin
+    target=/usr/bin
 fi
 if command -V sudo 2>/dev/null; then
-	sudo=sudo
+    sudo=sudo
 else
-	sudo=
+    sudo=
 fi
 $sudo install ./target/release/spark $target "$@"
