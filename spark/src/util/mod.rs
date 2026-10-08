@@ -97,6 +97,7 @@ async fn get_ip_connections() -> anyhow::Result<Vec<IpConnection>> {
         .filter(|iface| iface.if_type == InterfaceType::Ethernet)
         .filter(|iface| !iface.name.starts_with("docker"))
         .filter(|iface| !iface.name.starts_with("veth"))
+        .filter(|iface| !iface.name.starts_with("br-"))
         .fold((None, vec![]), |(gateway, mut ips), iface| {
             ips.extend(
                 iface
