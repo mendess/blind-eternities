@@ -41,10 +41,11 @@ pub async fn index(Query(BannedQuery { banned }): Query<BannedQuery>) -> impl In
                 .unwrap()
                 .into_iter()
                 .map(|mut s| {
-                    s.banned = !((s.range < 10.0 || s.damage.is_none())
-                        && s.name != "Lightning Bolt"
-                        && s.name != "Produce Flame"
-                        && s.name != "Sunbeam");
+                    s.banned =
+                        !((s.range < 10.0 || s.damage.is_none() || s.name == "Spiritual Weapon")
+                            && s.name != "Lightning Bolt"
+                            && s.name != "Produce Flame"
+                            && s.name != "Sunbeam");
                     s
                 })
                 .filter(|s| banned || !s.banned)
