@@ -6,4 +6,6 @@ body {
 .big-page-buttons li:nth-child(1):hover { background: #a8ccaa; }
 .big-page-buttons li:nth-child(2) { background: #e0c4a8; border: 1px solid #d4b494; }
 .big-page-buttons li:nth-child(2):hover { background: #d6b89c; }
+.big-page-buttons li:nth-child(3) { background: #f5c6c1; border: 1px solid #e97c72; }
+.big-page-buttons li:nth-child(3):hover { background: #efa19a; }
 

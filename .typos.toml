@@ -1,2 +1,2 @@
 [files]
-extend-exclude = ["Cargo.lock", "planar-bridge/assets/*.js"]
+extend-exclude = ["Cargo.lock", "planar-bridge/assets/*.js", "planar-bridge/templates/games/mtg/field-guide.html"]

@@ -1,5 +1,6 @@
 mod bg3;
 mod minecraft;
+mod mtg;
 
 use crate::{RouterState, util};
 use askama::Template;
@@ -22,6 +23,7 @@ pub fn router(config: Config) -> Router<RouterState> {
         .route("/", get(index))
         .nest("/bg3/", bg3::router())
         .nest("/minecraft/", minecraft::router(Arc::new(config.minecraft)))
+        .nest("/mtg/", mtg::router())
 }
 
 async fn index() -> impl IntoResponse {

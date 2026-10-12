@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unpopular MTG — Mechanics Field Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14150f;
+    --bg-panel: #1c1d15;
+    --bg-card: #20221a;
+    --bg-card-hover: #262819;
+    --line: #34362a;
+    --line-soft: #262819;
+    --text: #ece7d6;
+    --text-dim: #9c9d84;
+    --text-faint: #6a6c58;
+    --accent: #c68a42;
+    --accent-bright: #dda05a;
+    --accent-soft: rgba(198, 138, 66, 0.14);
+    --moss: #7f9268;
+    --moss-soft: rgba(127, 146, 104, 0.16);
+    --serif: 'Fraunces', Georgia, serif;
+    --sans: 'Inter', -apple-system, sans-serif;
+    --mono: 'IBM Plex Mono', 'SF Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(127,146,104,0.07), transparent),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(198,138,66,0.05), transparent);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  ::selection { background: var(--accent-soft); color: var(--accent-bright); }
+
+  a { color: inherit; }
+
+  header {
+    padding: 56px 32px 32px;
+    max-width: 1180px;
+    margin: 0 auto;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+
+  .brand-mark {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+
+  .brand-divider {
+    color: var(--line);
+  }
+
+  .brand-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-bright);
+    background: var(--accent-soft);
+    padding: 4px 10px;
+    border-radius: 3px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--moss);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .eyebrow::before {
+    content: '';
+    width: 20px;
+    height: 1px;
+    background: var(--moss);
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-size: clamp(32px, 5vw, 52px);
+    line-height: 1.05;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+
+  h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent-bright);
+  }
+
+  .subhead {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 640px;
+    line-height: 1.6;
+    margin: 0 0 28px;
+  }
+
+  .stat-row {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+
+  .stat-row b {
+    color: var(--accent-bright);
+    font-weight: 500;
+  }
+
+  .update-note {
+    margin-top: 26px;
+    padding: 14px 18px;
+    background: var(--moss-soft);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--moss);
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-dim);
+    max-width: 720px;
+  }
+
+  .update-note a {
+    color: var(--accent-bright);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--accent-bright);
+  }
+
+  .update-note a:hover {
+    color: var(--accent);
+  }
+
+  .search-wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 32px 0;
+  }
+
+  .search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    transition: border-color 0.15s;
+  }
+
+  .search-box:focus-within {
+    border-color: var(--accent);
+  }
+
+  .search-box svg {
+    position: absolute;
+    left: 16px;
+    width: 16px;
+    height: 16px;
+    stroke: var(--text-faint);
+    pointer-events: none;
+  }
+
+  .search-box input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    padding: 16px 16px 16px 46px;
+  }
+
+  .search-box input::placeholder { color: var(--text-faint); }
+
+  .search-box .clear-btn {
+    display: none;
+    margin-right: 14px;
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    padding: 4px 8px;
+  }
+  .search-box .clear-btn:hover { color: var(--accent-bright); }
+  .search-box.has-value .clear-btn { display: block; }
+
+  .layout {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 32px 80px;
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 36px;
+    align-items: start;
+  }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .sidebar-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 10px;
+    padding-left: 14px;
+  }
+
+  .group-btn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    border-left: 2px solid transparent;
+    text-align: left;
+    color: var(--text-dim);
+    font-family: var(--sans);
+    font-size: 13.5px;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 0 3px 3px 0;
+    transition: all 0.12s;
+  }
+
+  .group-btn:hover {
+    background: var(--bg-panel);
+    color: var(--text);
+  }
+
+  .group-btn.active {
+    border-left-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-bright);
+  }
+
+  .group-btn .count {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+  }
+
+  .group-btn.active .count { color: var(--accent); }
+
+  .results-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .results-title {
+    font-family: var(--serif);
+    font-size: 20px;
+    font-weight: 500;
+  }
+
+  .results-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+
+  .entry-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .entry {
+    background: var(--bg-card);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+
+  .entry:hover { border-color: var(--line); }
+  .entry.open { border-color: var(--accent); }
+
+  .entry-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 15px 18px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .entry-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--moss);
+    background: var(--moss-soft);
+    padding: 3px 7px;
+    border-radius: 2px;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .entry-name {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 16.5px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .entry-cat {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    text-align: right;
+    white-space: nowrap;
+    display: none;
+  }
+
+  @media (min-width: 700px) {
+    .entry-cat { display: block; }
+  }
+
+  .chevron {
+    width: 14px;
+    height: 14px;
+    stroke: var(--text-faint);
+    flex-shrink: 0;
+    transition: transform 0.18s;
+  }
+
+  .entry.open .chevron { transform: rotate(90deg); stroke: var(--accent); }
+
+  .entry-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.22s ease;
+  }
+
+  .entry.open .entry-body { max-height: 400px; }
+
+  .entry-body-inner {
+    padding: 0 18px 20px 18px;
+    border-top: 1px solid var(--line-soft);
+    padding-top: 14px;
+    margin: 0 18px;
+  }
+
+  .entry-desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.65;
+    margin: 0 0 16px;
+  }
+
+  .entry-desc b, .entry-desc strong { color: var(--text); font-weight: 600; }
+
+  .cta-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .scry-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent-soft);
+    border: 1px solid rgba(198,138,66,0.35);
+    color: var(--accent-bright);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    padding: 8px 13px;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+
+  .scry-btn:hover {
+    background: rgba(198,138,66,0.24);
+    border-color: var(--accent);
+  }
+
+  .scry-btn svg { width: 12px; height: 12px; }
+
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-faint);
+    font-family: var(--serif);
+    font-size: 17px;
+  }
+
+  .empty-state span {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    margin-top: 8px;
+    color: var(--text-faint);
+  }
+
+  footer {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 32px 60px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.8;
+  }
+
+  footer a { color: var(--moss); text-decoration: none; border-bottom: 1px dotted var(--moss); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-row">
+    <span class="brand-mark">UNPOPULAR MTG</span>
+    <span class="brand-divider">·</span>
+    <span class="brand-tag">Free Tools for the Club</span>
+  </div>
+  <div class="eyebrow">Unpopular MTG — Reference</div>
+  <h1>The Mechanics <em>Field Guide</em></h1>
+  <p class="subhead">Every keyword, ability word, and rules mechanic Magic has ever printed, catalogued with official reminder text and a direct link to every card that uses it.</p>
+  <div class="stat-row">
+    <span><b id="stat-total">0</b> mechanics indexed</span>
+    <span><b id="stat-groups">0</b> categories</span>
+    <span><b>Source:</b> Comprehensive Rules &amp; Wizards release notes</span>
+  </div>
+  <div class="update-note">
+    🔄 Updated after the launch of each new Magic set — you'll need to redownload for the newest version. Grab updates and support the channel at <a href="https://www.patreon.com/c/UnpopularMtg" target="_blank" rel="noopener">patreon.com/c/UnpopularMtg</a>.
+  </div>
+</header>
+
+<div class="search-wrap">
+  <div class="search-box" id="searchBox">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input type="text" id="searchInput" placeholder="Search a mechanic — try “counter”, “graveyard”, or “flying”…" autocomplete="off">
+    <button class="clear-btn" id="clearBtn">CLEAR ✕</button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-label">Browse by category</div>
+  </nav>
+
+  <main>
+    <div class="results-head">
+      <div class="results-title" id="resultsTitle">All Mechanics</div>
+      <div class="results-count" id="resultsCount"></div>
+    </div>
+    <div class="entry-list" id="entryList"></div>
+  </main>
+</div>
+
+<footer>
+  Built by <b style="color: var(--text-dim); font-weight: 600;">Unpopular MTG</b> for the club · Card links open a live Scryfall search for every card printed with that mechanic · Updated after each new set launches — redownload from <a href="https://www.patreon.com/c/UnpopularMtg" target="_blank" rel="noopener">patreon.com/c/UnpopularMtg</a> for the latest version and new bonus content.
+</footer>
+
+<script>
+const DATA = [{"name":"Partner","category":"Commander Format Mechanics","description":"You may designate two legendary creature cards as your commander rather than one, if each of them has partner.","group":"Formats","search":"Partner","id":"partner"},{"name":"Partner with [Name]","category":"Commander Format Mechanics","description":"You may designate two legendary creature cards as your commander rather than one, if one of them has \"partner with [Name]\" and the other is the named card.","group":"Formats","search":"Partner with","id":"partner-with-name"},{"name":"Friends Forever","category":"Commander Format Mechanics","description":"You may designate two legendary creature cards as your commander rather than one, if each of them has friends forever. (Functionally identical to Partner, but friends forever cards only pair with other friends forever cards — not with plain Partner cards.)","group":"Formats","search":"Friends Forever","id":"friends-forever"},{"name":"Choose a Background","category":"Commander Format Mechanics","description":"You may designate two cards as your commander rather than one, if one of them has \"choose a Background\" and the other is a legendary Background enchantment card.","group":"Formats","search":"Choose a Background","id":"choose-a-background"},{"name":"Doctor's Companion","category":"Commander Format Mechanics","description":"You may designate two legendary creature cards as your commander rather than one, if one of them has Doctor's companion and the other is a creature with the type line exactly \"Time Lord Doctor\" (i.e., \"the Doctor\").","group":"Formats","search":"Doctor's Companion","id":"doctor-s-companion"},{"name":"Eminence","category":"Commander Format Mechanics","description":"An ability word (no rules meaning of its own) marking abilities that function as long as the creature is in the command zone *or* on the battlefield — not just the battlefield. Introduced in Commander 2017 to reward commanders that also work well when left uncast.","group":"Formats","search":"Eminence","id":"eminence"},{"name":"Lieutenant","category":"Commander Format Mechanics","description":"An ability word marking abilities that grant a bonus (to the creature or your board) as long as you control your commander on the battlefield. Has no rules meaning by itself; the reward is spelled out in each card's own text.","group":"Formats","search":"Lieutenant","id":"lieutenant"},{"name":"Planeswalk","category":"Planechase","description":"A keyword action, and Planechase's core turn structure move. To planeswalk: put each face-up plane/phenomenon card on the bottom of its owner's planar deck face down, then move the top card of your planar deck off it and turn it face up. It happens whenever a player rolls the planeswalker symbol on the planar die.","group":"Formats","search":"Planeswalk","id":"planeswalk"},{"name":"Set in Motion","category":"Archenemy","description":"A keyword action, unique to Archenemy. Only the archenemy may set a scheme in motion: move the top card of your scheme deck off the deck and turn it face up, triggering its \"when you set this scheme in motion\" ability. Happens automatically at the start of the archenemy's first main phase each turn.","group":"Formats","search":"Set in Motion","id":"set-in-motion"},{"name":"Abandon","category":"Archenemy","description":"A keyword action, unique to Archenemy. Only a face-up *ongoing* scheme can be abandoned: turn it face down and put it on the bottom of its owner's scheme deck. Non-ongoing schemes resolve once and go to the bottom automatically; ongoing schemes stay active in the command zone until something forces them to be abandoned.","group":"Formats","search":"Abandon","id":"abandon"},{"name":"Hidden Agenda","category":"Conspiracy Draft","description":"Start the game with this conspiracy card face down in the command zone and secretly name a card. You may turn the conspiracy face up at any time (a special action, doesn't use the stack) and reveal the chosen name. If it's still face down at game's end, you must reveal it.","group":"Formats","search":"Hidden Agenda","id":"hidden-agenda"},{"name":"Double Agenda","category":"Conspiracy Draft","description":"A variant of hidden agenda where you secretly name two different cards instead of one, revealing both when you turn the conspiracy face up. Appears on exactly one card, Summoner's Bond.","group":"Formats","search":"Double Agenda","id":"double-agenda"},{"name":"Sweep","category":"Additional Costs — Non-Mana Costs","description":"An ability word (no rules meaning of its own) used on spells strengthened by returning basic lands of a chosen type to your hand as they resolve; the more lands returned, the stronger the effect. Only appeared on four cards in Saviors of Kamigawa.","group":"Casting","search":"Sweep","id":"sweep"},{"name":"Conspire","category":"Additional Costs — Non-Mana Costs","description":"As you cast a spell with conspire, you may tap two untapped creatures that each share a color with the spell. If you do, copy the spell (choosing new targets for the copy if it had any). Considered a design misstep in its day and rarely reprinted; Casualty is its spiritual successor.","group":"Casting","search":"Conspire","id":"conspire"},{"name":"Casualty N","category":"Additional Costs — Non-Mana Costs","description":"As an additional cost to cast this spell, you may sacrifice a creature with power N or greater. If you do, copy the spell (choosing new targets for the copy if it had any). The copy resolves before the original and isn't itself \"cast,\" so it can't trigger casualty again.","group":"Casting","search":"Casualty","id":"casualty-n"},{"name":"Bargain","category":"Additional Costs — Non-Mana Costs","description":"As an additional cost to cast this spell, you may sacrifice an artifact, enchantment, or token. If you do, the spell has been \"bargained,\" unlocking a stronger or alternate effect specified in its text.","group":"Casting","search":"Bargain","id":"bargain"},{"name":"Collect Evidence N","category":"Additional Costs — Non-Mana Costs","description":"A keyword action: exile any number of cards from your graveyard with total mana value N or greater, as an optional cost for an added bonus. If you can't reach N, you simply can't choose to collect evidence.","group":"Casting","search":"Collect Evidence","id":"collect-evidence-n"},{"name":"Forage","category":"Additional Costs — Non-Mana Costs","description":"A cost meaning: either exile three cards from your graveyard, or sacrifice a Food. Optional, and you can't choose it if you have neither three graveyard cards nor a Food available.","group":"Casting","search":"Forage","id":"forage"},{"name":"Gift a [something]","category":"Additional Costs — Non-Mana Costs","description":"As an additional cost to cast this spell, you may choose an opponent. If you do, that spell has been \"gifted\" — the chosen opponent receives the stated benefit (a card draw, a token, etc.), usually in exchange for a stronger effect for you.","group":"Casting","search":"Gift a","id":"gift-a-something"},{"name":"Behold [a quality]","category":"Additional Costs — Non-Mana Costs","description":"A keyword action: to behold something (e.g., a Dragon), either choose a permanent you control matching that quality or reveal a matching card from your hand. Commonly used as a cost for an added bonus; once beheld, it stays \"beheld\" no matter what happens to the card/permanent afterward.","group":"Casting","search":"Behold","id":"behold-a-quality"},{"name":"Kicker [cost]","category":"Additional Costs — Binary","description":"You may pay an additional cost as you cast this spell. If you do, the spell has been \"kicked\" and you get an extra effect specified in its text.","group":"Casting","search":"Kicker","id":"kicker-cost"},{"name":"Spree","category":"Additional Costs — Binary","description":"Choose one or more additional costs printed on the spell, and pay for each one you chose. Each additional cost you pay activates its own paragraph of effect when the spell resolves. Introduced in Outlaws of Thunder Junction as a hybrid of entwine and escalate.","group":"Casting","search":"Spree","id":"spree"},{"name":"Tiered","category":"Additional Costs — Binary","description":"Choose exactly one of three modes printed on the spell, each with its own additional cost — the earlier modes are cheaper/weaker, the later ones pricier/stronger. The spell's mana value and name stay the same no matter which tier you choose.","group":"Casting","search":"Tiered","id":"tiered"},{"name":"Buyback [cost]","category":"Additional Costs — Binary","description":"You may pay an additional cost as you cast this instant or sorcery. If you do, return the spell to your hand as it resolves instead of putting it into your graveyard.","group":"Casting","search":"Buyback","id":"buyback-cost"},{"name":"Entwine [cost]","category":"Additional Costs — Binary","description":"On a modal spell (\"Choose one —\"), you may pay an additional cost to choose *all* modes instead of just the number specified, and each mode is followed in printed order as the spell resolves.","group":"Casting","search":"Entwine","id":"entwine-cost"},{"name":"Offspring [cost]","category":"Additional Costs — Binary","description":"You may pay an additional cost as you cast this creature spell. If you do, when the creature enters, create a 1/1 token copy of it (same name, types, mana cost/value, and abilities — only power/toughness differ).","group":"Casting","search":"Offspring","id":"offspring-cost"},{"name":"Multikicker [cost]","category":"Additional Costs — Variable","description":"A variant of kicker where the additional cost can be paid any number of times as you cast the spell; the effect it unlocks is duplicated for each time you paid it.","group":"Casting","search":"Multikicker","id":"multikicker-cost"},{"name":"Replicate [cost]","category":"Additional Costs — Variable","description":"As you cast this spell, you may pay the replicate cost any number of times. For each time you do, create a copy of the spell (choosing new targets for each copy).","group":"Casting","search":"Replicate","id":"replicate-cost"},{"name":"Escalate [cost]","category":"Additional Costs — Variable","description":"On a \"choose one or more\" modal spell, pay this cost once for each mode chosen beyond the first.","group":"Casting","search":"Escalate","id":"escalate-cost"},{"name":"Strive","category":"Additional Costs — Variable","description":"This spell costs [amount] more to cast for each target beyond the first, letting you choose any number of targets if you're willing to pay for them.","group":"Casting","search":"Strive","id":"strive"},{"name":"Squad [cost]","category":"Additional Costs — Variable","description":"As you cast this creature spell, you may pay the squad cost any number of times. When the creature enters, create that many token copies of it (in addition to the original resolving normally).","group":"Casting","search":"Squad","id":"squad-cost"},{"name":"Ravenous","category":"Additional Costs — Variable","description":"A creature enters the battlefield with X +1/+1 counters on it, where X is chosen via a variable cost; if X is 5 or greater, you draw a card. A modified version of the older \"hydra\" ability.","group":"Casting","search":"Ravenous","id":"ravenous"},{"name":"Plot","category":"Alternate Costs — Increased/Reduced Effect","description":"A special action: pay the plot cost and exile a card from your hand (as a sorcery). On a later turn, you may cast that plotted card from exile without paying its mana cost (also as a sorcery) — you're paying now to skip paying later.","group":"Casting","search":"Plot","id":"plot"},{"name":"Impending N—[cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"You may cast this spell for its impending cost. If you do, it enters with N time counters and isn't a creature until the last is removed (one removed each of your end steps). Functions like a mini-suspend that lands the permanent immediately instead of casting it later.","group":"Casting","search":"Impending","id":"impending-n-cost"},{"name":"Suspend N—[cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"You may exile this card from your hand, paying its suspend cost, with N time counters on it instead of casting it normally. Remove a time counter at the beginning of each of your upkeeps; when the last is removed, cast it for free. If it's a creature, it has haste.","group":"Casting","search":"Suspend","id":"suspend-n-cost"},{"name":"Warp [cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"You may cast this card from your hand (or, rarely, the graveyard) for its warp cost. If you do, exile it at the beginning of the next end step, then you may cast it again from exile on a later turn for its normal mana cost.","group":"Casting","search":"Warp","id":"warp-cost"},{"name":"Evoke [cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"An alternative cost for a creature spell. If you cast it this way, sacrifice the creature when it enters the battlefield (usually to trigger an ETB effect cheaply).","group":"Casting","search":"Evoke","id":"evoke-cost"},{"name":"Prototype [cost/P/T]","category":"Alternate Costs — Increased/Reduced Effect","description":"An alternative cost for an artifact creature that changes its mana cost, power, and toughness while keeping its abilities and types the same either way.","group":"Casting","search":"Prototype","id":"prototype-cost-p-t"},{"name":"Awaken N—[cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"You may pay this cost instead of the spell's mana cost. If you do, in addition to the spell's normal effect, put N +1/+1 counters on target land you control, turning it into a 0/0 Elemental creature with haste.","group":"Casting","search":"Awaken","id":"awaken-n-cost"},{"name":"Dash [cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"You may cast this creature spell for its dash cost. If you do, it gains haste, and it's returned to your hand at the beginning of the next end step instead of staying on the battlefield.","group":"Casting","search":"Dash","id":"dash-cost"},{"name":"Blitz [cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"You may cast this creature spell for its blitz cost. If you do, it gains haste and \"when this dies, draw a card,\" but you must sacrifice it at the beginning of the next end step.","group":"Casting","search":"Blitz","id":"blitz-cost"},{"name":"Overload [cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"You may cast this spell for its overload cost. If you do, change its text by replacing every instance of \"target\" with \"each\" — turning a one-target effect into an effect that hits everything that would qualify.","group":"Casting","search":"Overload","id":"overload-cost"},{"name":"Bestow [cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"You may cast this enchantment creature for its bestow cost. If you do, it becomes an Aura spell enchanting a creature instead of entering as a creature itself; it becomes a creature again if it's ever not attached to anything.","group":"Casting","search":"Bestow","id":"bestow-cost"},{"name":"Mutate [cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"You may cast this creature spell for its mutate cost, targeting a non-Human creature you own. Instead of entering normally, it merges with that creature (on top or underneath, your choice) into one permanent with the top card's stats/name and all abilities from every card in the stack.","group":"Casting","search":"Mutate","id":"mutate-cost"},{"name":"Cleave [cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"You may cast this spell for its cleave cost instead of its mana cost. If you do, delete all text found in square brackets in its rules text, generally broadening or strengthening the effect.","group":"Casting","search":"Cleave","id":"cleave-cost"},{"name":"Adventure","category":"Alternate Costs — Increased/Reduced Effect","description":"A permanent card (creature, artifact, etc.) with an attached instant/sorcery \"Adventure\" spell. You may cast the Adventure half from your hand; when it resolves, the card is exiled instead of going to the graveyard, and you may then cast the permanent from exile later. Casting the permanent side normally works too and skips the Adventure entirely.","group":"Casting","search":"Adventure","id":"adventure"},{"name":"Split Cards / Fuse","category":"Alternate Costs — Increased/Reduced Effect","description":"A split card has two independent spells printed side by side; you cast whichever half you choose. Fuse lets you cast both halves at once as a single spell by paying both costs together.","group":"Casting","search":"Split Cards","id":"split-cards-fuse"},{"name":"Omen","category":"Alternate Costs — Increased/Reduced Effect","description":"Functionally like Adventure (an inset instant/sorcery attached to a permanent), except when the Omen spell resolves, it's shuffled back into its owner's library instead of going to exile — so there's no later replay from exile.","group":"Casting","search":"Omen","id":"omen"},{"name":"More Than Meets the Eye [cost]","category":"Alternate Costs — Increased/Reduced Effect","description":"An alternative cost that lets you cast a transforming double-faced card already \"converted\" (its normally-back side face up), paying this cost instead of the front face's mana cost.","group":"Casting","search":"More Than Meets the Eye","id":"more-than-meets-the-eye-cost"},{"name":"Modal Double-Faced Cards","category":"Alternate Costs — Increased/Reduced Effect","description":"Cards with two independent, non-transforming faces (often one side a spell, the other a land or creature); you choose and cast only one face, and that's the only side that ever exists as that object — no flipping later.","group":"Casting","search":"Modal Double-Faced Cards","id":"modal-double-faced-cards"},{"name":"Morph","category":"Face-Down Cards","description":"You may cast this card face down as a 2/2 colorless creature with no name or abilities, paying {3}. Turn it face up any time you have priority by paying its morph cost.","group":"Casting","search":"Morph","id":"morph"},{"name":"Megamorph","category":"Face-Down Cards","description":"Works exactly like morph, except when you turn the creature face up, you also put a +1/+1 counter on it.","group":"Casting","search":"Megamorph","id":"megamorph"},{"name":"Manifest / Manifest Dread","category":"Face-Down Cards","description":"*Manifest:* put a card (usually from your library) onto the battlefield face down as a 2/2 colorless creature with no abilities; if it's a creature card, you may later turn it face up for its mana cost (or its morph/disguise cost, if it had one). *Manifest Dread:* look at the top two cards of your library, manifest one, and put the other into your graveyard.","group":"Casting","search":"Manifest","id":"manifest-manifest-dread"},{"name":"Foretell [cost]","category":"Face-Down Cards","description":"During your turn, you may pay {2} and exile this card from your hand face down. On a later turn, cast it from exile for its foretell cost instead of its mana cost.","group":"Casting","search":"Foretell","id":"foretell-cost"},{"name":"Disguise [cost]","category":"Face-Down Cards","description":"An upgraded Morph: cast the card face down for {3} as a 2/2 with no name or types, but it also has ward {2}. Turn it face up any time for its disguise cost.","group":"Casting","search":"Disguise","id":"disguise-cost"},{"name":"Cloak","category":"Face-Down Cards","description":"An upgraded Manifest: put a card face down on the battlefield as a 2/2 with ward {2}. If it's a creature card, turn it face up later for its mana cost (or morph/disguise cost, if applicable).","group":"Casting","search":"Cloak","id":"cloak"},{"name":"Affinity for [type]","category":"Variable Cost Reduction","description":"This spell costs {1} less to cast for each permanent of the stated type you control.","group":"Casting","search":"Affinity for","id":"affinity-for-type"},{"name":"Undaunted","category":"Variable Cost Reduction","description":"This spell costs {1} less to cast for each opponent you have.","group":"Casting","search":"Undaunted","id":"undaunted"},{"name":"Surge [cost]","category":"Situational Reduced Costs","description":"You may pay this cost rather than the mana cost if you or a teammate has cast another spell this turn.","group":"Casting","search":"Surge","id":"surge-cost"},{"name":"Prowl [cost]","category":"Situational Reduced Costs","description":"You may pay this cost rather than the mana cost if you dealt combat damage to a player this turn with a creature that shares a creature type with this spell.","group":"Casting","search":"Prowl","id":"prowl-cost"},{"name":"Spectacle [cost]","category":"Situational Reduced Costs","description":"You may pay this cost rather than the mana cost if an opponent lost life this turn (from any source, not just you).","group":"Casting","search":"Spectacle","id":"spectacle-cost"},{"name":"Offering","category":"Alternatives to Mana","description":"As an additional cost to cast this spell, you may sacrifice a permanent of the stated quality. If you do, the spell's total cost is reduced by the sacrificed permanent's mana cost, and you may cast it any time you could cast an instant.","group":"Casting","search":"Offering","id":"offering"},{"name":"Convoke","category":"Alternatives to Mana","description":"Each creature you tap while casting this spell pays for {1} or one mana of that creature's color, letting you tap creatures instead of spending mana.","group":"Casting","search":"Convoke","id":"convoke"},{"name":"Improvise","category":"Alternatives to Mana","description":"For each generic mana in this spell's total cost, you may tap an untapped artifact you control rather than pay that mana.","group":"Casting","search":"Improvise","id":"improvise"},{"name":"Delve","category":"Alternatives to Mana","description":"Each card you exile from your graveyard pays for {1} of this spell's cost.","group":"Casting","search":"Delve","id":"delve"},{"name":"Assist","category":"Alternatives to Mana","description":"Another player can pay up to a set amount of this spell's generic mana cost for you, if you choose to let them.","group":"Casting","search":"Assist","id":"assist"},{"name":"Emerge [cost]","category":"Alternatives to Mana","description":"You may cast this spell by paying its emerge cost and sacrificing a creature, rather than paying its mana cost; the total cost is then further reduced by generic mana equal to the sacrificed creature's mana value.","group":"Casting","search":"Emerge","id":"emerge-cost"},{"name":"Phyrexian Mana / Compleated","category":"Alternatives to Mana","description":"*Phyrexian mana* symbols in a cost can be paid with one mana of their color, or by paying 2 life instead. *Compleated* is the planeswalker-specific consequence: if you pay life for any Phyrexian symbols in its cost, the planeswalker enters with 2 fewer loyalty counters for each one paid that way.","group":"Casting","search":"Phyrexian Mana","id":"phyrexian-mana-compleated"},{"name":"Web-Slinging / Enweb","category":"Alternatives to Mana","description":"You may cast this spell for its (cheaper) web-slinging cost if you also return a tapped creature you control to its owner's hand.","group":"Casting","search":"Web-Slinging","id":"web-slinging-enweb"},{"name":"Waterbend [cost]","category":"Alternatives to Mana","description":"Pay this cost; for each generic mana in it, you may tap an untapped artifact or creature you control instead of paying that mana.","group":"Casting","search":"Waterbend","id":"waterbend-cost"},{"name":"Sneak","category":"Alternatives to Mana","description":"You may cast this spell for its sneak cost only during the declare blockers step of your turn, after blockers are declared, by also returning an unblocked attacking creature you control to hand as part of the cost. A creature cast this way enters tapped and attacking. Introduced in Teenage Mutant Ninja Turtles as a more restrictive, non-creature-friendly variant of Ninjutsu.","group":"Casting","search":"Sneak","id":"sneak"},{"name":"Flash","category":"Timing","description":"You may cast this spell any time you could cast an instant.","group":"Casting","search":"Flash","id":"flash"},{"name":"Split Second","category":"Timing","description":"As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities — it can't be responded to except by producing mana.","group":"Casting","search":"Split Second","id":"split-second"},{"name":"Addendum","category":"Timing","description":"An ability word marking additional or alternative effects that apply if you cast this spell during your main phase (as opposed to on someone else's turn).","group":"Casting","search":"Addendum","id":"addendum"},{"name":"Adamant","category":"Mana Spent to Cast","description":"An ability word marking additional or alternative effects that apply if you spent three or more mana of one color (or type, on some colorless cards) to cast this spell.","group":"Casting","search":"Adamant","id":"adamant"},{"name":"Sunburst","category":"Mana Spent to Cast","description":"This permanent enters the battlefield with a charge counter (artifacts) or +1/+1 counter (creatures) for each different color of mana spent to cast it.","group":"Casting","search":"Sunburst","id":"sunburst"},{"name":"Converge","category":"Mana Spent to Cast","description":"An ability word for effects whose magnitude scales with the number of different colors of mana spent to cast the spell.","group":"Casting","search":"Converge","id":"converge"},{"name":"Storm","category":"When You Cast This","description":"When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.","group":"Casting","search":"Storm","id":"storm"},{"name":"Ripple N","category":"When You Cast This","description":"When you cast this spell, you may reveal the top N cards of your library. You may cast any revealed cards with the same name as this spell without paying their mana costs, then put the rest on the bottom in any order.","group":"Casting","search":"Ripple","id":"ripple-n"},{"name":"Cascade","category":"When You Cast This","description":"When you cast this spell, exile cards from the top of your library until you exile a nonland card with lesser mana value. You may cast that card without paying its mana cost; put the rest on the bottom in a random order.","group":"Casting","search":"Cascade","id":"cascade"},{"name":"Gravestorm","category":"When You Cast This","description":"When you cast this spell, copy it for each permanent that was put into a graveyard from the battlefield this turn. You may choose new targets for the copies.","group":"Casting","search":"Gravestorm","id":"gravestorm"},{"name":"Demonstrate","category":"When You Cast This","description":"When you cast this spell, you may copy it. If you do, an opponent may also copy it. New targets may be chosen for each copy.","group":"Casting","search":"Demonstrate","id":"demonstrate"},{"name":"Radiance","category":"When You Cast This","description":"An ability word for effects that target one permanent but also affect every other permanent of the same type that shares a color with that target.","group":"Casting","search":"Radiance","id":"radiance"},{"name":"Epic","category":"Delayed Re-Cast","description":"For the rest of the game, you can't cast spells. At the beginning of each of your upkeeps for the rest of the game, copy this spell (except for its epic ability itself), choosing new targets if applicable.","group":"Casting","search":"Epic","id":"epic"},{"name":"Rebound","category":"Delayed Re-Cast","description":"If this spell was cast from your hand, instead of going to the graveyard as it resolves, exile it. At the beginning of your next upkeep, you may cast it again from exile without paying its mana cost.","group":"Casting","search":"Rebound","id":"rebound"},{"name":"Cipher","category":"Delayed Re-Cast","description":"Then you may exile this spell, encoded on a creature you control. Whenever that creature deals combat damage to a player, its controller may cast a copy of the encoded card without paying its mana cost.","group":"Casting","search":"Cipher","id":"cipher"},{"name":"Paradigm","category":"Delayed Re-Cast","description":"After this spell resolves, exile it. After you first resolve a spell with this name, you may cast a copy of it from exile without paying its mana cost at the beginning of each of your first main phases, indefinitely.","group":"Casting","search":"Paradigm","id":"paradigm"},{"name":"Defender","category":"Can / Can't Attack","description":"This creature can't attack.","group":"Combat","search":"Defender","id":"defender"},{"name":"Haste","category":"Can / Can't Attack","description":"This creature can attack and use {T} abilities the turn it comes under your control, ignoring summoning sickness.","group":"Combat","search":"Haste","id":"haste"},{"name":"Landwalk","category":"Evasion","description":"This creature can't be blocked as long as the defending player controls a land of the specified type (e.g. islandwalk, swampwalk).","group":"Combat","search":"Landwalk","id":"landwalk"},{"name":"Horsemanship","category":"Evasion","description":"This creature can't be blocked except by creatures with horsemanship.","group":"Combat","search":"Horsemanship","id":"horsemanship"},{"name":"Flying / Reach","category":"Evasion","description":"*Flying:* this creature can't be blocked except by creatures with flying or reach. *Reach:* this creature (even without flying) can block creatures with flying.","group":"Combat","search":"Flying","id":"flying-reach"},{"name":"Shadow","category":"Evasion","description":"This creature can block or be blocked by only creatures with shadow — effectively putting it on its own separate battlefield for blocking purposes.","group":"Combat","search":"Shadow","id":"shadow"},{"name":"Fear","category":"Evasion","description":"This creature can't be blocked except by artifact creatures and/or black creatures.","group":"Combat","search":"Fear","id":"fear"},{"name":"Intimidate","category":"Evasion","description":"This creature can't be blocked except by artifact creatures and/or creatures that share a color with it.","group":"Combat","search":"Intimidate","id":"intimidate"},{"name":"Menace / Suspected","category":"Evasion","description":"*Menace:* this creature can't be blocked except by two or more creatures. *Suspected* (a status, not a keyword ability): a suspected creature has menace and can't block, until it leaves the battlefield or something removes the designation.","group":"Combat","search":"Menace","id":"menace-suspected"},{"name":"Skulk","category":"Evasion","description":"This creature can't be blocked by creatures with greater power.","group":"Combat","search":"Skulk","id":"skulk"},{"name":"Dethrone","category":"Attacking Triggers — Add +1/+1 Counter","description":"Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.","group":"Combat","search":"Dethrone","id":"dethrone"},{"name":"Mentor","category":"Attacking Triggers — Add +1/+1 Counter","description":"Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less than this creature's power.","group":"Combat","search":"Mentor","id":"mentor"},{"name":"Training","category":"Attacking Triggers — Add +1/+1 Counter","description":"Whenever this creature attacks alongside a creature with greater power, you may put a +1/+1 counter on this creature.","group":"Combat","search":"Training","id":"training"},{"name":"Exalted","category":"Attacking Triggers — Increase Power/Toughness","description":"Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn (each instance of exalted you control triggers separately).","group":"Combat","search":"Exalted","id":"exalted"},{"name":"Battle Cry","category":"Attacking Triggers — Increase Power/Toughness","description":"Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.","group":"Combat","search":"Battle Cry","id":"battle-cry"},{"name":"Enlist","category":"Attacking Triggers — Increase Power/Toughness","description":"As you attack with this creature, you may tap an untapped, non-summoning-sick creature you control that isn't attacking; the attacker gets +X/+0 until end of turn, where X is the tapped creature's power.","group":"Combat","search":"Enlist","id":"enlist"},{"name":"Melee","category":"Attacking Triggers — Increase Power/Toughness","description":"Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.","group":"Combat","search":"Melee","id":"melee"},{"name":"Battalion","category":"Attacking Triggers — Conditional","description":"Whenever this creature and at least two other creatures attack, [effect happens].","group":"Combat","search":"Battalion","id":"battalion"},{"name":"Pack Tactics","category":"Attacking Triggers — Conditional","description":"Whenever this creature attacks, if you attacked with creatures with total power 6 or greater this combat, [effect happens].","group":"Combat","search":"Pack Tactics","id":"pack-tactics"},{"name":"Provoke","category":"Attacking Triggers — Other","description":"Whenever this creature attacks, you may have target creature an opponent controls untap and block it if able.","group":"Combat","search":"Provoke","id":"provoke"},{"name":"Annihilator N","category":"Attacking Triggers — Other","description":"Whenever this creature attacks, defending player sacrifices N permanents.","group":"Combat","search":"Annihilator","id":"annihilator-n"},{"name":"Myriad","category":"Attacking Triggers — Other","description":"Whenever this creature attacks, for each opponent other than the defending player, you may create a token copy of it that's tapped and attacking that opponent (or a planeswalker they control). Exile the tokens at end of combat.","group":"Combat","search":"Myriad","id":"myriad"},{"name":"Mobilize N","category":"Attacking Triggers — Other","description":"Whenever this creature attacks, create N tapped and attacking 1/1 red Warrior creature tokens; sacrifice them at the beginning of the next end step.","group":"Combat","search":"Mobilize","id":"mobilize-n"},{"name":"Firebending N","category":"Attacking Triggers — Other","description":"Whenever this creature attacks, add N {R}. Until end of combat, that mana doesn't empty from your pool as steps and phases end.","group":"Combat","search":"Firebending","id":"firebending-n"},{"name":"Frenzy N","category":"Blocking / Not Blocking","description":"Whenever this creature attacks and isn't blocked, it gets +N/+0 until end of turn.","group":"Combat","search":"Frenzy","id":"frenzy-n"},{"name":"Flanking","category":"Blocking / Not Blocking","description":"Whenever this creature becomes blocked by a creature without flanking, the blocking creature gets -1/-1 until end of turn.","group":"Combat","search":"Flanking","id":"flanking"},{"name":"Bushido N","category":"Blocking / Not Blocking","description":"Whenever this creature blocks or becomes blocked, it gets +N/+N until end of turn.","group":"Combat","search":"Bushido","id":"bushido-n"},{"name":"Rampage N","category":"Blocking / Not Blocking","description":"Whenever this creature becomes blocked, it gets +N/+N until end of turn for each creature blocking it beyond the first.","group":"Combat","search":"Rampage","id":"rampage-n"},{"name":"Afflict N","category":"Blocking / Not Blocking","description":"Whenever this creature becomes blocked, defending player loses N life.","group":"Combat","search":"Afflict","id":"afflict-n"},{"name":"Poisonous N","category":"Saboteur Abilities","description":"Whenever this creature deals combat damage to a player, that player gets N poison counters.","group":"Combat","search":"Poisonous","id":"poisonous-n"},{"name":"Toxic N","category":"Saboteur Abilities","description":"Whenever this creature deals combat damage to a player, that player also gets N poison counters (in addition to normal damage/life loss).","group":"Combat","search":"Toxic","id":"toxic-n"},{"name":"Renown N","category":"Saboteur Abilities","description":"When this creature deals combat damage to a player, if it isn't already renowned, put N +1/+1 counters on it and it becomes renowned.","group":"Combat","search":"Renown","id":"renown-n"},{"name":"Ingest","category":"Saboteur Abilities","description":"Whenever this creature deals combat damage to a player, that player exiles the top card of their library.","group":"Combat","search":"Ingest","id":"ingest"},{"name":"Decayed","category":"End of Combat","description":"This creature can't block. When it attacks, sacrifice it at the beginning of the next end step.","group":"Combat","search":"Decayed","id":"decayed"},{"name":"Double Strike","category":"Combat Rules Modification","description":"This creature deals both first-strike and regular combat damage (i.e., damage in both combat damage steps).","group":"Combat","search":"Double Strike","id":"double-strike"},{"name":"First Strike","category":"Combat Rules Modification","description":"This creature deals combat damage before creatures without first strike (or double strike).","group":"Combat","search":"First Strike","id":"first-strike"},{"name":"Trample","category":"Combat Rules Modification","description":"If this creature would assign enough combat damage to destroy all creatures blocking it, you may assign the rest of its damage to the player or planeswalker it's attacking.","group":"Combat","search":"Trample","id":"trample"},{"name":"Vigilance","category":"Combat Rules Modification","description":"Attacking doesn't cause this creature to tap.","group":"Combat","search":"Vigilance","id":"vigilance"},{"name":"Banding","category":"Combat Rules Modification","description":"A retired, notoriously complex ability letting a group of attacking (or blocking) creatures, at least one with banding, combine into a \"band\"; the band's controller chooses how combat damage dealt to the band is distributed among its members.","group":"Combat","search":"Banding","id":"banding"},{"name":"Space Sculptor","category":"Combat Rules Modification","description":"Divides the battlefield into alpha, beta, and gamma sectors; every creature (yours and opponents') gets assigned to one. Appears on exactly one card, Space Beleren, whose other abilities key off which sector a creature is in.","group":"Combat","search":"Space Sculptor","id":"space-sculptor"},{"name":"Investigate / Clue","category":"Tokens — Token Types","description":"*Investigate:* create a Clue token. *Clue:* a colorless artifact token with \"{2}, Sacrifice this token: Draw a card.\"","group":"Actions","search":"Investigate","id":"investigate-clue"},{"name":"Incubate / Incubator","category":"Tokens — Token Types","description":"*Incubate N:* create an Incubator token with N +1/+1 counters on it. *Incubator:* a double-faced token — front face a colorless artifact with \"{2}: Transform this token,\" back face a 0/0 colorless Phyrexian artifact creature.","group":"Actions","search":"Incubate","id":"incubate-incubator"},{"name":"Treasure","category":"Tokens — Token Types","description":"A colorless artifact token: \"{T}, Sacrifice this token: Add one mana of any color.\"","group":"Actions","search":"Treasure","id":"treasure"},{"name":"Gold","category":"Tokens — Token Types","description":"A colorless artifact token: \"Sacrifice this token: Add one mana of any color.\" (No tap needed, unlike Treasure.)","group":"Actions","search":"Gold","id":"gold"},{"name":"Food","category":"Tokens — Token Types","description":"A colorless artifact token: \"{2}, {T}, Sacrifice this token: You gain 3 life.\"","group":"Actions","search":"Food","id":"food"},{"name":"Powerstone","category":"Tokens — Token Types","description":"A colorless artifact token: \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\"","group":"Actions","search":"Powerstone","id":"powerstone"},{"name":"Map","category":"Tokens — Token Types","description":"A colorless artifact token: \"{1}, {T}, Sacrifice this token: Target creature you control explores. Activate only as a sorcery.\"","group":"Actions","search":"Map","id":"map"},{"name":"Junk","category":"Tokens — Token Types","description":"A colorless artifact token: \"{T}, Sacrifice this token: Exile the top card of your library. You may play that card this turn. Activate only as a sorcery.\"","group":"Actions","search":"Junk","id":"junk"},{"name":"Lander","category":"Tokens — Token Types","description":"A colorless artifact token: \"{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\"","group":"Actions","search":"Lander","id":"lander"},{"name":"Mutagen","category":"Tokens — Token Types","description":"A colorless artifact token: \"{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery.\"","group":"Actions","search":"Mutagen","id":"mutagen"},{"name":"Populate","category":"Tokens — Token Actions","description":"Choose a creature token you control and create a token that's a copy of it.","group":"Actions","search":"Populate","id":"populate"},{"name":"Amass [Type] N","category":"Tokens — Token Actions","description":"Put N +1/+1 counters on an Army you control (it also becomes the stated creature type). If you don't control an Army, create a 0/0 black Army creature token of that type first.","group":"Actions","search":"Amass","id":"amass-type-n"},{"name":"Living Weapon","category":"Tokens — Token Actions","description":"When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this Equipment to it.","group":"Actions","search":"Living Weapon","id":"living-weapon"},{"name":"For Mirrodin!","category":"Tokens — Token Actions","description":"When this Equipment enters, create a 2/2 red Rebel creature token, then attach this Equipment to it.","group":"Actions","search":"For Mirrodin!","id":"for-mirrodin"},{"name":"Job Select","category":"Tokens — Token Actions","description":"When this Equipment enters, create a 1/1 colorless Hero creature token, then attach this Equipment to it.","group":"Actions","search":"Job Select","id":"job-select"},{"name":"Meld","category":"Change Sides","description":"Two specific paired cards, when both are owned and controlled by you and meet conditions, transform into a single oversized combined card. Only one card of the pair carries the actual \"meld\" instruction; the other just notes \"melds with [name].\"","group":"Actions","search":"Meld","id":"meld"},{"name":"Transform","category":"Change Sides","description":"Turn this double-faced permanent over so its other face is up, becoming that face's version while keeping the same physical card/token.","group":"Actions","search":"Transform","id":"transform"},{"name":"Flip","category":"Change Sides","description":"Turn this single-faced card upside down/around so its alternate (rotated) text and stats apply instead — an older mechanic used before double-faced cards existed.","group":"Actions","search":"Flip","id":"flip"},{"name":"Bolster N","category":"Distribute Counters","description":"Put N +1/+1 counters on the creature you control with the least toughness.","group":"Actions","search":"Bolster","id":"bolster-n"},{"name":"Support N","category":"Distribute Counters","description":"Put a +1/+1 counter on each of up to N (other) target creatures.","group":"Actions","search":"Support","id":"support-n"},{"name":"Endure N","category":"Distribute Counters","description":"Choose: put N +1/+1 counters on this creature, or create an N/N white Spirit creature token (the token option is used automatically if the creature isn't around to receive counters).","group":"Actions","search":"Endure","id":"endure-n"},{"name":"Proliferate","category":"Distribute Counters","description":"Choose any number of permanents and/or players, then give each another counter of each kind they already have (works on +1/+1, -1/-1, loyalty, poison, etc. simultaneously — and doesn't target, so hexproof/shroud permanents can still be chosen).","group":"Actions","search":"Proliferate","id":"proliferate"},{"name":"Time Travel","category":"Distribute Counters","description":"For each suspended card you own and each permanent you control with a time counter, you may add or remove a time counter — speeding up or slowing down Suspend, Vanishing, and similar effects.","group":"Actions","search":"Time Travel","id":"time-travel"},{"name":"Earthbend N","category":"Distribute Counters","description":"Target land you control becomes a 0/0 creature with haste (in addition to its other types) and gets N +1/+1 counters. If it later dies or is exiled, return it to the battlefield tapped.","group":"Actions","search":"Earthbend","id":"earthbend-n"},{"name":"Blight N","category":"Distribute Counters","description":"Put N -1/-1 counters total on any number of creatures the chosen player controls, distributed as they choose (doesn't use the word \"target\").","group":"Actions","search":"Blight","id":"blight-n"},{"name":"Exert","category":"Temporary Removal","description":"You may exert this creature as it attacks (an optional cost). If you do, it won't untap during your next untap step.","group":"Actions","search":"Exert","id":"exert"},{"name":"Detain","category":"Temporary Removal","description":"This permanent can't attack or block, and its activated abilities can't be activated, until its detainer's next turn.","group":"Actions","search":"Detain","id":"detain"},{"name":"Goad","category":"Temporary Removal","description":"Until your next turn, this creature attacks each combat if able, and attacks a player other than you if able (its controller still chooses which legal target).","group":"Actions","search":"Goad","id":"goad"},{"name":"Airbend","category":"Temporary Removal","description":"Exile the target permanent(s); while exiled, its owner may cast it for a reduced alternative cost (e.g. {2}) rather than its mana cost.","group":"Actions","search":"Airbend","id":"airbend"},{"name":"Scry N","category":"Top of Library Manipulation","description":"Look at the top N cards of your library, then put any number of them on the bottom of your library and the rest back on top in any order.","group":"Actions","search":"Scry","id":"scry-n"},{"name":"Fateseal N","category":"Top of Library Manipulation","description":"Look at the top N cards of an opponent's library, then put any number of them on the bottom of that library and the rest on top in any order. (Scry's twin, aimed at an opponent's draws instead of your own.)","group":"Actions","search":"Fateseal","id":"fateseal-n"},{"name":"Clash","category":"Top of Library Manipulation","description":"Each clashing player reveals the top card of their library, then puts that card on the top or bottom (their choice). Whoever revealed the higher mana value wins the clash.","group":"Actions","search":"Clash","id":"clash"},{"name":"Explore","category":"Top of Library Manipulation","description":"Reveal the top card of your library. If it's a land, put it into your hand. If it's not, put a +1/+1 counter on the exploring creature, then choose whether the revealed card goes back on top or into the graveyard.","group":"Actions","search":"Explore","id":"explore"},{"name":"Surveil N","category":"Top of Library Manipulation","description":"Look at the top N cards of your library, then put any number of them into your graveyard and the rest back on top in any order.","group":"Actions","search":"Surveil","id":"surveil-n"},{"name":"Connive N","category":"Top of Library Manipulation","description":"Draw a card, then discard a card. If a nonland card was discarded this way, put N +1/+1 counters on the connived creature.","group":"Actions","search":"Connive","id":"connive-n"},{"name":"Parley","category":"Top of Library Manipulation","description":"Each player reveals the top card of their library. You get a benefit for each nonland card revealed this way; then each player draws the card they revealed.","group":"Actions","search":"Parley","id":"parley"},{"name":"Companion","category":"Outside the Game","description":"Reveal one card meeting its stated deckbuilding restriction before the game as your companion; it starts outside the game (in your sideboard, if applicable). During the game, you may pay {3} to put it into your hand.","group":"Actions","search":"Companion","id":"companion"},{"name":"Learn","category":"Outside the Game","description":"You may discard a card, and if you do, draw a card. If you didn't discard, you may instead reveal a Lesson card you own from outside the game and put it into your hand.","group":"Actions","search":"Learn","id":"learn"},{"name":"Initiative","category":"New Components","description":"A player designation, similar to Monarch. Whoever has it gets: \"Whenever you take the initiative and at the beginning of your upkeep, venture into Undercity.\" Taking combat damage from an opponent's creature passes the initiative to them.","group":"Actions","search":"Initiative","id":"initiative"},{"name":"Venture into the Dungeon / Undercity","category":"New Components","description":"Move into (or deeper through) a dungeon card in the command zone: if you have no dungeon active, put one into the command zone and move to its first room; otherwise, advance to the next room. Entering a room triggers its effect. Undercity is the specific dungeon tied to the Initiative mechanic.","group":"Actions","search":"Venture into the Dungeon","id":"venture-into-the-dungeon-undercity"},{"name":"Day / Night / Daybound / Nightbound","category":"New Components","description":"The game (not any one player) has a day/night designation, shared by everyone. It becomes night if the previous active player cast no spells that turn; it becomes day if they cast 2+ spells during a night turn. *Daybound* cards enter/stay face-up by day and flip to their *nightbound* back face when it becomes night (and can't transform any other way).","group":"Actions","search":"Day","id":"day-night-daybound-nightbound"},{"name":"Ascend","category":"New Components","description":"Any time you control ten or more permanents and don't already have the city's blessing, you get it for the rest of the game — a permanent designation unlocking bonuses on other cards you control.","group":"Actions","search":"Ascend","id":"ascend"},{"name":"Monarch","category":"New Components","description":"A player designation: \"At the beginning of your end step, draw a card. Whenever a creature deals combat damage to you, its controller becomes the monarch\" — so the crown passes via combat.","group":"Actions","search":"Monarch","id":"monarch"},{"name":"Attraction","category":"New Components","description":"A card type kept in its own side deck; you get them onto the battlefield by \"opening\" one (putting the top card of your Attraction deck onto the battlefield). Each has \"lights\" 1–6; rolling a die each turn triggers (\"visits\") any of your Attractions whose matching light is lit.","group":"Actions","search":"Attraction","id":"attraction"},{"name":"Contraption / Assemble","category":"New Components","description":"Contraptions live in their own side deck attached to three \"sprocket\" zones. \"Assemble\" means put the top card of your Contraption deck face up onto one of your sprockets. A CRANK! counter cycles between sprockets each upkeep to determine which Contraption is active.","group":"Actions","search":"Contraption","id":"contraption-assemble"},{"name":"The Ring Tempts You","category":"New Components","description":"A repeatable trigger that escalates through four tiers of bonus (each usable once per game) as it happens to you more times, and lets you designate a creature as your Ring-bearer, who becomes legendary and unblockable except by legendary creatures.","group":"Actions","search":"The Ring Tempts You","id":"the-ring-tempts-you"},{"name":"Start Your Engines!","category":"New Components","description":"The first time you control a permanent with this ability, your speed becomes 1. Then, once per your turn, if an opponent loses life during your turn and your speed is below 4, it increases by 1 — building toward \"max speed\" bonuses.","group":"Actions","search":"Start Your Engines!","id":"start-your-engines"},{"name":"Vote","category":"Multiplayer / Opponent","description":"A keyword action: players choose from among given options. Used alongside Will of the Council, Council's Dilemma, and Secret Council to structure how the votes are tallied and revealed.","group":"Actions","search":"Vote","id":"vote"},{"name":"Council's Dilemma","category":"Multiplayer / Opponent","description":"Starting with you, each player votes for one of the listed options (can't abstain); the effect happens once for every single vote cast (not just the majority).","group":"Actions","search":"Council's Dilemma","id":"council-s-dilemma"},{"name":"Join Forces","category":"Multiplayer / Opponent","description":"Starting with you, each player may pay any amount of mana; an effect then scales with the total amount everyone paid together.","group":"Actions","search":"Join Forces","id":"join-forces"},{"name":"Tempting Offer","category":"Multiplayer / Opponent","description":"You perform a beneficial action; then each opponent, in turn order, may perform the same action; for each opponent who does, you get to repeat the action again yourself.","group":"Actions","search":"Tempting Offer","id":"tempting-offer"},{"name":"Will of the Council","category":"Multiplayer / Opponent","description":"Starting with you, each player votes between two options; whichever option gets more votes happens (ties usually favor a stated default).","group":"Actions","search":"Will of the Council","id":"will-of-the-council"},{"name":"Villainous Choice","category":"Multiplayer / Opponent","description":"An opponent is forced to choose between two options, both bad for them; whichever they pick, that full effect happens.","group":"Actions","search":"Villainous Choice","id":"villainous-choice"},{"name":"Discover N","category":"Cast Spells","description":"Exile cards from the top of your library until you exile a nonland card with mana value N or less. You may cast it without paying its mana cost (only if its own mana value is ≤ N); otherwise put it into your hand. Put the rest on the bottom in a random order. (A refined, more controllable descendant of Cascade.)","group":"Actions","search":"Discover","id":"discover-n"},{"name":"Cycling [cost]","category":"Hand Abilities — Discard for Alternate Effect","description":"[Cost], Discard this card: Draw a card.","group":"Actions","search":"Cycling","id":"cycling-cost"},{"name":"Transmute [cost]","category":"Hand Abilities — Discard for Alternate Effect","description":"[Cost], Discard this card: Search your library for a card with the same mana value as this card, put it into your hand, then shuffle. Activate only as a sorcery.","group":"Actions","search":"Transmute","id":"transmute-cost"},{"name":"Channel [cost]","category":"Hand Abilities — Discard for Alternate Effect","description":"[Cost], Discard this card: [one-time effect]. A one-shot alternate use for a card sitting dead in hand.","group":"Actions","search":"Channel","id":"channel-cost"},{"name":"Reinforce N—[cost]","category":"Hand Abilities — Discard for Alternate Effect","description":"[Cost], Discard this card: Put N +1/+1 counters on target creature.","group":"Actions","search":"Reinforce","id":"reinforce-n-cost"},{"name":"Bloodrush [cost]","category":"Hand Abilities — Discard for Alternate Effect","description":"[Cost], Discard this creature card: Target attacking creature gets +X/+X until end of turn (and any relevant abilities), where X/X matches the discarded creature's power/toughness.","group":"Actions","search":"Bloodrush","id":"bloodrush-cost"},{"name":"Typecycling (e.g. Islandcycling, Basic Landcycling)","category":"Hand Abilities — Discard for Alternate Effect","description":"[Cost], Discard this card: Search your library for a card of the stated type, reveal it, put it into your hand, then shuffle. (A cycling variant that fetches instead of drawing.)","group":"Actions","search":"Typecycling","id":"typecycling-e-g-islandcycling-basic-landcycling"},{"name":"Madness [cost]","category":"Hand Abilities — Play at Specific Time","description":"If this card would be discarded, it's exiled instead. Its owner may then cast it by paying its madness cost rather than its mana cost; if they don't, it goes to the graveyard.","group":"Actions","search":"Madness","id":"madness-cost"},{"name":"Mayhem [cost]","category":"Hand Abilities — Play at Specific Time","description":"You may cast this card from your graveyard for its mayhem cost if you discarded it this turn (following normal timing restrictions for its card type).","group":"Actions","search":"Mayhem","id":"mayhem-cost"},{"name":"Ninjutsu [cost]","category":"Hand Abilities — Play at Specific Time","description":"[Cost], Reveal this card from your hand, return an unblocked attacker you control to hand: put this card onto the battlefield tapped and attacking.","group":"Actions","search":"Ninjutsu","id":"ninjutsu-cost"},{"name":"Miracle [cost]","category":"Hand Abilities — Play at Specific Time","description":"You may reveal this card as you draw it, if it's the first card you've drawn this turn. If you do, you may cast it for its miracle cost.","group":"Actions","search":"Miracle","id":"miracle-cost"},{"name":"Splice onto [Type]","category":"Hand Abilities — Repeatable","description":"As you cast a spell of the stated type, you may reveal this card from your hand and pay its splice cost. If you do, add this card's effects to that spell (the spliced card stays in your hand).","group":"Actions","search":"Splice onto","id":"splice-onto-type"},{"name":"Forecast — [cost]: [Effect]","category":"Hand Abilities — Repeatable","description":"During your upkeep, once per turn, you may reveal this card from your hand and pay the forecast cost to get its effect.","group":"Actions","search":"Forecast","id":"forecast-cost-effect"},{"name":"Jump-Start","category":"Cast from Graveyard — Once","description":"You may cast this instant or sorcery from your graveyard by discarding a card in addition to paying its other costs. It's exiled when it leaves the stack.","group":"Actions","search":"Jump-Start","id":"jump-start"},{"name":"Flashback [cost]","category":"Cast from Graveyard — Once","description":"You may cast this card from your graveyard for its flashback cost. Then exile it (whether it resolves, is countered, or leaves the stack any other way).","group":"Actions","search":"Flashback","id":"flashback-cost"},{"name":"Harmonize [cost]","category":"Cast from Graveyard — Once","description":"You may cast this card from your graveyard by paying its harmonize cost and tapping up to one untapped creature you control (reducing the generic mana by that creature's power) rather than paying its mana cost. Then exile it.","group":"Actions","search":"Harmonize","id":"harmonize-cost"},{"name":"Embalm [cost]","category":"Cast from Graveyard — Once","description":"[Cost], Exile this card from your graveyard: Create a token copy of it that's a white Zombie with no mana cost. Activate only as a sorcery.","group":"Actions","search":"Embalm","id":"embalm-cost"},{"name":"Eternalize [cost]","category":"Cast from Graveyard — Once","description":"[Cost], Exile this card from your graveyard: Create a token copy of it that's a 4/4 black Zombie with no mana cost. Activate only as a sorcery.","group":"Actions","search":"Eternalize","id":"eternalize-cost"},{"name":"Unearth [cost]","category":"Cast from Graveyard — Once","description":"[Cost]: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Activate only as a sorcery.","group":"Actions","search":"Unearth","id":"unearth-cost"},{"name":"Encore [cost]","category":"Cast from Graveyard — Once","description":"[Cost], Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able; those tokens gain haste and are sacrificed at end of turn.","group":"Actions","search":"Encore","id":"encore-cost"},{"name":"Scavenge [cost]","category":"Cast from Graveyard — Once","description":"[Cost], Exile this card from your graveyard: Put a number of +1/+1 counters on target creature equal to this card's power. Activate only as a sorcery.","group":"Actions","search":"Scavenge","id":"scavenge-cost"},{"name":"Renew [cost]","category":"Cast from Graveyard — Once","description":"[Cost], Exile this card from your graveyard: Put a +1/+1 counter on target creature. Activate only as a sorcery.","group":"Actions","search":"Renew","id":"renew-cost"},{"name":"Disturb [cost]","category":"Cast from Graveyard — Once","description":"You may cast this card from your graveyard transformed (its back face) for its disturb cost.","group":"Actions","search":"Disturb","id":"disturb-cost"},{"name":"Aftermath","category":"Cast from Graveyard — Once","description":"Cast this half of a split card only from your graveyard. Then exile it.","group":"Actions","search":"Aftermath","id":"aftermath"},{"name":"Retrace","category":"Cast from Graveyard — Repeatedly","description":"You may cast this card from your graveyard by discarding a land card as an additional cost. (Repeatable, as long as you keep finding lands to discard.)","group":"Actions","search":"Retrace","id":"retrace"},{"name":"Escape — [cost], Exile N other cards from your graveyard","category":"Cast from Graveyard — Repeatedly","description":"You may cast this card from your graveyard by paying its escape cost, which includes exiling a number of other cards from your graveyard.","group":"Actions","search":"Escape","id":"escape-cost-exile-n-other-cards-from-your-graveyard"},{"name":"Dredge N","category":"Return from Graveyard","description":"If you would draw a card, you may instead mill N cards; if you do, return this card from your graveyard to your hand instead of drawing.","group":"Actions","search":"Dredge","id":"dredge-n"},{"name":"Recover [cost]","category":"Return from Graveyard","description":"When a creature is put into your graveyard from the battlefield, you may pay this card's recover cost. If you do, return this card from your graveyard to your hand. Otherwise, exile it.","group":"Actions","search":"Recover","id":"recover-cost"},{"name":"Cohort","category":"Battlefield — Unified Cost/Situation","description":"[Effect]: Tap this creature and another untapped Ally you control: [effect]. (Both creatures must have been under your control since your turn began, per the tap-symbol rule.)","group":"Actions","search":"Cohort","id":"cohort"},{"name":"Boast — [Cost]: [Effect]","category":"Battlefield — Unified Cost/Situation","description":"[Cost]: [Effect]. Activate only if this creature attacked this turn, and only once each turn.","group":"Actions","search":"Boast","id":"boast-cost-effect"},{"name":"Grandeur — Discard another card named [Cardname]: [Effect]","category":"Battlefield — Unified Cost/Situation","description":"Discard another copy of this same legendary card to trigger a powerful one-time effect.","group":"Actions","search":"Grandeur","id":"grandeur-discard-another-card-named-cardname-effect"},{"name":"Saddle N","category":"Battlefield — Unified Cost/Situation","description":"Tap any number of other untapped creatures you control with total power N or greater: this permanent (a Mount) becomes saddled until end of turn. Activate only as a sorcery.","group":"Actions","search":"Saddle","id":"saddle-n"},{"name":"Exhaust — [Cost]: [Effect]","category":"Battlefield — Unified Cost/Situation","description":"An activated ability that can only be activated once (ever, or once per game depending on the specific card), signified by the exhaust keyword.","group":"Actions","search":"Exhaust","id":"exhaust-cost-effect"},{"name":"Power-up — [Cost]: [Effect]","category":"Battlefield — Unified Cost/Situation","description":"A one-time activated ability that costs less (by the permanent's own mana cost/color) if activated the turn it entered the battlefield.","group":"Actions","search":"Power-up","id":"power-up-cost-effect"},{"name":"Prepared","category":"Battlefield — Unified Cost/Situation","description":"A status a creature can have (not a counter). Creatures with a \"prepare spell\" have a normal side and an attached instant/sorcery; once prepared, you may cast that attached spell; casting it makes the creature unprepared again.","group":"Actions","search":"Prepared","id":"prepared"},{"name":"Aura Swap [cost]","category":"Battlefield — Swap Out","description":"[Cost]: Exchange this Aura with an Aura card in your hand.","group":"Actions","search":"Aura Swap","id":"aura-swap-cost"},{"name":"Transfigure [cost]","category":"Battlefield — Swap Out","description":"[Cost], Sacrifice this permanent: Search your library for a creature card with the same mana value as this permanent and put it onto the battlefield, then shuffle.","group":"Actions","search":"Transfigure","id":"transfigure-cost"},{"name":"Monstrosity N","category":"Battlefield — Improve This Permanent","description":"[Cost]: Monstrosity N. If this creature isn't monstrous, put N +1/+1 counters on it and it becomes monstrous (a one-time designation, not an ability).","group":"Actions","search":"Monstrosity","id":"monstrosity-n"},{"name":"Adapt N","category":"Battlefield — Improve This Permanent","description":"[Cost]: Adapt N. If this creature has no +1/+1 counters on it, put N +1/+1 counters on it. (Unlike Monstrosity, it can trigger again if the counters are later removed.)","group":"Actions","search":"Adapt","id":"adapt-n"},{"name":"Level Up [cost]","category":"Battlefield — Improve This Permanent","description":"[Cost]: Put a level counter on this permanent. Activate only as a sorcery. (Reaching certain level thresholds changes the creature's power/toughness and abilities, per its own text box.)","group":"Actions","search":"Level Up","id":"level-up-cost"},{"name":"Outlast [cost]","category":"Battlefield — Improve This Permanent","description":"[Cost], {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery.","group":"Actions","search":"Outlast","id":"outlast-cost"},{"name":"Craft with [materials] [cost]","category":"Battlefield — Improve This Permanent","description":"[Cost], Exile this permanent, exile [materials] from among permanents you control and/or cards in your graveyard: Return this card to the battlefield transformed under its owner's control. Craft only as a sorcery.","group":"Actions","search":"Craft with","id":"craft-with-materials-cost"},{"name":"Reconfigure [cost]","category":"Battlefield — Change Types","description":"[Cost]: Attach this Equipment creature to target creature you control (it stops being a creature while attached). [Cost]: Unattach it (it becomes a creature again). Reconfigure only as a sorcery.","group":"Actions","search":"Reconfigure","id":"reconfigure-cost"},{"name":"Activate","category":"Basic Actions","description":"To activate an activated ability is to put it onto the stack and pay its costs, so it will eventually resolve.","group":"Actions","search":"Activate","id":"activate"},{"name":"Cast","category":"Basic Actions","description":"To cast a spell is to move it from the zone it's in (usually hand) onto the stack as part of the multi-step casting process, choosing modes/targets and paying costs along the way.","group":"Actions","search":"Cast","id":"cast"},{"name":"Play","category":"Basic Actions","description":"To play a card means either to cast it (if it's a spell) or to put it onto the battlefield (if it's a land) — \"play\" is the umbrella term covering both.","group":"Actions","search":"Play","id":"play"},{"name":"Create","category":"Basic Actions","description":"To put one or more tokens onto the battlefield.","group":"Actions","search":"Create","id":"create"},{"name":"Counter","category":"Movement Between Zones","description":"To cancel a spell or ability so it doesn't resolve and none of its effects occur (it still counts as having \"happened\" for other purposes, like storm).","group":"Actions","search":"Counter","id":"counter"},{"name":"Destroy","category":"Movement Between Zones","description":"To move a permanent to its owner's graveyard as a result of an effect that says \"destroy\" (distinct from other ways of dying, like sacrifice or state-based lethal damage — but destroy specifically can be prevented by indestructible).","group":"Actions","search":"Destroy","id":"destroy"},{"name":"Draw","category":"Movement Between Zones","description":"To move the top card of your library into your hand.","group":"Actions","search":"Draw","id":"draw"},{"name":"Discard","category":"Movement Between Zones","description":"To move a card from your hand to your graveyard.","group":"Actions","search":"Discard","id":"discard"},{"name":"Exile","category":"Movement Between Zones","description":"To move a card, permanent, or object to the exile zone, a holding zone separate from the graveyard, hand, etc.","group":"Actions","search":"Exile","id":"exile"},{"name":"Mill","category":"Movement Between Zones","description":"To put the top card(s) of a library into that player's graveyard without looking at them.","group":"Actions","search":"Mill","id":"mill"},{"name":"Sacrifice","category":"Movement Between Zones","description":"To move a permanent you control from the battlefield to its owner's graveyard, as a cost or effect (distinct from destroy; sacrifice can't be prevented by indestructible).","group":"Actions","search":"Sacrifice","id":"sacrifice"},{"name":"Ante","category":"Movement Between Zones","description":"An optional, largely obsolete rule variant from Magic's earliest days where players wager cards before the game; only relevant to a handful of old, essentially unplayed cards.","group":"Actions","search":"Ante","id":"ante"},{"name":"Attach","category":"Manipulating Permanents","description":"To take an Aura, Equipment, or Fortification from wherever it currently is and put it onto a specified object or player it's legally allowed to enchant/equip/fortify.","group":"Actions","search":"Attach","id":"attach"},{"name":"Double","category":"Manipulating Permanents","description":"To multiply a value (counters, life total, mana, etc.) by two, per the specific card's instructions.","group":"Actions","search":"Double","id":"double"},{"name":"Exchange","category":"Manipulating Permanents","description":"To swap two things (control of two permanents, two life totals, etc.) simultaneously; if the full exchange can't be completed (e.g. one object is gone by resolution), none of it happens.","group":"Actions","search":"Exchange","id":"exchange"},{"name":"Tap","category":"Manipulating Permanents","description":"To turn a permanent sideways to indicate it's been used; tapped permanents generally can't attack, block, or be tapped again for costs.","group":"Actions","search":"Tap","id":"tap"},{"name":"Untap","category":"Manipulating Permanents","description":"To return a tapped permanent to its normal (untapped) orientation.","group":"Actions","search":"Untap","id":"untap"},{"name":"Shuffle","category":"Library Manipulation","description":"To randomize the order of the cards in a library (or another shuffleable zone, like a sideboard).","group":"Actions","search":"Shuffle","id":"shuffle"},{"name":"Search","category":"Library Manipulation","description":"To look through a specified zone (usually your library) for cards matching stated criteria, generally followed by a shuffle if the zone was a library.","group":"Actions","search":"Search","id":"search"},{"name":"Reveal","category":"Information","description":"To show a card to all players without necessarily changing its zone; everyone can then verify the game state described by that reveal.","group":"Actions","search":"Reveal","id":"reveal"},{"name":"Fight","category":"Creature Related Actions","description":"Two creatures each deal damage equal to their power to the other, simultaneously (not combat damage — it doesn't use the combat damage rules, and can happen outside combat).","group":"Actions","search":"Fight","id":"fight"},{"name":"Devotion","category":"Variables","description":"Your devotion to a color equals the number of mana symbols of that color among the mana costs of permanents you control.","group":"Conditions","search":"Devotion","id":"devotion"},{"name":"Party","category":"Variables","description":"Your party consists of up to one each of Cleric, Rogue, Warrior, and Wizard among creatures you control (each creature fills at most one role); a \"full party\" means all four roles are filled.","group":"Conditions","search":"Party","id":"party"},{"name":"Chroma","category":"Variables","description":"Counts colored mana symbols in a specified set of cards (permanents, graveyard, hand, etc., depending on the card) to scale an effect — the more general-purpose predecessor to Devotion.","group":"Conditions","search":"Chroma","id":"chroma"},{"name":"Domain","category":"Variables","description":"Counts the number of different basic land types among lands you control, to scale an effect.","group":"Conditions","search":"Domain","id":"domain"},{"name":"Undergrowth","category":"Variables","description":"Cares about the number of creature cards in your graveyard, scaling an effect accordingly.","group":"Conditions","search":"Undergrowth","id":"undergrowth"},{"name":"Fathomless Descent","category":"Variables","description":"Cares about the number of permanent cards in your graveyard, getting stronger the more you have (rather than requiring a fixed threshold).","group":"Conditions","search":"Fathomless Descent","id":"fathomless-descent"},{"name":"Vivid","category":"Variables","description":"Cares about the number of different colors among some specified set of cards or permanents, scaling an effect per color.","group":"Conditions","search":"Vivid","id":"vivid"},{"name":"Coven","category":"Thresholds — Battlefield","description":"Provides a bonus if you control three or more creatures with different powers from each other.","group":"Conditions","search":"Coven","id":"coven"},{"name":"Metalcraft","category":"Thresholds — Battlefield","description":"Provides a bonus as long as you control three or more artifacts.","group":"Conditions","search":"Metalcraft","id":"metalcraft"},{"name":"Ferocious","category":"Thresholds — Battlefield","description":"Provides a bonus if you control a creature with power 4 or greater.","group":"Conditions","search":"Ferocious","id":"ferocious"},{"name":"Formidable","category":"Thresholds — Battlefield","description":"Provides a bonus if creatures you control have total power 8 or greater.","group":"Conditions","search":"Formidable","id":"formidable"},{"name":"Delirium","category":"Thresholds — Graveyard","description":"Provides a bonus if there are four or more card types among cards in your graveyard.","group":"Conditions","search":"Delirium","id":"delirium"},{"name":"Spell Mastery","category":"Thresholds — Graveyard","description":"Provides a bonus if you have two or more instant and/or sorcery cards in your graveyard.","group":"Conditions","search":"Spell Mastery","id":"spell-mastery"},{"name":"Threshold","category":"Thresholds — Graveyard","description":"Provides a bonus as long as there are seven or more cards in your graveyard.","group":"Conditions","search":"Threshold","id":"threshold"},{"name":"Descent 4 / Descent 8","category":"Thresholds — Graveyard","description":"Provides a bonus as long as there are four (or eight) or more permanent cards in your graveyard.","group":"Conditions","search":"Descent 4","id":"descent-4-descent-8"},{"name":"Morbid","category":"Thresholds — Event Occurred this Turn","description":"Provides a bonus if a creature died this turn (anyone's, doesn't matter who controlled it).","group":"Conditions","search":"Morbid","id":"morbid"},{"name":"Raid","category":"Thresholds — Event Occurred this Turn","description":"Provides a bonus if you attacked with a creature this turn.","group":"Conditions","search":"Raid","id":"raid"},{"name":"Revolt","category":"Thresholds — Event Occurred this Turn","description":"Provides a bonus if a permanent you controlled left the battlefield this turn.","group":"Conditions","search":"Revolt","id":"revolt"},{"name":"Celebration","category":"Thresholds — Event Occurred this Turn","description":"Provides a bonus if two or more nonland permanents entered the battlefield under your control this turn.","group":"Conditions","search":"Celebration","id":"celebration"},{"name":"Descend","category":"Thresholds — Event Occurred this Turn","description":"Provides a bonus if a permanent card was put into your graveyard from anywhere this turn.","group":"Conditions","search":"Descend","id":"descend"},{"name":"Expend N","category":"Thresholds — Event Occurred this Turn","description":"Triggers the first time you spend your Nth total mana casting spells in a turn (a one-time trigger per turn, not \"every Nth mana\").","group":"Conditions","search":"Expend","id":"expend-n"},{"name":"Void","category":"Thresholds — Event Occurred this Turn","description":"Provides a bonus if a nonland permanent left the battlefield (or a spell was warped) this turn.","group":"Conditions","search":"Void","id":"void"},{"name":"Infusion","category":"Thresholds — Event Occurred this Turn","description":"Provides a bonus if you've gained life this turn.","group":"Conditions","search":"Infusion","id":"infusion"},{"name":"Hellbent","category":"Thresholds — Other","description":"Provides a bonus as long as you have no cards in your hand.","group":"Conditions","search":"Hellbent","id":"hellbent"},{"name":"Fateful Hour","category":"Thresholds — Other","description":"Provides a bonus as long as you have 5 or less life.","group":"Conditions","search":"Fateful Hour","id":"fateful-hour"},{"name":"Corrupted","category":"Thresholds — Other","description":"Provides a bonus if an opponent has three or more poison counters.","group":"Conditions","search":"Corrupted","id":"corrupted"},{"name":"Historic","category":"Batching","description":"A batching term: an object is historic if it's legendary, an artifact, or has the Saga subtype (any one qualifies; having more than one doesn't stack the bonus).","group":"Conditions","search":"Historic","id":"historic"},{"name":"Modified","category":"Batching","description":"A batching term: a creature is modified if it has a counter on it, is equipped, or is enchanted by an Aura its controller also controls.","group":"Conditions","search":"Modified","id":"modified"},{"name":"Commit a Crime","category":"Batching","description":"A player commits a crime by casting a spell, activating an ability, or putting a triggered ability on the stack that targets an opponent, something an opponent controls, or a card in an opponent's graveyard.","group":"Conditions","search":"Commit a Crime","id":"commit-a-crime"},{"name":"Outlaw","category":"Batching","description":"A batching term: a permanent is an outlaw if it has the Assassin, Mercenary, Pirate, Rogue, or Warlock creature type.","group":"Conditions","search":"Outlaw","id":"outlaw"},{"name":"Hideaway N","category":"This Enters the Battlefield — Exile Card","description":"When this permanent enters, look at the top N cards of your library, exile one face down, then put the rest on the bottom in a random order. (Later, another ability lets you play the exiled card under specific conditions.)","group":"Triggers","search":"Hideaway","id":"hideaway-n"},{"name":"Imprint","category":"This Enters the Battlefield — Exile Card","description":"An ability word (not standardized rules text) marking abilities where a permanent exiles a card as it enters, then keys some later effect off that exiled card's characteristics.","group":"Triggers","search":"Imprint","id":"imprint"},{"name":"Champion a [Type]","category":"This Enters the Battlefield — Remove Creature","description":"When this permanent enters, sacrifice it unless you exile another permanent of the stated type you control. When this permanent leaves the battlefield, return the exiled card to the battlefield under its owner's control.","group":"Triggers","search":"Champion a","id":"champion-a-type"},{"name":"Exploit","category":"This Enters the Battlefield — Remove Creature","description":"When this creature enters, you may sacrifice a creature (possibly itself). Doing so is \"exploiting a creature,\" which other abilities on the card may reward.","group":"Triggers","search":"Exploit","id":"exploit"},{"name":"Partner With [Name]","category":"This Enters the Battlefield — Other","description":"You may designate two legendary creature cards as your commander if one has \"partner with [Name]\" and the other is the named card. Also lets you tutor the named card to hand if instructed to search for it (even outside Commander).","group":"Triggers","search":"Partner With","id":"partner-with-name-1"},{"name":"Amplify N","category":"ETB with Counters — If Conditions are Met","description":"As this creature enters, reveal any number of cards from your hand that share a creature type with it. It enters with N +1/+1 counters for each card revealed this way.","group":"Triggers","search":"Amplify","id":"amplify-n"},{"name":"Bloodthirst N","category":"ETB with Counters — If Conditions are Met","description":"This creature enters the battlefield with N +1/+1 counters on it if an opponent was dealt damage this turn.","group":"Triggers","search":"Bloodthirst","id":"bloodthirst-n"},{"name":"Devour N","category":"ETB with Counters — As a Choice","description":"As this creature enters, you may sacrifice any number of creatures. It enters with N +1/+1 counters on it for each creature sacrificed this way.","group":"Triggers","search":"Devour","id":"devour-n"},{"name":"Tribute N","category":"ETB with Counters — As a Choice","description":"As this creature enters, an opponent of your choice may put N +1/+1 counters on it. If they don't, a different, usually more disruptive ETB effect happens instead.","group":"Triggers","search":"Tribute","id":"tribute-n"},{"name":"Fabricate N","category":"ETB with Counters — As a Choice","description":"When this creature enters, you may put N +1/+1 counters on it. If you don't, create N 1/1 colorless Servo artifact creature tokens.","group":"Triggers","search":"Fabricate","id":"fabricate-n"},{"name":"Riot","category":"ETB with Counters — As a Choice","description":"This creature enters the battlefield with your choice of a +1/+1 counter or haste.","group":"Triggers","search":"Riot","id":"riot"},{"name":"Unleash","category":"ETB with Counters — As a Choice","description":"You may have this creature enter the battlefield with an additional +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it (any +1/+1 counter, not just the unleash one).","group":"Triggers","search":"Unleash","id":"unleash"},{"name":"Backup N","category":"ETB with Counters — As a Choice","description":"When this creature enters, put N +1/+1 counters on target creature. If that target isn't this creature, it also gains all abilities of this creature printed below the backup ability until end of turn.","group":"Triggers","search":"Backup","id":"backup-n"},{"name":"Graft N","category":"Other Creatures ETB","description":"This permanent enters the battlefield with N +1/+1 counters on it. Whenever another creature enters the battlefield, if this permanent has a +1/+1 counter on it, you may move a +1/+1 counter from it onto that creature.","group":"Triggers","search":"Graft","id":"graft-n"},{"name":"Evolve","category":"Other Creatures ETB","description":"Whenever a creature enters the battlefield under your control, if that creature has greater power or toughness than this creature, put a +1/+1 counter on this creature.","group":"Triggers","search":"Evolve","id":"evolve"},{"name":"Soulbond","category":"Other Creatures ETB","description":"When this creature enters, if you control another unpaired creature, you may pair it with this one (both gain whatever bonus is printed) for as long as both remain creatures you control.","group":"Triggers","search":"Soulbond","id":"soulbond"},{"name":"Rally","category":"Other Creatures ETB","description":"An ability word for abilities that trigger whenever an Ally you control enters the battlefield.","group":"Triggers","search":"Rally","id":"rally"},{"name":"Alliance","category":"Other Creatures ETB","description":"An ability word for abilities that trigger whenever another creature enters the battlefield under your control.","group":"Triggers","search":"Alliance","id":"alliance"},{"name":"Constellation","category":"Other Permanents ETB","description":"Triggers whenever an enchantment enters the battlefield under your control for any reason (including the constellation permanent itself, and enchantment creatures).","group":"Triggers","search":"Constellation","id":"constellation"},{"name":"Landfall","category":"Other Permanents ETB","description":"Triggers whenever a land enters the battlefield under your control.","group":"Triggers","search":"Landfall","id":"landfall"},{"name":"Eerie","category":"Other Permanents ETB","description":"Triggers whenever an enchantment you control enters and whenever you fully unlock a Room (a variant of Constellation that also cares about Rooms).","group":"Triggers","search":"Eerie","id":"eerie"},{"name":"Extort","category":"You Cast a Spell","description":"Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain life equal to the total life lost this way.","group":"Triggers","search":"Extort","id":"extort"},{"name":"Prowess","category":"You Cast a Spell","description":"Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.","group":"Triggers","search":"Prowess","id":"prowess"},{"name":"Magecraft","category":"You Cast a Spell","description":"Whenever you cast or copy an instant or sorcery spell, [effect].","group":"Triggers","search":"Magecraft","id":"magecraft"},{"name":"Flurry","category":"You Cast a Spell","description":"An ability word for abilities that trigger specifically off casting your second spell each turn.","group":"Triggers","search":"Flurry","id":"flurry"},{"name":"Paradox","category":"You Cast a Spell","description":"An ability word for abilities that care about casting spells from anywhere other than your hand.","group":"Triggers","search":"Paradox","id":"paradox"},{"name":"Opus","category":"You Cast a Spell","description":"An ability word for abilities that trigger whenever you cast an instant or sorcery spell, with an added or upgraded effect if you spent five or more mana casting it.","group":"Triggers","search":"Opus","id":"opus"},{"name":"Repartee","category":"You Cast a Spell","description":"An ability word for abilities that trigger whenever you cast an instant or sorcery spell that targets a creature (any creature, not necessarily one you control).","group":"Triggers","search":"Repartee","id":"repartee"},{"name":"Increment","category":"You Cast a Spell","description":"Whenever you cast a spell, if the amount of mana you spent to cast it is greater than this creature's power or toughness, put a +1/+1 counter on it.","group":"Triggers","search":"Increment","id":"increment"},{"name":"Cumulative Upkeep [cost]","category":"Start of Turn — Negative","description":"At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it (a rising cost each turn).","group":"Triggers","search":"Cumulative Upkeep","id":"cumulative-upkeep-cost"},{"name":"Phasing","category":"Start of Turn — Negative","description":"At the beginning of your untap step, this permanent phases in or out. While phased out, treat it (and anything attached to it) as though it doesn't exist.","group":"Triggers","search":"Phasing","id":"phasing"},{"name":"Echo [cost]","category":"Start of Turn — Negative","description":"At the beginning of your upkeep, if this permanent came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.","group":"Triggers","search":"Echo","id":"echo-cost"},{"name":"Fading N","category":"Start of Turn — Negative","description":"This permanent enters with N fade counters on it. At the beginning of your upkeep, remove a fade counter. If you can't, sacrifice the permanent.","group":"Triggers","search":"Fading","id":"fading-n"},{"name":"Vanishing N","category":"Start of Turn — Negative","description":"This permanent enters with N time counters on it. At the beginning of your upkeep, remove a time counter if there is one. When the last time counter is removed, sacrifice it (immediately, not waiting for the next upkeep).","group":"Triggers","search":"Vanishing","id":"vanishing-n"},{"name":"Kinship","category":"Start of Turn — Positive","description":"At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it to get a bonus (the top card stays on your library either way).","group":"Triggers","search":"Kinship","id":"kinship"},{"name":"Modular N","category":"This Dies","description":"This permanent enters with N +1/+1 counters on it. When it's put into a graveyard from the battlefield, you may put a +1/+1 counter on target artifact creature for each +1/+1 counter it had.","group":"Triggers","search":"Modular","id":"modular-n"},{"name":"Soulshift N","category":"This Dies","description":"When this permanent is put into a graveyard from the battlefield, you may return target Spirit card with mana value N or less from your graveyard to your hand.","group":"Triggers","search":"Soulshift","id":"soulshift-n"},{"name":"Haunt","category":"This Dies","description":"When this creature dies (or this spell resolves and is put into the graveyard), exile it, haunting target creature. When the haunted creature dies, the haunt ability's effect triggers.","group":"Triggers","search":"Haunt","id":"haunt"},{"name":"Persist","category":"This Dies","description":"When this permanent is put into a graveyard from the battlefield, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.","group":"Triggers","search":"Persist","id":"persist"},{"name":"Undying","category":"This Dies","description":"When this permanent is put into a graveyard from the battlefield, if it had no +1/+1 counters on it, return it to the battlefield under its owner's control with a +1/+1 counter on it.","group":"Triggers","search":"Undying","id":"undying"},{"name":"Afterlife N","category":"This Dies","description":"When this creature dies, create N 1/1 white and black Spirit creature tokens with flying.","group":"Triggers","search":"Afterlife","id":"afterlife-n"},{"name":"Enrage","category":"Unique Triggers","description":"An ability word for abilities that trigger whenever this creature is dealt damage.","group":"Triggers","search":"Enrage","id":"enrage"},{"name":"Inspired","category":"Unique Triggers","description":"An ability word for abilities that trigger whenever this creature becomes untapped (by any means, not just the untap step).","group":"Triggers","search":"Inspired","id":"inspired"},{"name":"Heroic","category":"Unique Triggers","description":"Whenever you cast a spell that targets this creature, [effect]. (Triggers once per spell, even if the spell targets it multiple times; doesn't trigger from activated abilities like equip.)","group":"Triggers","search":"Heroic","id":"heroic"},{"name":"Valiant","category":"Unique Triggers","description":"An ability word for abilities that trigger whenever this creature becomes the target of a spell or ability you control for the first time each turn.","group":"Triggers","search":"Valiant","id":"valiant"},{"name":"Gotcha","category":"Unique Triggers","description":"An Unhinged-only ability word for triggered abilities that return a card from the graveyard to hand when its owner says \"Gotcha!\" in response to a specific opponent action or word.","group":"Triggers","search":"Gotcha","id":"gotcha"},{"name":"Survival","category":"Unique Triggers","description":"An ability word (introduced for Duskmourn) for abilities that trigger at the start of your second main phase if this creature is still tapped.","group":"Triggers","search":"Survival","id":"survival"},{"name":"Hexproof","category":"Protect Permanents — From Targeting","description":"This permanent (or player) can't be the target of spells or abilities your opponents control.","group":"Protect Permanents","search":"Hexproof","id":"hexproof"},{"name":"Shroud","category":"Protect Permanents — From Targeting","description":"This permanent (or player) can't be the target of spells or abilities at all (including your own).","group":"Protect Permanents","search":"Shroud","id":"shroud"},{"name":"Ward [cost]","category":"Protect Permanents — From Targeting","description":"Whenever this permanent becomes the target of a spell or ability an opponent controls, counter that spell or ability unless that player pays the ward cost.","group":"Protect Permanents","search":"Ward","id":"ward-cost"},{"name":"Indestructible","category":"Protect Permanents — From Destruction","description":"Damage and effects that say \"destroy\" don't destroy this permanent.","group":"Protect Permanents","search":"Indestructible","id":"indestructible"},{"name":"Totem Armor","category":"Protect Permanents — From Destruction","description":"If enchanted permanent would be destroyed, instead remove all damage from it and destroy this Aura.","group":"Protect Permanents","search":"Totem Armor","id":"totem-armor"},{"name":"Regenerate","category":"Protect Permanents — From Destruction","description":"The next time this creature would be destroyed this turn, instead tap it, remove all damage from it, and remove it from combat.","group":"Protect Permanents","search":"Regenerate","id":"regenerate"},{"name":"Absorb N","category":"Protect Permanents — From Damage","description":"If a source would deal damage to this creature, prevent N of that damage.","group":"Protect Permanents","search":"Absorb","id":"absorb-n"},{"name":"Protection from [quality]","category":"Protect Permanents — From a Few Things","description":"This permanent can't be Damaged, Enchanted/Equipped, Blocked, or Targeted by anything with the stated quality (the \"DEBT\" acronym).","group":"Protect Permanents","search":"Protection from","id":"protection-from-quality"},{"name":"Deathtouch","category":"Damage Modification","description":"Any nonzero amount of damage this deals to a creature is enough to destroy it.","group":"Damage Modification","search":"Deathtouch","id":"deathtouch"},{"name":"Lifelink","category":"Damage Modification","description":"Damage dealt by a source with lifelink also causes its controller to gain that much life.","group":"Damage Modification","search":"Lifelink","id":"lifelink"},{"name":"Wither","category":"Damage Modification","description":"Damage dealt by a source with wither to a creature is dealt in the form of -1/-1 counters instead of normal damage.","group":"Damage Modification","search":"Wither","id":"wither"},{"name":"Infect","category":"Damage Modification","description":"Damage this deals to creatures is dealt in the form of -1/-1 counters instead, and damage it deals to players is dealt in the form of poison counters instead.","group":"Damage Modification","search":"Infect","id":"infect"},{"name":"+1/+1 counter","category":"Counters — Permanents","description":"Adds 1 to the object's power and 1 to its toughness for as long as the counter remains on it.","group":"Counters","search":"+1","id":"1-1-counter"},{"name":"-1/-1 counter","category":"Counters — Permanents","description":"Subtracts 1 from the object's power and 1 from its toughness. (A +1/+1 counter and a -1/-1 counter on the same permanent cancel out as a state-based action.)","group":"Counters","search":"-1","id":"1-1-counter-1"},{"name":"Stun counter","category":"Counters — Permanents","description":"A permanent with a stun counter on it doesn't untap during its controller's untap step; instead, remove a stun counter from it.","group":"Counters","search":"Stun counter","id":"stun-counter"},{"name":"Shield counter","category":"Counters — Permanents","description":"The next time this permanent would be dealt damage or destroyed, prevent that damage or destruction instead and remove a shield counter from it.","group":"Counters","search":"Shield counter","id":"shield-counter"},{"name":"Stickers/Tickets","category":"Counters — Permanents","description":"Un-set mechanics: stickers can be attached to cards to grant abilities or altered art; tickets are a resource used to acquire more stickers.","group":"Counters","search":"Stickers","id":"stickers-tickets"},{"name":"Finality counter","category":"Counters — Permanents","description":"If a permanent with a finality counter on it would die, it's exiled instead (a replacement effect, not a triggered ability).","group":"Counters","search":"Finality counter","id":"finality-counter"},{"name":"Energy counter","category":"Counters — Players","description":"A resource represented as {E}; only usable for effects that specifically reference paying or gaining energy.","group":"Counters","search":"Energy counter","id":"energy-counter"},{"name":"Experience counter","category":"Counters — Players","description":"Accumulates on a player (usually from a specific card's ability) and typically scales that same card's ongoing effect.","group":"Counters","search":"Experience counter","id":"experience-counter"},{"name":"Rad counter","category":"Counters — Players","description":"Represents a player's radiation level; at the start of their draw step, they mill cards equal to their rad counters, then may pay life to remove rad counters based on nonland cards milled.","group":"Counters","search":"Rad counter","id":"rad-counter"},{"name":"Poison counter","category":"Counters — Players","description":"A player with ten or more poison counters loses the game, regardless of life total.","group":"Counters","search":"Poison counter","id":"poison-counter"}];
+
+const groupOrder = [...new Set(DATA.map(d => d.group))];
+const groupCounts = {};
+groupOrder.forEach(g => groupCounts[g] = DATA.filter(d => d.group === g).length);
+
+document.getElementById('stat-total').textContent = DATA.length;
+document.getElementById('stat-groups').textContent = groupOrder.length;
+
+let activeGroup = 'All';
+let query = '';
+
+const sidebar = document.getElementById('sidebar');
+
+function renderSidebar() {
+  sidebar.appendChild(makeGroupBtn('All', DATA.length));
+  groupOrder.forEach(g => sidebar.appendChild(makeGroupBtn(g, groupCounts[g])));
+}
+
+function makeGroupBtn(name, count) {
+  const btn = document.createElement('button');
+  btn.className = 'group-btn' + (name === activeGroup ? ' active' : '');
+  btn.innerHTML = `<span>${name}</span><span class="count">${count}</span>`;
+  btn.addEventListener('click', () => {
+    activeGroup = name;
+    render();
+  });
+  return btn;
+}
+
+function scryfallUrl(term) {
+  const q = `o:"${term.trim()}"`;
+  return `https://scryfall.com/search?q=${encodeURIComponent(q)}&order=released`;
+}
+
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function highlight(text, q) {
+  if (!q) return escapeHtml(text);
+  const esc = escapeHtml(text);
+  const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return esc.replace(new RegExp('(' + safeQ + ')', 'ig'), '<b>$1</b>');
+}
+
+const entryList = document.getElementById('entryList');
+const resultsTitle = document.getElementById('resultsTitle');
+const resultsCount = document.getElementById('resultsCount');
+
+function getFiltered() {
+  let list = DATA;
+  if (activeGroup !== 'All') list = list.filter(d => d.group === activeGroup);
+  if (query) {
+    const q = query.toLowerCase();
+    list = list.filter(d =>
+      d.name.toLowerCase().includes(q) ||
+      d.description.toLowerCase().includes(q) ||
+      d.category.toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+let openId = null;
+
+function render() {
+  [...sidebar.children].forEach(btn => {
+    const span = btn.querySelector('span');
+    if (!span) return;
+    btn.classList.toggle('active', span.textContent === activeGroup);
+  });
+
+  const filtered = getFiltered();
+  resultsTitle.textContent = query ? `Results for "${query}"` : activeGroup;
+  resultsCount.textContent = `${filtered.length} mechanic${filtered.length === 1 ? '' : 's'}`;
+
+  if (filtered.length === 0) {
+    entryList.innerHTML = `<div class="empty-state">No mechanics found.<span>Try a different search term or clear the filter.</span></div>`;
+    return;
+  }
+
+  entryList.innerHTML = filtered.map(e => `
+    <div class="entry ${openId === e.id ? 'open' : ''}" data-id="${e.id}">
+      <div class="entry-head" data-toggle="${e.id}">
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        <span class="entry-tag">${e.group.toUpperCase()}</span>
+        <span class="entry-name">${highlight(e.name, query)}</span>
+        <span class="entry-cat">${e.category}</span>
+      </div>
+      <div class="entry-body">
+        <div class="entry-body-inner">
+          <p class="entry-desc">${highlight(e.description, query)}</p>
+          <div class="cta-row">
+            <a class="scry-btn" href="${scryfallUrl(e.search)}" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17 17 7M7 7h10v10"/></svg>
+              View cards on Scryfall
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  entryList.querySelectorAll('[data-toggle]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.getAttribute('data-toggle');
+      openId = openId === id ? null : id;
+      render();
+      if (openId === id) {
+        setTimeout(() => {
+          document.querySelector(`.entry[data-id="${id}"]`)?.scrollIntoView({behavior:'smooth', block:'nearest'});
+        }, 50);
+      }
+    });
+  });
+}
+
+const searchInput = document.getElementById('searchInput');
+const searchBox = document.getElementById('searchBox');
+const clearBtn = document.getElementById('clearBtn');
+
+searchInput.addEventListener('input', (e) => {
+  query = e.target.value;
+  searchBox.classList.toggle('has-value', query.length > 0);
+  if (query) activeGroup = 'All';
+  render();
+});
+
+clearBtn.addEventListener('click', () => {
+  query = '';
+  searchInput.value = '';
+  searchBox.classList.remove('has-value');
+  render();
+});
+
+renderSidebar();
+render();
+</script>
+
+</body>
+</html>
