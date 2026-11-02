@@ -156,9 +156,9 @@ async fn timelapse_of(
     if let Some(version) = version {
         let timelapse_dir = config.backups_dir.join("map/timelapses").join(user);
         Ok(match version.as_str() {
-            "original" => named_file(dbg!(timelapse_dir.join("full.mp4"))).await,
-            "4k" => named_file(dbg!(timelapse_dir.join("4k.mp4"))).await,
-            "2k" => named_file(dbg!(timelapse_dir.join("2k.mp4"))).await,
+            "original" => named_file(timelapse_dir.join("full.mp4")).await,
+            "4k" => named_file(timelapse_dir.join("4k.mp4")).await,
+            "2k" => named_file(timelapse_dir.join("2k.mp4")).await,
             _ => return Err(Error::BadRequest),
         }
         .map(|r| r.into_response())?)
