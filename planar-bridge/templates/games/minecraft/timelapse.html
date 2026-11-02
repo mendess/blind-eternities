@@ -7,11 +7,23 @@
 <body>
   {% include "../../title.html" %}
   <div class="big-page-buttons">
-    <ul class="big-page-buttons">
-      {% for timelapse in timelapses %}
-      <li><a href="./timelapse/{{timelapse}}">{{timelapse}}</a></li>
-      {% endfor %}
-    </ul>
+    <div >
+      <ul class="big-page-buttons">
+        <li><a href="./timelapse/{{all}}">{{all}}</a></li>
+      </ul>
+      <hr/>
+      <ul class="big-page-buttons">
+        {% for t in trains %}
+        <li><a href="./timelapse/{{t}}">{{t}}</a></li>
+        {% endfor %}
+      </ul>
+      <hr/>
+      <ul class="big-page-buttons">
+        {% for p in players %}
+        <li><a href="./timelapse/{{p}}">{{p}}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
   </div>
 </body>
 </html>

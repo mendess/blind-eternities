@@ -110,12 +110,14 @@ async fn maps() -> Result<impl IntoResponse, Error> {
 #[derive(Debug, Template)]
 #[template(path = "games/minecraft/timelapse.html")]
 struct Timelapse {
-    timelapses: Vec<String>,
+    all: String,
+    trains: Vec<String>,
+    players: Vec<String>,
 }
 
 async fn timelapse(config: State<Arc<Config>>) -> Result<impl IntoResponse, Error> {
     let timelapse_dir = config.backups_dir.join("map/timelapses");
-    let timelapses = std::fs::read_dir(&timelapse_dir)?
+    let mut timelapses = std::fs::read_dir(&timelapse_dir)?
         .map(|dir| {
             let dir = dir?;
             if dir.file_type()?.is_file() {
@@ -130,9 +132,31 @@ async fn timelapse(config: State<Arc<Config>>) -> Result<impl IntoResponse, Erro
             }
         })
         .filter_map(|d| d.transpose())
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<Vec<_>, _>>()?;
+    let all = {
+        let all_idx = timelapses.iter().position(|p| p == "all").unwrap();
+        timelapses.swap_remove(all_idx)
+    };
 
-    Ok(Html(Timelapse { timelapses }.render()?))
+    let mut trains = {
+        let mut trains = Vec::new();
+        while let Some(t) = timelapses.iter().position(|p| p.starts_with("train-")) {
+            trains.push(timelapses.swap_remove(t));
+        }
+        trains
+    };
+
+    trains.sort();
+    timelapses.sort_by_cached_key(|p| p.to_lowercase());
+
+    Ok(Html(
+        Timelapse {
+            all,
+            trains,
+            players: timelapses,
+        }
+        .render()?,
+    ))
 }
 
 #[derive(Debug, Template)]

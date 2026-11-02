@@ -26,7 +26,8 @@ h1.title a {
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* A slightly more refined modern font */
+  font-family:
+    "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; /* A slightly more refined modern font */
 }
 
 div.big-page-buttons {
@@ -34,6 +35,13 @@ div.big-page-buttons {
   display: flex;
   justify-content: center;
   min-height: 100vh;
+}
+
+div.big-page-buttons div {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 ul.big-page-buttons {
@@ -51,8 +59,11 @@ ul.big-page-buttons {
   border: 1px solid #dcdcdc;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Soft shadow for lift */
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 }
+
 .big-page-buttons li:hover {
   transform: translateY(-5px); /* Lift up on hover */
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
@@ -79,3 +90,7 @@ ul.big-page-buttons {
   object-fit: contain;
 }
 
+.big-page-buttons hr {
+  width: 100%;
+  margin: 3em;
+}
