@@ -54,6 +54,7 @@ public-ip = "0.2.2"
 rand = "0.9"
 regex = "1.12.2"
 rust_socketio = { git = "https://github.com/mendess/rust-socketio", rev = "75c9c31371042c3cb6efbaa62b559df3dda79116" }
+scryfall = { version = "0.26.0" }
 serde = "1.0.228"
 serde-querystring = "0.3"
 serde_json = "1.0.145"

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+{% let head_title = "Mtg - Good Lands" %}
+{% let head_stylesheet = "/assets/styles/games/mtg/good-lands.css" %}
+{% include "./head.html" %}
+<body>
+  {% include "../../title.html" %}
+  <div class="big-page-buttons">
+    <div class="split">
+      <ul class="big-page-buttons">
+        {% for (pair, [lhs, rhs]) in pairs %}
+        <li
+            hx-get="./lands/pair/{{pair}}"
+            hx-trigger="click"
+            hx-target="#list"
+            hx-swap="outerHTML">
+          <span class="mana">
+          <img src="/assets/icons/games/mtg/{{lhs}}.svg">
+          <img src="/assets/icons/games/mtg/{{rhs}}.svg">
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+      <hr/>
+      <div id="list"></div>
+    </div>
+  </div>
+
+</body>
+</html>

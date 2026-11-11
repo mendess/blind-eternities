@@ -2,10 +2,10 @@ body {
   background: url(/assets/bg/planar-bridge.jpg) center/cover no-repeat fixed;
 }
 
-.big-page-buttons li {
+ul.big-page-buttons li {
   background-color: rgba(78, 117, 183, 0.2);
   border: 1px solid #335e77;
 }
-.big-page-buttons li:hover {
+ul.big-page-buttons li:hover {
   background-color: rgba(78, 117, 183, 0.3);
 }

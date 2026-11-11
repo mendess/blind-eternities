@@ -1,3 +1,5 @@
+mod good_lands;
+
 use crate::RouterState;
 use askama::Template;
 use axum::{
@@ -11,17 +13,27 @@ pub fn router() -> Router<RouterState> {
     Router::new()
         .route("/", get(index))
         .route("/field-guide", get(field_guide))
+        .nest("/lands", good_lands::router())
 }
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
     #[error("rendering: {0}")]
     Rendering(#[from] askama::Error),
+    #[error("badrequest")]
+    BadRequest,
+    #[error("internal server error: {0}")]
+    InternalServerError(String),
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
-        (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+        match self {
+            Self::Rendering(_) | Self::InternalServerError(_) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+            }
+            Self::BadRequest => (StatusCode::BAD_REQUEST, self.to_string()).into_response(),
+        }
     }
 }
 

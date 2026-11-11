@@ -21,6 +21,7 @@ mlib = { workspace = true, features = ["playlist"] }
 rand.workspace = true
 regex.workspace = true
 reqwest = { workspace = true, features = ["stream"] }
+scryfall = { workspace = true, features = ["unknown_variants_slim"] }
 serde.workspace = true
 serde_json.workspace = true
 spark-protocol = { path = "../spark-protocol" }
