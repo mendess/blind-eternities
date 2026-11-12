@@ -8,7 +8,6 @@ h1.title {
   line-height: 2rem;
   text-align: center;
   font-size: 1.5rem;
-
   flex-shrink: 0;
 }
 
@@ -19,44 +18,35 @@ h1.title span {
 }
 
 h1.title a {
-  font-style: none;
   text-decoration: none;
-  object-fit: cover;
   position: absolute;
   top: 0;
   left: 5px;
 }
 
 body {
-  font-family:
-    "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; /* A slightly more refined modern font */
-
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
   flex-direction: column;
   height: 100dvh;
 }
 
 div.big-page-buttons {
+  display: flex;
   align-items: center;
   align-items: safe center;
-  display: flex;
   justify-content: center;
-  min-height: calc(100dvh - 2rem);
-
-  flex: 1;
+  flex: 1 0 0;
   min-height: 0;
   overflow-y: auto;
-  flex-shrink: 0;
-  gap: 0.5rem;
 }
 
 div.big-page-buttons div.split {
+  box-sizing: border-box;
   align-items: center;
   display: flex;
   flex-direction: column;
   justify-content: safe center;
-
-  box-sizing: border-box;
   width: min(32rem, calc(100% - 2rem));
   height: 100%;
   min-height: min-content;
@@ -111,8 +101,6 @@ ul.big-page-buttons li a img {
 
 .big-page-buttons hr {
   width: 100%;
-  /* margin: 3em; */
-
   margin: 1rem 0;
   flex-shrink: 0;
 }

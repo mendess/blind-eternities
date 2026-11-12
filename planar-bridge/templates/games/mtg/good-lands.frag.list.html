@@ -1,5 +1,10 @@
-<div id="list" class="list">
-  {% for card in cards %}
-  <p>{{card}}</p>
-  {% endfor %}
+<div id="list">
+  <div class="list">
+    {% for card in cards %}
+    <p>{{card}}</p>
+    {% endfor %}
+  </div>
+  <div class="list">
+    Total {{ cards.len() }} cards
+  </div>
 </div>
