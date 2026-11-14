@@ -55,7 +55,7 @@ rand.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 
 [features]
-default = ["sqlx", "metrics", "subsonic", "playlist", "web-server-utils"]
+default = []
 sqlx = ["dep:sqlx"]
 metrics = [
     "dep:metrics",
