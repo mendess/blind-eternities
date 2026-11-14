@@ -53,21 +53,20 @@ async fn auth_middleware(
 }
 
 #[tracing::instrument(skip_all)]
-fn on_connect(socket: SocketRef, hostname: Extension<SHostname>) {
+async fn on_connect(socket: SocketRef, hostname: Extension<SHostname>) {
     tracing::info!(hostname = %*hostname, sid = %socket.id, "socket connected");
 
-    socket.on_disconnect(
-        |s: SocketRef, reason: DisconnectReason, hostname: Extension<SHostname>| {
-            metrics::gauge!("persistent_connections").decrement(1);
-            tracing::info!(
-                hostname = %*hostname,
-                sid = %s.id,
-                ns = s.ns(),
-                ?reason,
-                "socket disconnected"
-            );
-        },
-    );
+    socket.on_disconnect(async |s: SocketRef, reason: DisconnectReason| {
+        metrics::gauge!("persistent_connections").decrement(1);
+        let hostname = s.extensions.get::<SHostname>().unwrap();
+        tracing::info!(
+            hostname = %*hostname,
+            sid = %s.id,
+            ns = s.ns(),
+            ?reason,
+            "socket disconnected"
+        );
+    });
 }
 
 pub fn socket_io_routes(db: Arc<PgPool>) -> (socketioxide::layer::SocketIoLayer, SocketIo) {

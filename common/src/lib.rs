@@ -3,7 +3,7 @@ pub mod domain;
 pub mod net;
 #[cfg(feature = "subsonic")]
 pub mod subsonic;
-#[cfg(feature = "metrics")]
+#[cfg(feature = "telemetry")]
 pub mod telemetry;
 #[cfg(feature = "web-server-utils")]
 pub mod web_server;

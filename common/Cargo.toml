@@ -14,12 +14,12 @@ either.workspace = true
 http = { workspace = true, optional = true }
 httpdate = { workspace = true, optional = true }
 itertools.workspace = true
-md-5 = { workspace = true }
+md-5 = { workspace = true, optional = true }
 metrics-process = { workspace = true, optional = true }
 metrics = { workspace = true, optional = true }
 mime_guess = { workspace = true, optional = true }
 once_cell.workspace = true
-parking_lot.workspace = true
+parking_lot = { workspace = true, optional = true }
 petgraph.workspace = true
 rand.workspace = true
 regex.workspace = true
@@ -29,8 +29,8 @@ thiserror.workspace = true
 tokio-util = { workspace = true, optional = true, features = ["io", "compat"] }
 tokio.workspace = true
 tower = { workspace = true, optional = true }
-tracing-bunyan-formatter.workspace = true
-tracing-log.workspace = true
+tracing-bunyan-formatter = { workspace = true, optional = true }
+tracing-log = { workspace = true, optional = true }
 tracing.workspace = true
 url.workspace = true
 uuid.workspace = true
@@ -38,6 +38,7 @@ whoami.workspace = true
 
 [dependencies.tracing-subscriber]
 workspace = true
+optional = true
 features = ["env-filter"]
 
 [dependencies.sqlx]
@@ -46,7 +47,7 @@ optional = true
 
 [dependencies.reqwest]
 workspace = true
-features = ["json"]
+features = ["json", "stream"]
 
 [dev-dependencies]
 fake.workspace = true
@@ -57,25 +58,36 @@ tokio = { workspace = true, features = ["macros"] }
 [features]
 default = []
 sqlx = ["dep:sqlx"]
+telemetry = [
+    "dep:tracing-bunyan-formatter",
+    "dep:tracing-subscriber",
+    "dep:tracing-log"
+]
 metrics = [
+    "telemetry",
+
     "dep:metrics",
     "dep:metrics-process",
     "dep:axum",
     "dep:http",
     "dep:tower",
-    "dep:axum-prometheus"
+    "dep:axum-prometheus",
 ]
 web-server-utils = [
     "dep:axum",
     "dep:mime_guess",
     "dep:httpdate",
     "dep:tokio-util",
+    "dep:http",
+    "dep:tower",
+    "tokio/fs",
 ]
 playlist = [
-    "dep:http"
+    "dep:http",
 ]
 subsonic = [
     "playlist",
 
-    "dep:http"
+    "dep:http",
+    "dep:md-5",
 ]

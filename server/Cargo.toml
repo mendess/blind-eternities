@@ -11,7 +11,6 @@ axum-prometheus.workspace = true
 axum.workspace = true
 chrono.workspace = true
 clap.workspace = true
-common = { path = "../common", features = ["sqlx", "metrics", "playlist"] }
 config.workspace = true
 futures.workspace = true
 http.workspace = true
@@ -35,9 +34,12 @@ tokio-util = { workspace = true, features = ["io", "compat"] }
 tower-http = { workspace = true, features = ["trace", "auth"] }
 tracing = { workspace = true, features = ["log"] }
 tracing-bunyan-formatter.workspace = true
-tracing-futures.workspace = true
 tracing-log.workspace = true
 uuid.workspace = true
+
+[dependencies.common]
+path = "../common"
+features = ["sqlx", "metrics", "playlist", "web-server-utils", "subsonic"]
 
 [dependencies.tracing-subscriber]
 workspace = true

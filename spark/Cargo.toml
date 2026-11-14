@@ -9,15 +9,15 @@ arrayvec.workspace = true
 chrono.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
-common = { path = "../common", features = ["playlist"] }
+common = { path = "../common", features = ["subsonic", "telemetry"] }
 config.workspace = true
 default-net.workspace = true
 dirs.workspace = true
 futures.workspace = true
 humantime.workspace = true
 itertools.workspace = true
-lofty.workspace = true
-mime_guess.workspace = true
+lofty = { workspace = true, optional = true }
+mime_guess = { workspace = true, optional = true }
 open.workspace = true
 public-ip.workspace = true
 rust_socketio = { workspace = true, features = ["async"] }
@@ -40,7 +40,15 @@ features = ["async", "user"]
 [dependencies.tokio]
 workspace = true
 default-features = false
-features = ["macros", "rt-multi-thread", "time", "process", "fs", "net", "signal"]
+features = [
+    "macros",
+    "rt-multi-thread",
+    "time",
+    "process",
+    "fs",
+    "net",
+    "signal",
+]
 
 [dependencies.reqwest]
 workspace = true
@@ -53,5 +61,6 @@ optional = true
 
 
 [features]
-default = ["music-ctl"]
-music-ctl = ["dep:mlib"]
+# default = ["music-ctl"]
+default = []
+music-ctl = ["dep:mlib", "dep:lofty", "dep:mime_guess"]

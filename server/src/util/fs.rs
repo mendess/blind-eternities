@@ -1,5 +1,5 @@
 use futures::{Stream, StreamExt as _};
-use rand::Rng as _;
+use rand::RngExt as _;
 use std::{
     future, io,
     path::{Path, PathBuf},

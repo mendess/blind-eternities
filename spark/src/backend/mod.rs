@@ -1,3 +1,4 @@
+#[cfg(feature = "music-ctl")]
 mod songs;
 
 use crate::{config::Config, util::get_hostname};
@@ -6,7 +7,6 @@ use common::{
     domain::{Hostname, music_session::ExpiresAt},
     net::AuthenticatedClient,
 };
-use mlib::item::link::BangerId;
 use std::time::Duration;
 
 pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Result<()> {
@@ -32,6 +32,7 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
         crate::Backend::DeleteMusicSession { session } => {
             delete_music_session(client, session).await?
         }
+        #[cfg(feature = "music-ctl")]
         crate::Backend::AddSong {
             title,
             artist,
@@ -40,11 +41,24 @@ pub(super) async fn handle(cmd: super::Backend, config: Config) -> anyhow::Resul
         } => {
             songs::add_song(client, title, artist, uri, thumb).await?;
         }
+        #[cfg(not(feature = "music-ctl"))]
+        crate::Backend::AddSong { .. } => {
+            anyhow::bail!("music control not enabled on this host")
+        }
+        #[cfg(feature = "music-ctl")]
         crate::Backend::UpgradeSong { title, id, strict } => {
+            use mlib::item::link::BangerId;
             songs::upgrade_song(client, title, id.as_deref().map(BangerId::new), strict).await?;
         }
+        #[cfg(not(feature = "music-ctl"))]
+        crate::Backend::UpgradeSong { .. } => {
+            anyhow::bail!("music control not enabled on this host")
+        }
         crate::Backend::SyncPlaylists => {
+            #[cfg(feature = "music-ctl")]
             songs::sync_playlists(client).await?;
+            #[cfg(not(feature = "music-ctl"))]
+            anyhow::bail!("music control not enabled on this host")
         }
     }
     Ok(())
