@@ -122,7 +122,7 @@ const EXCLUDED_ORACLE_TAGS: &[&str] = &[
 
 fn land_query(pair: Pair) -> String {
     let produces = format!(
-        "(produces={lhs}{rhs} or produces=C{lhs}{rhs})",
+        "(produces={lhs}{rhs} or produces=C{lhs}{rhs} or is:pathway)",
         lhs = pair[0],
         rhs = pair[1]
     );
