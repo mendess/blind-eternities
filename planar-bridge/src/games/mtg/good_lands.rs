@@ -45,7 +45,7 @@ pub async fn pair(pair: axum::extract::Path<String>) -> Result<impl IntoResponse
                     .1,
             )
             .await
-            .map_err(|e| super::Error::InternalServerError(e.to_string()))?,
+            .map_err(|e| super::Error::Internal(e.to_string()))?,
         }
         .render()?,
     ))

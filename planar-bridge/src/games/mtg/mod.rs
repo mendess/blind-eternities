@@ -23,13 +23,13 @@ enum Error {
     #[error("badrequest")]
     BadRequest,
     #[error("internal server error: {0}")]
-    InternalServerError(String),
+    Internal(String),
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         match self {
-            Self::Rendering(_) | Self::InternalServerError(_) => {
+            Self::Rendering(_) | Self::Internal(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
             }
             Self::BadRequest => (StatusCode::BAD_REQUEST, self.to_string()).into_response(),
