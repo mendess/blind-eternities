@@ -6,7 +6,6 @@ use axum::{
 };
 use http::header;
 use std::{
-    convert::Infallible,
     pin::Pin,
     task::{Context, Poll, ready},
 };
@@ -29,7 +28,7 @@ pub struct NoIndexFuture {
 }
 
 impl Future for NoIndexFuture {
-    type Output = Result<Response, Infallible>;
+    type Output = Result<Response, !>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let future = Pin::new(&mut self.get_mut().future);
         let Ok(mut response) = ready!(future.poll(cx));
