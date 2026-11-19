@@ -32,23 +32,20 @@ pub async fn index() -> Result<impl IntoResponse, super::Error> {
 #[template(path = "games/mtg/good-lands.frag.list.html")]
 struct ListFragment {
     cards: Vec<String>,
+    query: String,
 }
 
 pub async fn pair(pair: axum::extract::Path<String>) -> Result<impl IntoResponse, super::Error> {
-    Ok(Html(
-        ListFragment {
-            cards: generate_list(
-                PAIRS
-                    .iter()
-                    .find(|p| p.0 == pair.0)
-                    .ok_or_else(|| super::Error::BadRequest)?
-                    .1,
-            )
-            .await
-            .map_err(|e| super::Error::Internal(e.to_string()))?,
-        }
-        .render()?,
-    ))
+    let CardList { cards, query } = generate_list(
+        PAIRS
+            .iter()
+            .find(|p| p.0 == pair.0)
+            .ok_or_else(|| super::Error::BadRequest)?
+            .1,
+    )
+    .await
+    .map_err(|e| super::Error::Internal(e.to_string()))?;
+    Ok(Html(ListFragment { cards, query }.render()?))
 }
 
 use crate::RouterState;
@@ -122,23 +119,30 @@ const EXCLUDED_ORACLE_TAGS: &[&str] = &[
 
 fn land_query(pair: Pair) -> String {
     let produces = format!(
-        "(produces={lhs}{rhs} or produces=C{lhs}{rhs} or is:pathway)",
+        "(produces={lhs}{rhs} or produces=C{lhs}{rhs})",
         lhs = pair[0],
         rhs = pair[1]
     );
-    let mut query = String::from("t:land game:paper -is:funny -is:ub -is:mdfc");
+    let mut query = String::from("t:land game:paper -is:funny -is:ub");
     query.push(' ');
     query.push_str(&produces);
     for tag in EXCLUDED_ORACLE_TAGS {
         query.push_str(" -otag:");
         query.push_str(tag);
     }
+    println!("query: '{query}'");
     query
 }
 
-pub async fn generate_list(pair: Pair) -> Result<Vec<String>, scryfall::Error> {
+pub struct CardList {
+    cards: Vec<String>,
+    query: String,
+}
+
+pub async fn generate_list(pair: Pair) -> Result<CardList, scryfall::Error> {
     let mut names = Vec::new();
-    let cards = Card::search_all(land_query(pair)).await?;
+    let query = land_query(pair);
+    let cards = Card::search_all(&query).await?;
     for card in cards {
         names.push(card.name);
     }
@@ -151,5 +155,8 @@ pub async fn generate_list(pair: Pair) -> Result<Vec<String>, scryfall::Error> {
     names.sort();
     names.dedup();
 
-    Ok(names)
+    Ok(CardList {
+        cards: names,
+        query,
+    })
 }
