@@ -119,9 +119,10 @@ const EXCLUDED_ORACLE_TAGS: &[&str] = &[
 
 fn land_query(pair: Pair) -> String {
     let produces = format!(
-        "(produces={lhs}{rhs} or produces=C{lhs}{rhs})",
+        r#"(produces={lhs}{rhs} or produces=C{lhs}{rhs} or "{fetchland}")"#,
         lhs = pair[0],
-        rhs = pair[1]
+        rhs = pair[1],
+        fetchland = FETCHLANDS.iter().find(|f| f.0 == pair).unwrap().1
     );
     let mut query = String::from("t:land game:paper -is:funny -is:ub");
     query.push(' ');
@@ -146,12 +147,6 @@ pub async fn generate_list(pair: Pair) -> Result<CardList, scryfall::Error> {
     for card in cards {
         names.push(card.name);
     }
-    names.extend(
-        FETCHLANDS
-            .iter()
-            .filter(|(p, _)| p == &pair)
-            .map(|(_, n)| n.to_string()),
-    );
     names.sort();
     names.dedup();
 

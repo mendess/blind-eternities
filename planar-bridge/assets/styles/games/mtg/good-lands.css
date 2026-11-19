@@ -38,3 +38,20 @@ body {
 #list .list:last-child {
   flex-shrink: 0;
 }
+
+#list .list-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#list .list-summary a {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+#list .list-summary img {
+  width: 1rem;
+  height: 1rem;
+}

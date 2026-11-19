@@ -4,24 +4,10 @@
     <p>{{card}}</p>
     {% endfor %}
   </div>
-  <div class="list">
-    Total {{ cards.len() }} cards
-    <p>
-    <button onclick="copyQuery()" id="query-cp">📋 Copy scryfall query</button>
-    </p>
+  <div class="list list-summary">
+    Total {{ cards.len() }} cards.
+    <a target="_blank" href="https://scryfall.com/search?q={{query|urlencode_strict}}">
+      <img src="/assets/icons/games/mtg/scryfall.ico"/>View on Scryfall
+    </a>
   </div>
 </div>
-<script>
-  async function copyQuery() {
-    const query = "{{query}}";
-    try {
-      await navigator.clipboard.writeText(query);
-      const copy_button = document.getElementById("query-cp");
-      const current_text = copy_button.innerText;
-      copy_button.innerText = "✅"
-      setTimeout(() => { copy_button.innerText = current_text; }, 1500);
-    } catch (err) {
-      alert("failed to copy " + err)
-    }
-  }
-</script>

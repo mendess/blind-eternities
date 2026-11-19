@@ -78,7 +78,7 @@ ul.big-page-buttons li:hover {
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
 }
 
-.big-page-buttons a {
+.big-page-buttons li a {
   display: flex;
   text-decoration: none;
   color: black;
